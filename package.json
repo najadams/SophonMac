@@ -1,0 +1,91 @@
+{
+  "name": "sophon",
+  "version": "1.0.0",
+  "description": "Sophon - Advanced Business Management System",
+  "main": "main.js",
+  "scripts": {
+    "start": "cross-env NODE_ENV=production electron .",
+    "dev": "concurrently \"npm run dev:frontend\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "prebuild": "npm run install:backend && npm run build:frontend",
+    "build": "npm run prebuild && electron-builder",
+    "build:win": "npm run prebuild && electron-builder --win --publish=never",
+    "build:mac": "npm run prebuild && electron-builder --mac --publish=never",
+    "package:win": "npm run build:frontend && electron-packager . Sophon --platform=win32 --arch=x64 --out=dist/win --overwrite --ignore=node_modules --ignore=frontend/node_modules --ignore=backend/node_modules",
+    "build:frontend": "cd frontend && npm run build",
+    "install:backend": "cd backend && npm install --production",
+    "install:frontend": "cd frontend && npm install",
+    "install:all": "npm install && npm run install:backend && npm run install:frontend",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Najm Adams",
+  "license": "ISC",
+  "dependencies": {
+    "asar": "^3.2.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.1",
+    "cross-env": "^7.0.3",
+    "electron": "^24.8.8",
+    "electron-builder": "^23.6.0",
+    "electron-packager": "^17.1.2",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.sophon.app",
+    "productName": "Sophon",
+    "files": [
+      "main.js",
+      "frontend/dist/**/*",
+      "backend/**/*",
+      "resources/**/*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,__pycache__,thumbs.db,.gitignore,.gitmodules,.gitattributes,.flowconfig,.jshintrc,.eslintrc,.eslintrc.*,.stylelintrc,.stylelintrc.*}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/npm-debug.log"
+    ],
+    "extraFiles": [
+      {
+        "from": "backend/node_modules",
+        "to": "Resources/backend/node_modules",
+        "filter": ["**/*"]
+      }
+    ],
+    "directories": {
+      "buildResources": "resources"
+    },
+    "asarUnpack": [
+      "backend/**/*",
+      "frontend/dist/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker",
+      "executableName": "Sophon",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "verifyUpdateCodeSignature": false
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "icon": "resources/icon.icns",
+      "target": {
+        "target": "dmg",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

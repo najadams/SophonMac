@@ -1,0 +1,43 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* =====Colors ===== */
+  --body-color: #c5c9d2;
+  /* --body-color: #e4e9f7; */
+  /* --sidebar-color: #fff; */
+  --sidebar-color: rgb(54, 52, 39);
+  --primary-color: #b8b6cf;
+  --primary-color-light: #f6f5ff;
+  --toggle-color: #ddd;
+  --text-color: #707070;
+
+  /* ==== Transistion ==== */
+  --trans-02: all 0.2s ease;
+  --trans-03: all 0.3s ease;
+  --trans-04: all 0.4s ease;
+  --trans-05: all 0.5s ease;
+}
+
+body {
+  background: var(--body-color);
+  transition: var(--trans-02);
+  font-family: "Montserrat";
+  font-size: small;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rotating {
+  animation: rotate 1s linear infinite;
+}
