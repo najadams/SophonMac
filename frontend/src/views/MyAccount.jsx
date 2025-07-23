@@ -147,7 +147,7 @@ const validationSchema = Yup.object().shape({
 
 const MyAccount = () => {
   const user = useSelector((state) => state.userState.currentUser);
-  const userId = user._id;
+  const userId = user.id || user._id;
   const dispatch = useDispatch();
   const [alert, setAlert] = useState({ show: false, message: "", type: "" });
   const [tabValue, setTabValue] = useState(0);
@@ -190,6 +190,7 @@ const MyAccount = () => {
 
       dispatch(
         ActionCreators.setCurrentUser({
+          id: userId,
           _id: userId,
           ...user,
           ...processedValues,

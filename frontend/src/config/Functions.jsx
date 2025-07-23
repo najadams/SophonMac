@@ -1092,7 +1092,8 @@ export const serverAid = {
 
 export const updateAccount = async (data) => {
   try {
-    const response = await axios.put(`/api/workers/${data.id}`, data);
+    const workerId = data.userId || data.id || data._id;
+    const response = await axios.put(`/api/workers/${workerId}`, data);
     return response.data;
   } catch (error) {
     console.error("Error updating account:", error); // Log the error
