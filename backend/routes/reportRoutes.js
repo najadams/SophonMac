@@ -19,7 +19,7 @@ router.get('/summary', (req, res) => {
     SELECT 
       -- Sales data
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'cash' THEN total ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as salesCash,
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'momo' THEN total ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as salesMomo,
+      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'mobile_money' THEN total ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as salesMomo,
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'card' THEN total ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as salesCard,
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'bank_transfer' THEN total ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as salesBankTransfer,
       (SELECT COALESCE(SUM(total), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as totalSales,
@@ -27,21 +27,21 @@ router.get('/summary', (req, res) => {
       
       -- Amount paid data
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'cash' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as amountPaidCash,
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'momo' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as amountPaidMomo,
+      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'mobile_money' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as amountPaidMomo,
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'card' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as amountPaidCard,
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'bank_transfer' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as amountPaidBankTransfer,
       (SELECT COALESCE(SUM(amountPaid), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as totalAmountPaid,
       
       -- Debt payments data
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'cash' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsCash,
-      (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'momo' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsMomo,
+      (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'mobile_money' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsMomo,
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'card' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsCard,
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'bank_transfer' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsBankTransfer,
       (SELECT COALESCE(SUM(dp.amountPaid), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as totalDebtPayments,
       
       -- Vendor payments data
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'cash' THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as vendorPaymentsCash,
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'momo' THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as vendorPaymentsMomo,
+      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'mobile_money' THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as vendorPaymentsMomo,
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'card' THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as vendorPaymentsCard,
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'bank_transfer' THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as vendorPaymentsBankTransfer,
       (SELECT COALESCE(SUM(amount), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as totalVendorPayments,
