@@ -17,8 +17,6 @@ import {
   Zoom,
   Slide,
   Avatar,
-  IconButton,
-  Tooltip,
   Paper,
   Tabs,
   Tab,
