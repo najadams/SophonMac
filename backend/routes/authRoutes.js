@@ -168,7 +168,8 @@ router.post('/account', (req, res) => {
         name: worker.name,
         role: worker.role,
         companyId: worker.companyId,
-        company_name: worker.company_name
+        company_name: worker.company_name,
+        password: worker.password // Include hashed password for frontend validation
       }
     });
   });
