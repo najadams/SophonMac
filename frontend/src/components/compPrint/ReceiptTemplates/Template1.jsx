@@ -16,6 +16,12 @@ const Template1 = React.forwardRef(({ data }, ref) => {
   } = data;
   const company = useSelector((state) => state.companyState.data);
 
+  // Ensure numeric values are properly converted
+  const safeAmountPaid = Number(amountPaid) || 0;
+  const safeTotal = Number(total) || 0;
+  const safeBalance = Number(balance) || 0;
+  const safeDiscount = Number(discount) || 0;
+
   return (
     <div
       ref={ref}
@@ -231,7 +237,7 @@ const Template1 = React.forwardRef(({ data }, ref) => {
           paddingTop: "15px",
           fontSize: "14px",
         }}>
-        {discount !== undefined && discount !== null && discount !== 0 && (
+        {safeDiscount !== 0 && (
           <div
             style={{
               display: "flex",
@@ -241,7 +247,7 @@ const Template1 = React.forwardRef(({ data }, ref) => {
             <span>
               <strong>Discount:</strong>
             </span>
-            <span>₵{discount}</span>
+            <span>₵{safeDiscount.toFixed(2)}</span>
           </div>
         )}
         <div
@@ -253,7 +259,7 @@ const Template1 = React.forwardRef(({ data }, ref) => {
             fontWeight: "bold",
           }}>
           <span>Total Amount:</span>
-          <span>₵{total.toFixed(2)}</span>
+          <span>₵{safeTotal.toFixed(2)}</span>
         </div>
         <div
           style={{
@@ -264,9 +270,9 @@ const Template1 = React.forwardRef(({ data }, ref) => {
           <span>
             <strong>Amount Paid:</strong>
           </span>
-          <span>₵{amountPaid.toFixed(2)}</span>
+          <span>₵{safeAmountPaid.toFixed(2)}</span>
         </div>
-        {balance !== undefined && balance !== null && balance !== 0 && (
+        {safeBalance !== 0 && (
           <div
             style={{
               display: "flex",
@@ -276,7 +282,7 @@ const Template1 = React.forwardRef(({ data }, ref) => {
             <span>
               <strong>Balance:</strong>
             </span>
-            <span>₵{balance.toFixed(2)}</span>
+            <span>₵{safeBalance.toFixed(2)}</span>
           </div>
         )}
       </div>

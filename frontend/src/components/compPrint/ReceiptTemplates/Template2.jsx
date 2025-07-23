@@ -18,6 +18,12 @@ const Template2 = React.forwardRef(({ data }, ref) => {
   } = data;
   const company = useSelector((state) => state.companyState.data);
 
+  // Ensure numeric values are properly converted
+  const safeAmountPaid = Number(amountPaid) || 0;
+  const safeTotal = Number(total) || 0;
+  const safeBalance = Number(balance) || 0;
+  const safeDiscount = Number(discount) || 0;
+
   // Generate receipt data for QR code
   const qrData = JSON.stringify({
     company: company.companyName,
@@ -153,10 +159,10 @@ const Template2 = React.forwardRef(({ data }, ref) => {
           paddingTop: "5px",
           fontSize: "11px",
         }}>
-        {discount > 0 && (
+        {safeDiscount > 0 && (
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>Discount:</span>
-            <span>₵{discount}</span>
+            <span>₵{safeDiscount.toFixed(2)}</span>
           </div>
         )}
         <div
@@ -168,16 +174,16 @@ const Template2 = React.forwardRef(({ data }, ref) => {
             marginTop: "5px",
           }}>
           <span>Total:</span>
-          <span>₵{total.toFixed(2)}</span>
+          <span>₵{safeTotal.toFixed(2)}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Paid:</span>
-          <span>₵{amountPaid.toFixed(2)}</span>
+          <span>₵{safeAmountPaid.toFixed(2)}</span>
         </div>
-        {balance !== 0 && (
+        {safeBalance !== 0 && (
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>Balance:</span>
-            <span>₵{balance.toFixed(2)}</span>
+            <span>₵{safeBalance.toFixed(2)}</span>
           </div>
         )}
       </div>

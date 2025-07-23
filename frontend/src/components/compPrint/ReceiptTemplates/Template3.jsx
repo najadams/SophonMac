@@ -16,9 +16,15 @@ const Template3 = React.forwardRef(({ data }, ref) => {
   } = data;
   const company = useSelector((state) => state.companyState.data);
 
+  // Ensure numeric values are properly converted
+  const safeAmountPaid = Number(amountPaid) || 0;
+  const safeTotal = Number(total) || 0;
+  const safeBalance = Number(balance) || 0;
+  const safeDiscount = Number(discount) || 0;
+
   // Calculate tax amounts
   const taxRate = company.taxRate || 0;
-  const subtotal = total - (discount || 0);
+  const subtotal = safeTotal - safeDiscount;
   const taxAmount = (subtotal * (taxRate / 100)).toFixed(2);
   const totalWithTax = (parseFloat(subtotal) + parseFloat(taxAmount)).toFixed(
     2
@@ -232,7 +238,7 @@ const Template3 = React.forwardRef(({ data }, ref) => {
           <span>Subtotal:</span>
           <span>₵{subtotal.toFixed(2)}</span>
         </div>
-        {discount > 0 && (
+        {safeDiscount > 0 && (
           <div
             style={{
               display: "flex",
@@ -242,7 +248,7 @@ const Template3 = React.forwardRef(({ data }, ref) => {
               color: "#dc3545",
             }}>
             <span>Discount:</span>
-            <span>-₵{discount}</span>
+            <span>-₵{safeDiscount.toFixed(2)}</span>
           </div>
         )}
         {taxRate > 0 && (
@@ -276,18 +282,18 @@ const Template3 = React.forwardRef(({ data }, ref) => {
             padding: "5px 0",
           }}>
           <span>Amount Paid:</span>
-          <span>₵{amountPaid.toFixed(2)}</span>
+          <span>₵{safeAmountPaid.toFixed(2)}</span>
         </div>
-        {balance !== 0 && (
+        {safeBalance !== 0 && (
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               padding: "5px 0",
-              color: balance > 0 ? "#dc3545" : "#28a745",
+              color: safeBalance > 0 ? "#dc3545" : "#28a745",
             }}>
             <span>Balance:</span>
-            <span>₵{balance.toFixed(2)}</span>
+            <span>₵{safeBalance.toFixed(2)}</span>
           </div>
         )}
       </div>
