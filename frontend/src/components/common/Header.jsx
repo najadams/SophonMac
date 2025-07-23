@@ -79,6 +79,12 @@ export default function Header() {
 
   const handlePasswordSubmit = async () => {
     try {
+      // Check if user and user.password exist
+      if (!user || !user.password) {
+        setErrorMessage("User authentication data not available. Please log in again.");
+        return;
+      }
+
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (passwordMatch) {
         setOpenPasswordDialog(false);
@@ -90,6 +96,7 @@ export default function Header() {
       }
     } catch (error) {
       console.log(error);
+      setErrorMessage("An error occurred while verifying your password. Please try again.");
     }
   };
 
@@ -100,6 +107,7 @@ export default function Header() {
   const isMobile = useMediaQuery((theme) => theme.breakpoints.down("mymd"));
 
   useEffect(() => {
+    console.log("user", user)
     return () => {
       // Reset anchorEl when component unmounts
       setAnchorEl(null);

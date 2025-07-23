@@ -129,6 +129,7 @@ const WorkerEntry = () => {
       const userData = {
         ...user.worker,
         permissions: permissions,
+        password: user.worker.password, // Include password for frontend validation
       };
 
       console.log(userData, "userdata");
