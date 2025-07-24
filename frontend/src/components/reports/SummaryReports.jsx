@@ -32,8 +32,9 @@ const SummaryReport = ({ data }) => {
     totalCashReceivedAmount,
     summary: { sales, amountPaid, debtPayments, vendorPayments, debtsAcquired },
   } = data;
-  // Calculate net cash position: amountPaid + debt payments - vendor payments
-  const totalCash = (amountPaid?.totalAmountPaid || 0) + (debtPayments.totalPaid || 0) - (vendorPayments.totalPaid || 0);
+  
+  // Use the correct net cash position from backend calculation
+  const totalCash = totalCashReceivedAmount || 0;
 
   return (
     <Box sx={{ p: { xs: 0.5, sm: 2 }, maxWidth: "100%", overflow: "hidden" }}>
@@ -231,7 +232,7 @@ const SummaryReport = ({ data }) => {
           {/* Net Cash Position */}
           <Grid item xs={12} sm={6} md={3}>
             <Tooltip
-              title={`Net Cash = Amount Paid + Debt Payments - Vendor Payments - Discounts`}
+              title={`Net Cash = Amount Paid + Debt Payments - Vendor Payments`}
               arrow
               placement="top">
               <Card
