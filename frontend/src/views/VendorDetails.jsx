@@ -921,7 +921,7 @@ const VendorDetails = () => {
             >
               <MenuItem value="cash">Cash</MenuItem>
               <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-              <MenuItem value="check">Check</MenuItem>
+              <MenuItem value="card">Check</MenuItem>
               <MenuItem value="mobile_money">Mobile Money</MenuItem>
             </Select>
           </FormControl>
