@@ -34,7 +34,7 @@ router.get('/summary', (req, res) => {
       
       -- Debt payments data
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'cash' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsCash,
-      (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'mobile_money' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsMomo,
+      (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'momo' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsMomo,
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'card' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsCard,
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'bank_transfer' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsBankTransfer,
       (SELECT COALESCE(SUM(dp.amountPaid), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as totalDebtPayments,
