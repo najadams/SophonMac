@@ -56,23 +56,116 @@ import {
   ShoppingCart as ShoppingCartIcon,
   Delete as DeleteIcon,
   Payment as PaymentIcon,
+  TrendingUp as TrendingUpIcon,
+  AccountBalance as AccountBalanceIcon,
+  Receipt as ReceiptIcon,
+  Analytics as AnalyticsIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import Loader from "../components/common/Loader";
 
+// Additional styled components for enhanced aesthetics
+const GradientBox = styled(Box)(({ theme }) => ({
+  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  borderRadius: "20px",
+  padding: theme.spacing(3),
+  color: "white",
+  position: "relative",
+  overflow: "hidden",
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    top: "-50%",
+    left: "-50%",
+    width: "200%",
+    height: "200%",
+    background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)",
+    animation: "float 6s ease-in-out infinite",
+  },
+  "@keyframes float": {
+    "0%, 100%": { transform: "translate(-50%, -50%) rotate(0deg)" },
+    "50%": { transform: "translate(-50%, -50%) rotate(180deg)" },
+  },
+}));
+
+const StatsCard = styled(Card)(({ theme }) => ({
+  borderRadius: "16px",
+  background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.06)",
+  border: "1px solid rgba(226, 232, 240, 0.8)",
+  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+  position: "relative",
+  overflow: "hidden",
+  "&:hover": {
+    transform: "translateY(-4px)",
+    boxShadow: "0 16px 32px rgba(0, 0, 0, 0.12)",
+  },
+}));
+
+const AnimatedButton = styled(Button)(({ theme }) => ({
+  borderRadius: "12px",
+  textTransform: "none",
+  fontWeight: 600,
+  padding: "12px 24px",
+  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+  position: "relative",
+  overflow: "hidden",
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    top: 0,
+    left: "-100%",
+    width: "100%",
+    height: "100%",
+    background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+    transition: "left 0.5s",
+  },
+  "&:hover::before": {
+    left: "100%",
+  },
+}));
+
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
-  borderRadius: "16px",
-  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+  borderRadius: "20px",
+  background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+  boxShadow: "0 20px 40px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.04)",
+  border: "1px solid rgba(255, 255, 255, 0.2)",
+  backdropFilter: "blur(10px)",
+  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+  "&:hover": {
+    transform: "translateY(-2px)",
+    boxShadow: "0 25px 50px rgba(0, 0, 0, 0.12), 0 12px 20px rgba(0, 0, 0, 0.06)",
+  },
 }));
 
 const InfoCard = styled(Card)(({ theme }) => ({
   height: "100%",
-  borderRadius: "12px",
-  boxShadow: "0 4px 16px rgba(0, 0, 0, 0.08)",
-  transition: "transform 0.2s ease-in-out",
+  borderRadius: "16px",
+  background: "linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)",
+  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.04)",
+  border: "1px solid rgba(226, 232, 240, 0.8)",
+  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+  position: "relative",
+  overflow: "hidden",
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: "4px",
+    background: "linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4)",
+    opacity: 0,
+    transition: "opacity 0.3s ease",
+  },
   "&:hover": {
-    transform: "translateY(-4px)",
+    transform: "translateY(-6px) scale(1.02)",
+    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08)",
+    "&::before": {
+      opacity: 1,
+    },
   },
 }));
 
@@ -575,133 +668,295 @@ const VendorDetails = () => {
   return (
     <Container
       maxWidth="xl"
-      sx={{ mt: 4, mb: 4, height: "calc(100vh - 100px)", overflow: "auto" }}>
-      <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate("/vendors")}
-          variant="outlined">
-          Back to Vendors
-        </Button>
-        <Typography variant="h4" component="h1" sx={{ flexGrow: 1 }}>
-          {vendor?.name || "Vendor Details"}
-        </Typography>
-        <Button
-          startIcon={<DeleteIcon />}
-          onClick={handleOpenDeleteDialog}
-          variant="outlined"
-          color="error"
-          disabled={isDeleting}>
-          {isDeleting ? "Deleting..." : "Delete Vendor"}
-        </Button>
-      </Box>
-      {/* Vendor Information Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={4}>
+      sx={{ 
+        mt: 4, 
+        mb: 4, 
+        height: "calc(100vh - 100px)", 
+        overflow: "auto",
+        background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
+        borderRadius: "24px",
+        padding: 3,
+        position: "relative",
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><defs><pattern id=\"grain\" width=\"100\" height=\"100\" patternUnits=\"userSpaceOnUse\"><circle cx=\"50\" cy=\"50\" r=\"1\" fill=\"rgba(0,0,0,0.02)\"/></pattern></defs><rect width=\"100\" height=\"100\" fill=\"url(%23grain)\"/></svg>')",
+          opacity: 0.5,
+          pointerEvents: "none",
+        },
+      }}>
+      <GradientBox sx={{ mb: 4, position: "relative", zIndex: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, position: "relative", zIndex: 2 }}>
+          <AnimatedButton
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate("/vendors")}
+            variant="contained"
+            sx={{ 
+              backgroundColor: "rgba(255, 255, 255, 0.2)",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.3)",
+                transform: "translateY(-2px)",
+              },
+            }}>
+            Back to Vendors
+          </AnimatedButton>
+          <Box sx={{ flexGrow: 1, textAlign: "center" }}>
+            <Typography 
+              variant="h3" 
+              component="h1" 
+              sx={{ 
+                fontWeight: 700,
+                background: "linear-gradient(45deg, #ffffff 30%, #e2e8f0 90%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                textShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                mb: 1,
+              }}>
+              {vendor?.name || "Vendor Details"}
+            </Typography>
+            <Typography 
+              variant="subtitle1" 
+              sx={{ 
+                opacity: 0.9,
+                fontWeight: 400,
+              }}>
+              Comprehensive vendor management and analytics
+            </Typography>
+          </Box>
+          <AnimatedButton
+            startIcon={<DeleteIcon />}
+            onClick={handleOpenDeleteDialog}
+            variant="contained"
+            disabled={isDeleting}
+            sx={{
+              backgroundColor: "rgba(239, 68, 68, 0.2)",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "rgba(239, 68, 68, 0.3)",
+                transform: "translateY(-2px)",
+              },
+              "&:disabled": {
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                color: "rgba(255, 255, 255, 0.5)",
+              },
+            }}>
+            {isDeleting ? "Deleting..." : "Delete Vendor"}
+          </AnimatedButton>
+        </Box>
+      </GradientBox>
+      {/* Enhanced Vendor Information Cards */}
+      <Grid container spacing={4} sx={{ mb: 4, position: "relative", zIndex: 1 }}>
+        <Grid item xs={12} md={3}>
           <InfoCard>
-            <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <BusinessIcon color="primary" sx={{ mr: 1 }} />
-                <Typography variant="h6">Company Information</Typography>
+            <CardContent sx={{ textAlign: "center", p: 3 }}>
+              <Box sx={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "center", 
+                mb: 2 
+              }}>
+                <Box sx={{
+                  p: 2,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                  color: "white",
+                  mb: 2,
+                  boxShadow: "0 8px 16px rgba(59, 130, 246, 0.3)",
+                }}>
+                  <BusinessIcon sx={{ fontSize: 32 }} />
+                </Box>
+                <Typography variant="h6" fontWeight={600} color="text.primary">
+                  Company Info
+                </Typography>
               </Box>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon>
-                    <BusinessIcon fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Company Name"
-                    secondary={vendor?.name || "N/A"}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <PersonIcon fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Contact Person"
-                    secondary={vendor?.contact_person || "N/A"}
-                  />
-                </ListItem>
-              </List>
+              <Box sx={{ textAlign: "left" }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Company Name
+                </Typography>
+                <Typography variant="h6" fontWeight={500} sx={{ mb: 2 }}>
+                  {vendor?.name || "N/A"}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Contact Person
+                </Typography>
+                <Typography variant="body1" fontWeight={500}>
+                  {vendor?.contact_person || "N/A"}
+                </Typography>
+              </Box>
             </CardContent>
           </InfoCard>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <InfoCard>
-            <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <PhoneIcon color="primary" sx={{ mr: 1 }} />
-                <Typography variant="h6">Contact Information</Typography>
+            <CardContent sx={{ textAlign: "center", p: 3 }}>
+              <Box sx={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "center", 
+                mb: 2 
+              }}>
+                <Box sx={{
+                  p: 2,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  color: "white",
+                  mb: 2,
+                  boxShadow: "0 8px 16px rgba(16, 185, 129, 0.3)",
+                }}>
+                  <PhoneIcon sx={{ fontSize: 32 }} />
+                </Box>
+                <Typography variant="h6" fontWeight={600} color="text.primary">
+                  Contact Details
+                </Typography>
               </Box>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon>
-                    <PhoneIcon fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Phone"
-                    secondary={vendor?.phone || "N/A"}
-                  />
-                </ListItem>
-              </List>
+              <Box sx={{ textAlign: "left" }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Phone Number
+                </Typography>
+                <Typography variant="h6" fontWeight={500} sx={{ mb: 2 }}>
+                  {vendor?.phone || "N/A"}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Vendor ID
+                </Typography>
+                <Typography variant="body1" fontWeight={500}>
+                  #{vendor?.id || "N/A"}
+                </Typography>
+              </Box>
             </CardContent>
           </InfoCard>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <InfoCard>
-            <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <InventoryIcon color="primary" sx={{ mr: 1 }} />
-                <Typography variant="h6">Supply Statistics</Typography>
+            <CardContent sx={{ textAlign: "center", p: 3 }}>
+              <Box sx={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "center", 
+                mb: 2 
+              }}>
+                <Box sx={{
+                  p: 2,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+                  color: "white",
+                  mb: 2,
+                  boxShadow: "0 8px 16px rgba(139, 92, 246, 0.3)",
+                }}>
+                  <InventoryIcon sx={{ fontSize: 32 }} />
+                </Box>
+                <Typography variant="h6" fontWeight={600} color="text.primary">
+                  Supply Count
+                </Typography>
               </Box>
-              <List dense>
-                <ListItem>
-                  <ListItemIcon>
-                    <ShippingIcon fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Total Supplies"
-                    secondary={supplies?.length || 0}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon>
-                    <MoneyIcon fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Total Value"
-                    secondary={formatCurrency(
-                      supplies?.reduce(
-                        (sum, supply) => sum + (supply.totalCost || 0),
-                        0
-                      ) || 0
-                    )}
-                  />
-                </ListItem>
-              </List>
+              <Typography variant="h2" fontWeight={700} color="primary" sx={{ mb: 1 }}>
+                {supplies?.length || 0}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total Supplies
+              </Typography>
+            </CardContent>
+          </InfoCard>
+        </Grid>
+
+        <Grid item xs={12} md={3}>
+          <InfoCard>
+            <CardContent sx={{ textAlign: "center", p: 3 }}>
+              <Box sx={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "center", 
+                mb: 2 
+              }}>
+                <Box sx={{
+                  p: 2,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                  color: "white",
+                  mb: 2,
+                  boxShadow: "0 8px 16px rgba(245, 158, 11, 0.3)",
+                }}>
+                  <TrendingUpIcon sx={{ fontSize: 32 }} />
+                </Box>
+                <Typography variant="h6" fontWeight={600} color="text.primary">
+                  Total Value
+                </Typography>
+              </Box>
+              <Typography variant="h4" fontWeight={700} color="primary" sx={{ mb: 1 }}>
+                {formatCurrency(
+                  supplies?.reduce(
+                    (sum, supply) => sum + (supply.totalCost || 0),
+                    0
+                  ) || 0
+                )}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                All Supplies
+              </Typography>
             </CardContent>
           </InfoCard>
         </Grid>
       </Grid>
-      {/* Tabs Section */}
+      {/* Enhanced Tabs Section */}
       <StyledPaper
-        sx={{ mb: 4, maxHeight: "calc(100vh - 400px)", overflow: "auto" }}>
+        sx={{ 
+          mb: 4, 
+          maxHeight: "calc(100vh - 400px)", 
+          overflow: "auto",
+          position: "relative",
+          zIndex: 1,
+        }}>
         <Box
           sx={{
-            borderBottom: 1,
-            borderColor: "divider",
+            borderBottom: "2px solid",
+            borderImage: "linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4) 1",
             position: "sticky",
             top: 0,
-            backgroundColor: "white",
-            zIndex: 1,
+            background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+            backdropFilter: "blur(10px)",
+            zIndex: 2,
+            borderRadius: "20px 20px 0 0",
           }}>
           <Tabs
             value={tabValue}
             onChange={handleTabChange}
-            aria-label="vendor details tabs">
+            aria-label="vendor details tabs"
+            sx={{
+              "& .MuiTab-root": {
+                textTransform: "none",
+                fontWeight: 600,
+                fontSize: "1rem",
+                minHeight: 64,
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                borderRadius: "12px 12px 0 0",
+                margin: "0 4px",
+                "&:hover": {
+                  backgroundColor: "rgba(59, 130, 246, 0.08)",
+                  transform: "translateY(-2px)",
+                },
+                "&.Mui-selected": {
+                  background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                  color: "white",
+                  "& .MuiSvgIcon-root": {
+                    color: "white",
+                  },
+                },
+              },
+              "& .MuiTabs-indicator": {
+                display: "none",
+              },
+            }}>
             <Tab
               label="Vendor Information"
               icon={<BusinessIcon />}
@@ -789,43 +1044,141 @@ const VendorDetails = () => {
               sx={{
                 maxHeight: "calc(100vh - 500px)",
                 overflow: "auto",
+                borderRadius: "16px",
+                background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                border: "1px solid rgba(226, 232, 240, 0.8)",
                 "&::-webkit-scrollbar": {
-                  width: "8px",
+                  width: "12px",
                 },
                 "&::-webkit-scrollbar-track": {
-                  background: "#f1f1f1",
-                  borderRadius: "4px",
+                  background: "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)",
+                  borderRadius: "6px",
                 },
                 "&::-webkit-scrollbar-thumb": {
-                  background: "#c1c1c1",
-                  borderRadius: "4px",
+                  background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                  borderRadius: "6px",
+                  border: "2px solid transparent",
+                  backgroundClip: "padding-box",
                 },
                 "&::-webkit-scrollbar-thumb:hover": {
-                  background: "#a8a8a8",
+                  background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
                 },
               }}>
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell />
-                    <TableCell>Supply ID</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Restocked By</TableCell>
-                    <TableCell align="right">Total Cost</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell 
+                      sx={{ 
+                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        color: "white",
+                        fontWeight: 600,
+                        fontSize: "0.875rem",
+                        borderBottom: "none",
+                        "&:first-of-type": {
+                          borderTopLeftRadius: "16px",
+                        },
+                      }} 
+                    />
+                    <TableCell 
+                      sx={{ 
+                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        color: "white",
+                        fontWeight: 600,
+                        fontSize: "0.875rem",
+                        borderBottom: "none",
+                      }}
+                    >
+                      Supply ID
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        color: "white",
+                        fontWeight: 600,
+                        fontSize: "0.875rem",
+                        borderBottom: "none",
+                      }}
+                    >
+                      Date
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        color: "white",
+                        fontWeight: 600,
+                        fontSize: "0.875rem",
+                        borderBottom: "none",
+                      }}
+                    >
+                      Restocked By
+                    </TableCell>
+                    <TableCell 
+                      align="right"
+                      sx={{ 
+                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        color: "white",
+                        fontWeight: 600,
+                        fontSize: "0.875rem",
+                        borderBottom: "none",
+                      }}
+                    >
+                      Total Cost
+                    </TableCell>
+                    <TableCell 
+                      sx={{ 
+                        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                        color: "white",
+                        fontWeight: 600,
+                        fontSize: "0.875rem",
+                        borderBottom: "none",
+                        "&:last-of-type": {
+                          borderTopRightRadius: "16px",
+                        },
+                      }}
+                    >
+                      Status
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {supplies.map((supply) => (
-                          <SupplyRow
-                            key={supply.id}
-                            supply={supply}
-                            isExpanded={expandedSupply === supply.id}
-                            onToggle={() => handleExpandSupply(supply.id)}
-                            formatCurrency={formatCurrency}
-                            formatDate={formatDate}
-                            handleOpenPaymentDialog={handleOpenPaymentDialog}
+                  {supplies.map((supply, index) => (
+                    <React.Fragment key={supply.id}>
+                      <SupplyRow
+                        supply={supply}
+                        isExpanded={expandedSupply === supply.id}
+                        onToggle={() => handleExpandSupply(supply.id)}
+                        formatCurrency={formatCurrency}
+                        formatDate={formatDate}
+                        handleOpenPaymentDialog={handleOpenPaymentDialog}
+                        sx={{
+                          "& .MuiTableRow-root": {
+                            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                            "&:hover": {
+                              backgroundColor: "rgba(59, 130, 246, 0.04)",
+                              transform: "scale(1.01)",
+                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                            },
+                          },
+                          "& .MuiTableCell-root": {
+                            borderBottom: "1px solid rgba(226, 232, 240, 0.5)",
+                            padding: "16px",
+                          },
+                        }}
+                      />
+                      {index < supplies.length - 1 && (
+                        <TableRow>
+                          <TableCell 
+                            colSpan={6} 
+                            sx={{ 
+                              padding: 0, 
+                              border: "none",
+                              background: "linear-gradient(90deg, transparent 0%, rgba(59, 130, 246, 0.1) 50%, transparent 100%)",
+                              height: "2px",
+                            }} 
                           />
+                        </TableRow>
+                      )}
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
@@ -845,54 +1198,208 @@ const VendorDetails = () => {
           )}
         </TabPanel>
       </StyledPaper>
-      {/* Delete Confirmation Dialog */}
+      {/* Enhanced Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description">
-        <DialogTitle id="delete-dialog-title">Delete Vendor</DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-dialog-description">
-            Are you sure you want to delete this vendor? This action cannot be
-            undone. All associated data will be permanently removed.
+        aria-describedby="delete-dialog-description"
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            background: "linear-gradient(135deg, #ffffff 0%, #fef2f2 100%)",
+            boxShadow: "0 25px 50px rgba(239, 68, 68, 0.15)",
+            border: "1px solid rgba(239, 68, 68, 0.1)",
+            backdropFilter: "blur(10px)",
+          },
+        }}
+      >
+        <DialogTitle 
+          id="delete-dialog-title"
+          sx={{
+            background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+            color: "white",
+            textAlign: "center",
+            fontWeight: 600,
+            fontSize: "1.25rem",
+            borderRadius: "20px 20px 0 0",
+            position: "relative",
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              bottom: "-10px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 0,
+              height: 0,
+              borderLeft: "10px solid transparent",
+              borderRight: "10px solid transparent",
+              borderTop: "10px solid #dc2626",
+            },
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+            <WarningIcon sx={{ fontSize: 28 }} />
+            Delete Vendor
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 4, mt: 2 }}>
+          <Box sx={{ textAlign: "center", mb: 3 }}>
+            <Box
+              sx={{
+                width: 80,
+                height: 80,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 16px",
+                border: "3px solid #fecaca",
+              }}
+            >
+              <DeleteIcon sx={{ fontSize: 40, color: "#ef4444" }} />
+            </Box>
+          </Box>
+          <DialogContentText 
+            id="delete-dialog-description"
+            sx={{
+              textAlign: "center",
+              fontSize: "1.1rem",
+              color: "rgb(75, 85, 99)",
+              lineHeight: 1.6,
+              mb: 2,
+            }}
+          >
+            Are you sure you want to delete this vendor?
+          </DialogContentText>
+          <DialogContentText 
+            sx={{
+              textAlign: "center",
+              fontSize: "0.95rem",
+              color: "rgb(107, 114, 128)",
+              fontStyle: "italic",
+            }}
+          >
+            This action cannot be undone and will permanently remove all vendor data.
           </DialogContentText>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} disabled={isDeleting}>
+        <DialogActions sx={{ p: 3, gap: 2 }}>
+          <AnimatedButton 
+            onClick={handleCloseDeleteDialog} 
+            disabled={isDeleting}
+            variant="outlined"
+            sx={{
+              borderColor: "rgba(107, 114, 128, 0.3)",
+              color: "rgb(107, 114, 128)",
+              minWidth: "100px",
+              "&:hover": {
+                borderColor: "rgba(107, 114, 128, 0.5)",
+                backgroundColor: "rgba(107, 114, 128, 0.05)",
+              },
+            }}
+          >
             Cancel
-          </Button>
-          <Button
+          </AnimatedButton>
+          <AnimatedButton
             onClick={handleDeleteVendor}
-            color="error"
             variant="contained"
-            disabled={isDeleting}>
+            disabled={isDeleting}
+            startIcon={isDeleting ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
+            sx={{
+              background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+              color: "white",
+              minWidth: "120px",
+              "&:hover": {
+                background: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
+                transform: "translateY(-2px)",
+                boxShadow: "0 8px 16px rgba(239, 68, 68, 0.4)",
+              },
+              "&:disabled": {
+                background: "rgba(107, 114, 128, 0.3)",
+                color: "rgba(255, 255, 255, 0.7)",
+              },
+            }}
+          >
             {isDeleting ? "Deleting..." : "Delete"}
-          </Button>
+          </AnimatedButton>
         </DialogActions>
       </Dialog>
 
-      {/* Payment Dialog */}
+      {/* Enhanced Payment Dialog */}
       <Dialog
         open={paymentDialogOpen}
         onClose={handleClosePaymentDialog}
         aria-labelledby="payment-dialog-title"
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+            boxShadow: "0 25px 50px rgba(0, 0, 0, 0.15)",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            backdropFilter: "blur(10px)",
+          },
+        }}
       >
-        <DialogTitle id="payment-dialog-title">
-          Make Payment - Supply #{selectedSupplyForPayment?.id}
+        <DialogTitle 
+          id="payment-dialog-title"
+          sx={{
+            background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+            color: "white",
+            textAlign: "center",
+            fontWeight: 600,
+            fontSize: "1.25rem",
+            borderRadius: "20px 20px 0 0",
+            position: "relative",
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              bottom: "-10px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 0,
+              height: 0,
+              borderLeft: "10px solid transparent",
+              borderRight: "10px solid transparent",
+              borderTop: "10px solid #8b5cf6",
+            },
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+            <PaymentIcon sx={{ fontSize: 28 }} />
+            Make Payment - Supply #{selectedSupplyForPayment?.id}
+          </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ p: 3, mt: 2 }}>
           {selectedSupplyForPayment && (
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Outstanding Balance: {formatCurrency(selectedSupplyForPayment.balance || 0)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Total Cost: {formatCurrency(selectedSupplyForPayment.totalCost || 0)}
-              </Typography>
-            </Box>
+            <StatsCard sx={{ mb: 3, p: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Box sx={{ textAlign: "center" }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Outstanding Balance
+                    </Typography>
+                    <Typography variant="h5" fontWeight={700} color="error">
+                      {formatCurrency(selectedSupplyForPayment.balance || 0)}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ textAlign: "center" }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Total Cost
+                    </Typography>
+                    <Typography variant="h5" fontWeight={700} color="primary">
+                      {formatCurrency(selectedSupplyForPayment.totalCost || 0)}
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </StatsCard>
           )}
           
           <TextField
@@ -909,41 +1416,128 @@ const VendorDetails = () => {
               max: selectedSupplyForPayment?.balance || 0,
               step: 0.01 
             }}
-            sx={{ mb: 2 }}
+            sx={{ 
+              mb: 3,
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "12px",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 8px 16px rgba(59, 130, 246, 0.2)",
+                },
+                "&.Mui-focused": {
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 8px 16px rgba(59, 130, 246, 0.3)",
+                },
+              },
+            }}
           />
           
-          <FormControl fullWidth variant="outlined" sx={{ mb: 2 }}>
+          <FormControl 
+            fullWidth 
+            variant="outlined" 
+            sx={{ 
+              mb: 3,
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "12px",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 8px 16px rgba(59, 130, 246, 0.2)",
+                },
+                "&.Mui-focused": {
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 8px 16px rgba(59, 130, 246, 0.3)",
+                },
+              },
+            }}
+          >
             <InputLabel>Payment Method</InputLabel>
             <Select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
               label="Payment Method"
             >
-              <MenuItem value="cash">Cash</MenuItem>
-              <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-              <MenuItem value="card">Check</MenuItem>
-              <MenuItem value="mobile_money">Mobile Money</MenuItem>
+              <MenuItem value="cash">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <MoneyIcon fontSize="small" />
+                  Cash
+                </Box>
+              </MenuItem>
+              <MenuItem value="bank_transfer">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <AccountBalanceIcon fontSize="small" />
+                  Bank Transfer
+                </Box>
+              </MenuItem>
+              <MenuItem value="card">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <ReceiptIcon fontSize="small" />
+                  Check
+                </Box>
+              </MenuItem>
+              <MenuItem value="mobile_money">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <PhoneIcon fontSize="small" />
+                  Mobile Money
+                </Box>
+              </MenuItem>
             </Select>
           </FormControl>
 
           {paymentError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 2,
+                borderRadius: "12px",
+                "& .MuiAlert-icon": {
+                  fontSize: "1.5rem",
+                },
+              }}
+            >
               {paymentError}
             </Alert>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClosePaymentDialog} disabled={isProcessingPayment}>
+        <DialogActions sx={{ p: 3, gap: 2 }}>
+          <AnimatedButton 
+            onClick={handleClosePaymentDialog} 
+            disabled={isProcessingPayment}
+            variant="outlined"
+            sx={{
+              borderColor: "rgba(107, 114, 128, 0.3)",
+              color: "rgb(107, 114, 128)",
+              "&:hover": {
+                borderColor: "rgba(107, 114, 128, 0.5)",
+                backgroundColor: "rgba(107, 114, 128, 0.05)",
+              },
+            }}
+          >
             Cancel
-          </Button>
-          <Button
+          </AnimatedButton>
+          <AnimatedButton
             onClick={handlePaymentSubmit}
             variant="contained"
             disabled={isProcessingPayment || !paymentAmount}
-            startIcon={isProcessingPayment ? <CircularProgress size={20} /> : <PaymentIcon />}
+            startIcon={isProcessingPayment ? <CircularProgress size={20} color="inherit" /> : <PaymentIcon />}
+            sx={{
+              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+              color: "white",
+              minWidth: "140px",
+              "&:hover": {
+                background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                transform: "translateY(-2px)",
+                boxShadow: "0 8px 16px rgba(16, 185, 129, 0.4)",
+              },
+              "&:disabled": {
+                background: "rgba(107, 114, 128, 0.3)",
+                color: "rgba(255, 255, 255, 0.7)",
+              },
+            }}
           >
             {isProcessingPayment ? 'Processing...' : 'Make Payment'}
-          </Button>
+          </AnimatedButton>
         </DialogActions>
       </Dialog>
     </Container>
