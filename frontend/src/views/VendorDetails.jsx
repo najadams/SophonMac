@@ -68,7 +68,7 @@ import Loader from "../components/common/Loader";
 
 // Additional styled components for enhanced aesthetics
 const GradientBox = styled(Box)(({ theme }) => ({
-  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  background: "linear-gradient(135deg, #4A90E2 0%, #7BB3F0 100%)",
   borderRadius: "20px",
   padding: theme.spacing(3),
   color: "white",
@@ -157,7 +157,7 @@ const InfoCard = styled(Card)(({ theme }) => ({
     left: 0,
     right: 0,
     height: "4px",
-    background: "linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4)",
+    background: "linear-gradient(90deg, #4A90E2, #7BB3F0, #A8D5F2)",
     opacity: 0,
     transition: "opacity 0.3s ease",
   },
@@ -663,9 +663,9 @@ const VendorDetails = () => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-GH', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'GHS'
     }).format(amount || 0);
   };
 
@@ -823,10 +823,10 @@ const VendorDetails = () => {
                 <Box sx={{
                   p: 2,
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                  background: "linear-gradient(135deg, #4A90E2 0%, #7BB3F0 100%)",
                   color: "white",
                   mb: 2,
-                  boxShadow: "0 8px 16px rgba(59, 130, 246, 0.3)",
+                  boxShadow: "0 8px 16px rgba(74, 144, 226, 0.25)",
                 }}>
                   <BusinessIcon sx={{ fontSize: 32 }} />
                 </Box>
@@ -867,10 +867,10 @@ const VendorDetails = () => {
                 <Box sx={{
                   p: 2,
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  background: "linear-gradient(135deg, #7BB3F0 0%, #A8D5F2 100%)",
                   color: "white",
                   mb: 2,
-                  boxShadow: "0 8px 16px rgba(16, 185, 129, 0.3)",
+                  boxShadow: "0 8px 16px rgba(123, 179, 240, 0.25)",
                 }}>
                   <PhoneIcon sx={{ fontSize: 32 }} />
                 </Box>
@@ -908,10 +908,10 @@ const VendorDetails = () => {
                 <Box sx={{
                   p: 2,
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+                  background: "linear-gradient(135deg, #A8D5F2 0%, #C8E6F5 100%)",
                   color: "white",
                   mb: 2,
-                  boxShadow: "0 8px 16px rgba(139, 92, 246, 0.3)",
+                  boxShadow: "0 8px 16px rgba(168, 213, 242, 0.25)",
                 }}>
                   <InventoryIcon sx={{ fontSize: 32 }} />
                 </Box>
@@ -941,10 +941,10 @@ const VendorDetails = () => {
                 <Box sx={{
                   p: 2,
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-                  color: "white",
+                  background: "linear-gradient(135deg, #C8E6F5 0%, #E8F4F8 100%)",
+                  color: "#4A90E2",
                   mb: 2,
-                  boxShadow: "0 8px 16px rgba(245, 158, 11, 0.3)",
+                  boxShadow: "0 8px 16px rgba(200, 230, 245, 0.25)",
                 }}>
                   <TrendingUpIcon sx={{ fontSize: 32 }} />
                 </Box>
@@ -979,7 +979,7 @@ const VendorDetails = () => {
         <Box
           sx={{
             borderBottom: "2px solid",
-            borderImage: "linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4) 1",
+            borderImage: "linear-gradient(90deg, #4A90E2, #7BB3F0, #A8D5F2) 1",
             position: "sticky",
             top: 0,
             background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
@@ -1001,11 +1001,11 @@ const VendorDetails = () => {
                 borderRadius: "12px 12px 0 0",
                 margin: "0 4px",
                 "&:hover": {
-                  backgroundColor: "rgba(59, 130, 246, 0.08)",
+                  backgroundColor: "rgba(74, 144, 226, 0.06)",
                   transform: "translateY(-2px)",
                 },
                 "&.Mui-selected": {
-                  background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                  background: "linear-gradient(135deg, #4A90E2 0%, #7BB3F0 100%)",
                   color: "white",
                   "& .MuiSvgIcon-root": {
                     color: "white",
