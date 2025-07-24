@@ -4,6 +4,7 @@ import { useQuery } from "react-query";
 import { tableActions } from "../config/Functions";
 import { API_BASE_URL } from '../config';
 import { useSelector } from "react-redux";
+import axios from 'axios';
 import {
   Container,
   Paper,
@@ -428,6 +429,13 @@ const VendorDetails = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [selectedSupplyForPayment, setSelectedSupplyForPayment] = useState(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    contact_person: '',
+    phone: ''
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Fetch vendor details
   const {
@@ -499,6 +507,51 @@ const VendorDetails = () => {
     setSelectedSupplyForPayment(null);
     setPaymentAmount('');
     setPaymentError('');
+  };
+
+  const handleOpenEditDialog = () => {
+    setEditFormData({
+      name: vendor?.name || '',
+      contact_person: vendor?.contact_person || '',
+      phone: vendor?.phone || ''
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditFormData({
+      name: '',
+      contact_person: '',
+      phone: ''
+    });
+  };
+
+  const handleEditFormChange = (field) => (event) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [field]: event.target.value
+    }));
+  };
+
+  const handleUpdateVendor = async () => {
+    setIsUpdating(true);
+    try {
+      const response = await axios.put(`${API_BASE_URL}/api/vendors/${vendorId}`, {
+        ...editFormData,
+        companyId: companyId
+      });
+
+      // Refresh the page to show updated data
+      window.location.reload();
+      
+      handleCloseEditDialog();
+    } catch (error) {
+      console.error('Error updating vendor:', error);
+      alert('Failed to update vendor: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handlePaymentSubmit = async () => {
@@ -756,7 +809,10 @@ const VendorDetails = () => {
       {/* Enhanced Vendor Information Cards */}
       <Grid container spacing={4} sx={{ mb: 4, position: "relative", zIndex: 1 }}>
         <Grid item xs={12} md={3}>
-          <InfoCard>
+          <InfoCard 
+            onClick={handleOpenEditDialog}
+            sx={{ cursor: 'pointer' }}
+          >
             <CardContent sx={{ textAlign: "center", p: 3 }}>
               <Box sx={{ 
                 display: "flex", 
@@ -797,7 +853,10 @@ const VendorDetails = () => {
         </Grid>
 
         <Grid item xs={12} md={3}>
-          <InfoCard>
+          <InfoCard 
+            onClick={handleOpenEditDialog}
+            sx={{ cursor: 'pointer' }}
+          >
             <CardContent sx={{ textAlign: "center", p: 3 }}>
               <Box sx={{ 
                 display: "flex", 
@@ -1537,6 +1596,161 @@ const VendorDetails = () => {
             }}
           >
             {isProcessingPayment ? 'Processing...' : 'Make Payment'}
+          </AnimatedButton>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Vendor Dialog */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={handleCloseEditDialog}
+        aria-labelledby="edit-vendor-dialog-title"
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+            boxShadow: "0 25px 50px rgba(0, 0, 0, 0.15)",
+            border: "1px solid rgba(255, 255, 255, 0.2)",
+            backdropFilter: "blur(10px)",
+          },
+        }}
+      >
+        <DialogTitle 
+          id="edit-vendor-dialog-title"
+          sx={{
+            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+            color: "white",
+            textAlign: "center",
+            fontWeight: 600,
+            fontSize: "1.25rem",
+            borderRadius: "20px 20px 0 0",
+            position: "relative",
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              bottom: "-10px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 0,
+              height: 0,
+              borderLeft: "10px solid transparent",
+              borderRight: "10px solid transparent",
+              borderTop: "10px solid #059669",
+            },
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+            <BusinessIcon sx={{ fontSize: 28 }} />
+            Edit Vendor Information
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3, mt: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <TextField
+              autoFocus
+              label="Company Name"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={editFormData.name}
+              onChange={handleEditFormChange('name')}
+              sx={{ 
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "12px",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": {
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                  },
+                  "&.Mui-focused": {
+                    boxShadow: "0 8px 16px rgba(16, 185, 129, 0.2)",
+                  },
+                },
+              }}
+            />
+            
+            <TextField
+              label="Contact Person"
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={editFormData.contact_person}
+              onChange={handleEditFormChange('contact_person')}
+              sx={{ 
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "12px",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": {
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                  },
+                  "&.Mui-focused": {
+                    boxShadow: "0 8px 16px rgba(16, 185, 129, 0.2)",
+                  },
+                },
+              }}
+            />
+            
+            <TextField
+              label="Phone Number"
+              type="tel"
+              fullWidth
+              variant="outlined"
+              value={editFormData.phone}
+              onChange={handleEditFormChange('phone')}
+              sx={{ 
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "12px",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": {
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.1)",
+                  },
+                  "&.Mui-focused": {
+                    boxShadow: "0 8px 16px rgba(16, 185, 129, 0.2)",
+                  },
+                },
+              }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 2 }}>
+          <AnimatedButton 
+            onClick={handleCloseEditDialog} 
+            disabled={isUpdating}
+            variant="outlined"
+            sx={{
+              borderColor: "rgba(107, 114, 128, 0.3)",
+              color: "rgb(107, 114, 128)",
+              minWidth: "100px",
+              "&:hover": {
+                borderColor: "rgba(107, 114, 128, 0.5)",
+                backgroundColor: "rgba(107, 114, 128, 0.05)",
+              },
+            }}
+          >
+            Cancel
+          </AnimatedButton>
+          <AnimatedButton
+            onClick={handleUpdateVendor}
+            variant="contained"
+            disabled={isUpdating || !editFormData.name.trim()}
+            startIcon={isUpdating ? <CircularProgress size={20} color="inherit" /> : <BusinessIcon />}
+            sx={{
+              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+              color: "white",
+              minWidth: "120px",
+              "&:hover": {
+                background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                transform: "translateY(-2px)",
+                boxShadow: "0 8px 16px rgba(16, 185, 129, 0.4)",
+              },
+              "&:disabled": {
+                background: "rgba(107, 114, 128, 0.3)",
+                color: "rgba(255, 255, 255, 0.7)",
+              },
+            }}
+          >
+            {isUpdating ? "Updating..." : "Update Vendor"}
           </AnimatedButton>
         </DialogActions>
       </Dialog>

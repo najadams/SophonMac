@@ -54,15 +54,15 @@ router.post('/:companyId', (req, res) => {
 
 // Update a vendor
 router.put('/:id', (req, res) => {
-  const { name, address, phone, email, contact_person, company_id } = req.body;
+  const { name, address, phone, email, contact_person, companyId } = req.body;
   
-  if (!name || !company_id) {
+  if (!name || !companyId) {
     return res.status(400).json({ error: 'Vendor name and company ID are required' });
   }
   
   db.run(
-    'UPDATE Vendor SET name = ?, address = ?, phone = ?, email = ?, contact_person = ?, company_id = ? WHERE id = ?',
-    [name, address, phone, email, contact_person, company_id, req.params.id],
+    'UPDATE Vendor SET name = ?, address = ?, phone = ?, email = ?, contact_person = ?, companyId = ? WHERE id = ?',
+    [name, address, phone, email, contact_person, companyId, req.params.id],
     function(err) {
       if (err) {
         return res.status(500).json({ error: err.message });
