@@ -220,6 +220,7 @@ const getReceipts = async (companyId, date) => {
               date: receipt.createdAt,
               balance: receipt.balance,
               flagged: receipt.flagged,
+              paymentMethod: receipt.paymentMethod,
             }))
           );
         }
@@ -270,6 +271,7 @@ const getReceipts = async (companyId, date) => {
               date: receipt.createdAt,
               balance: receipt.balance,
               flagged: receipt.flagged,
+              paymentMethod: receipt.paymentMethod,
             }));
 
             resolve(result);
