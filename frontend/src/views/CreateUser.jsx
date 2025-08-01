@@ -155,9 +155,8 @@ const CreateUser = () => {
             setSubmitting(true);
             setError(""); // Reset error message
             try {
-              // Filter out empty email field to match backend expectation
+              // Prepare data for backend
               const submitData = {
-                workerRole,
                 companyId,
                 name: values.name,
                 username: values.username,
@@ -177,14 +176,12 @@ const CreateUser = () => {
               }, 1000);
             } catch (err) {
               // Capture error message from the server
-              setError(
-                err ||
-                  "An error occurred while creating the user."
-              );
+              const errorMessage = err?.response?.data?.error || err?.message || err || "An error occurred while creating the user.";
+              setError(errorMessage);
               setTimeout(() => {
                 setError("")
-              }, 2000);
-              console.log(err);
+              }, 4000);
+              console.error('Error creating user:', err);
             }
             setSubmitting(false); // Ensure submitting is stopped
           }}> 
