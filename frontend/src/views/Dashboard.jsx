@@ -542,216 +542,216 @@ const InventoryAlerts = () => {
   );
 };
 
-// Weekday Analytics Component
-const WeekdayAnalytics = ({ dateRange }) => {
-  const companyId = useSelector((state) => state.companyState.data?.id);
-  const {
-    data: weekdayData,
-    isLoading,
-    isError,
-  } = useQuery(
-    ["weekdayAnalytics", companyId, dateRange],
-    () => fetchWeekdayAnalytics(companyId, dateRange),
-    {
-      enabled: !!companyId,
-    }
-  );
+// // Weekday Analytics Component
+// const WeekdayAnalytics = ({ dateRange }) => {
+//   const companyId = useSelector((state) => state.companyState.data?.id);
+//   const {
+//     data: weekdayData,
+//     isLoading,
+//     isError,
+//   } = useQuery(
+//     ["weekdayAnalytics", companyId, dateRange],
+//     () => fetchWeekdayAnalytics(companyId, dateRange),
+//     {
+//       enabled: !!companyId,
+//     }
+//   );
 
-  return (
-    <DummyCard title="Sales by Day of Week" index={10}>
-      {isLoading ? (
-        <Loader type={2} />
-      ) : isError ? (
-        <Typography>Error loading weekday data</Typography>
-      ) : !weekdayData || weekdayData.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 3 }}>
-          <img 
-            src="/noData.jpg" 
-            alt="No data available" 
-            style={{ maxWidth: '100%', height: 'auto', maxHeight: '200px' }}
-          />
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            No weekday data available for this period
-          </Typography>
-        </Box>
-      ) : (
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={weekdayData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-            <XAxis dataKey="dayName" stroke="#666" />
-            <YAxis stroke="#666" />
-            <RechartsTooltip
-              contentStyle={{
-                backgroundColor: "rgba(255,255,255,0.9)",
-                border: "none",
-                borderRadius: "8px",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-              }}
-            />
-            <Bar dataKey="totalSales" fill="#82ca9d" />
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </DummyCard>
-  );
-  const [customDateRange, setCustomDateRange] = useState({
-    startDate: dateRange.startDate || "",
-    endDate: dateRange.endDate || "",
-  });
-  const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false);
+//   return (
+//     <DummyCard title="Sales by Day of Week" index={10}>
+//       {isLoading ? (
+//         <Loader type={2} />
+//       ) : isError ? (
+//         <Typography>Error loading weekday data</Typography>
+//       ) : !weekdayData || weekdayData.length === 0 ? (
+//         <Box sx={{ textAlign: 'center', py: 3 }}>
+//           <img 
+//             src="/noData.jpg" 
+//             alt="No data available" 
+//             style={{ maxWidth: '100%', height: 'auto', maxHeight: '200px' }}
+//           />
+//           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+//             No weekday data available for this period
+//           </Typography>
+//         </Box>
+//       ) : (
+//         <ResponsiveContainer width="100%" height={300}>
+//           <BarChart data={weekdayData}>
+//             <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+//             <XAxis dataKey="dayName" stroke="#666" />
+//             <YAxis stroke="#666" />
+//             <RechartsTooltip
+//               contentStyle={{
+//                 backgroundColor: "rgba(255,255,255,0.9)",
+//                 border: "none",
+//                 borderRadius: "8px",
+//                 boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+//               }}
+//             />
+//             <Bar dataKey="totalSales" fill="#82ca9d" />
+//           </BarChart>
+//         </ResponsiveContainer>
+//       )}
+//     </DummyCard>
+//   );
+//   const [customDateRange, setCustomDateRange] = useState({
+//     startDate: dateRange.startDate || "",
+//     endDate: dateRange.endDate || "",
+//   });
+//   const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false);
 
-  const months = getMonthsArray();
+//   const months = getMonthsArray();
 
-  const handleOptionChange = (event) => {
-    const option = event.target.value;
-    setSelectedOption(option);
+//   const handleOptionChange = (event) => {
+//     const option = event.target.value;
+//     setSelectedOption(option);
 
-    if (option === "month") {
-      onDateRangeChange({
-        type: "month",
-        month: selectedMonth,
-      });
-    } else if (option === "custom") {
-      setIsCustomDialogOpen(true);
-    }
-  };
+//     if (option === "month") {
+//       onDateRangeChange({
+//         type: "month",
+//         month: selectedMonth,
+//       });
+//     } else if (option === "custom") {
+//       setIsCustomDialogOpen(true);
+//     }
+//   };
 
-  const handleMonthChange = (event) => {
-    const month = event.target.value;
-    setSelectedMonth(month);
+//   const handleMonthChange = (event) => {
+//     const month = event.target.value;
+//     setSelectedMonth(month);
 
-    onDateRangeChange({
-      type: "month",
-      month: month,
-    });
-  };
+//     onDateRangeChange({
+//       type: "month",
+//       month: month,
+//     });
+//   };
 
-  const handleCustomDateChange = (field, value) => {
-    setCustomDateRange((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+//   const handleCustomDateChange = (field, value) => {
+//     setCustomDateRange((prev) => ({
+//       ...prev,
+//       [field]: value,
+//     }));
+//   };
 
-  const handleCustomDateSubmit = () => {
-    onDateRangeChange({
-      type: "custom",
-      startDate: customDateRange.startDate,
-      endDate: customDateRange.endDate,
-    });
-    setIsCustomDialogOpen(false);
-  };
+//   const handleCustomDateSubmit = () => {
+//     onDateRangeChange({
+//       type: "custom",
+//       startDate: customDateRange.startDate,
+//       endDate: customDateRange.endDate,
+//     });
+//     setIsCustomDialogOpen(false);
+//   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}>
-      <Card
-        sx={{
-          mb: 3,
-          borderRadius: 2,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-        }}>
-        <CardContent>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 2,
-            }}>
-            <CalendarToday sx={{ color: "#2196f3" }} />
-            <Typography variant="h6" sx={{ fontWeight: 500, flexGrow: 1 }}>
-              Date Range
-            </Typography>
+//   return (
+//     <motion.div
+//       initial={{ opacity: 0, y: -10 }}
+//       animate={{ opacity: 1, y: 0 }}
+//       transition={{ duration: 0.3 }}>
+//       <Card
+//         sx={{
+//           mb: 3,
+//           borderRadius: 2,
+//           boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+//         }}>
+//         <CardContent>
+//           <Box
+//             sx={{
+//               display: "flex",
+//               alignItems: "center",
+//               flexWrap: "wrap",
+//               gap: 2,
+//             }}>
+//             <CalendarToday sx={{ color: "#2196f3" }} />
+//             <Typography variant="h6" sx={{ fontWeight: 500, flexGrow: 1 }}>
+//               Date Range
+//             </Typography>
 
-            <FormControl sx={{ minWidth: 150 }}>
-              <Select
-                value={selectedOption}
-                onChange={handleOptionChange}
-                size="small"
-                sx={{ borderRadius: 2 }}>
-                <MenuItem value="month">Monthly</MenuItem>
-                <MenuItem value="custom">Custom Range</MenuItem>
-              </Select>
-            </FormControl>
+//             <FormControl sx={{ minWidth: 150 }}>
+//               <Select
+//                 value={selectedOption}
+//                 onChange={handleOptionChange}
+//                 size="small"
+//                 sx={{ borderRadius: 2 }}>
+//                 <MenuItem value="month">Monthly</MenuItem>
+//                 <MenuItem value="custom">Custom Range</MenuItem>
+//               </Select>
+//             </FormControl>
 
-            {selectedOption === "month" && (
-              <FormControl sx={{ minWidth: 200 }}>
-                <Select
-                  value={selectedMonth}
-                  onChange={handleMonthChange}
-                  size="small"
-                  sx={{ borderRadius: 2 }}>
-                  {months?.map((month) => (
-                    <MenuItem key={month.value} value={month.value}>
-                      {month.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
+//             {selectedOption === "month" && (
+//               <FormControl sx={{ minWidth: 200 }}>
+//                 <Select
+//                   value={selectedMonth}
+//                   onChange={handleMonthChange}
+//                   size="small"
+//                   sx={{ borderRadius: 2 }}>
+//                   {months?.map((month) => (
+//                     <MenuItem key={month.value} value={month.value}>
+//                       {month.label}
+//                     </MenuItem>
+//                   ))}
+//                 </Select>
+//               </FormControl>
+//             )}
 
-            {selectedOption === "custom" && (
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Typography variant="body2" sx={{ color: "#666", mr: 1 }}>
-                  {customDateRange.startDate} to {customDateRange.endDate}
-                </Typography>
-                <Button
-                  startIcon={<DateRange />}
-                  size="small"
-                  onClick={() => setIsCustomDialogOpen(true)}
-                  sx={{ ml: 1 }}>
-                  Change
-                </Button>
-              </Box>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
+//             {selectedOption === "custom" && (
+//               <Box sx={{ display: "flex", alignItems: "center" }}>
+//                 <Typography variant="body2" sx={{ color: "#666", mr: 1 }}>
+//                   {customDateRange.startDate} to {customDateRange.endDate}
+//                 </Typography>
+//                 <Button
+//                   startIcon={<DateRange />}
+//                   size="small"
+//                   onClick={() => setIsCustomDialogOpen(true)}
+//                   sx={{ ml: 1 }}>
+//                   Change
+//                 </Button>
+//               </Box>
+//             )}
+//           </Box>
+//         </CardContent>
+//       </Card>
 
-      <Dialog
-        open={isCustomDialogOpen}
-        onClose={() => setIsCustomDialogOpen(false)}>
-        <DialogTitle>Select Custom Date Range</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
-            <TextField
-              label="Start Date"
-              type="date"
-              value={customDateRange.startDate}
-              onChange={(e) =>
-                handleCustomDateChange("startDate", e.target.value)
-              }
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
-            <TextField
-              label="End Date"
-              type="date"
-              value={customDateRange.endDate}
-              onChange={(e) =>
-                handleCustomDateChange("endDate", e.target.value)
-              }
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsCustomDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleCustomDateSubmit}
-            variant="contained"
-            disabled={!customDateRange.startDate || !customDateRange.endDate}>
-            Apply
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </motion.div>
-  );
-};
+//       <Dialog
+//         open={isCustomDialogOpen}
+//         onClose={() => setIsCustomDialogOpen(false)}>
+//         <DialogTitle>Select Custom Date Range</DialogTitle>
+//         <DialogContent>
+//           <Box sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+//             <TextField
+//               label="Start Date"
+//               type="date"
+//               value={customDateRange.startDate}
+//               onChange={(e) =>
+//                 handleCustomDateChange("startDate", e.target.value)
+//               }
+//               InputLabelProps={{ shrink: true }}
+//               fullWidth
+//             />
+//             <TextField
+//               label="End Date"
+//               type="date"
+//               value={customDateRange.endDate}
+//               onChange={(e) =>
+//                 handleCustomDateChange("endDate", e.target.value)
+//               }
+//               InputLabelProps={{ shrink: true }}
+//               fullWidth
+//             />
+//           </Box>
+//         </DialogContent>
+//         <DialogActions>
+//           <Button onClick={() => setIsCustomDialogOpen(false)}>Cancel</Button>
+//           <Button
+//             onClick={handleCustomDateSubmit}
+//             variant="contained"
+//             disabled={!customDateRange.startDate || !customDateRange.endDate}>
+//             Apply
+//           </Button>
+//         </DialogActions>
+//       </Dialog>
+//     </motion.div>
+//   );
+// };
 
 const DummyCard = ({ children, title, sx, index }) => (
   <motion.div
@@ -1326,13 +1326,13 @@ const Dashboard = () => {
           <HourlySales dateRange={dateRange} />
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={12}>
           <InventoryAlerts />
         </Grid>
 
-        <Grid item xs={12}>
+        {/* <Grid item xs={12}>
           <WeekdayAnalytics dateRange={dateRange} />
-        </Grid>
+        </Grid> */}
       </Grid>
       <DashboardMetrics dateRange={dateRange} />
     </motion.div>
