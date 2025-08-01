@@ -58,7 +58,7 @@ router.get('/:companyId', (req, res) => {
       FROM Receipt r
       LEFT JOIN Customer c ON r.customerId = c.id
       LEFT JOIN Worker w ON r.workerId = w.id
-      WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND r.amountPaid > 0
+      WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL)
       
       UNION ALL
       
