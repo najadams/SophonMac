@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -21,7 +22,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 3003; // Changed to 3003 to match frontend production config
+const PORT = process.env.PORT || 3001; 
 
 // Debug: Log the PORT value
 console.log('Backend starting with PORT:', PORT);

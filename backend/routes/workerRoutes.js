@@ -44,13 +44,27 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     const { name, username, contact, email, password, role, companyId: bodyCompanyId } = req.body;
     const companyId = bodyCompanyId || (req.user.role === 'company' ? req.user.id : req.user.companyId);
+    
     // Check if user has permission to create workers
-    if (req.user.role !== 'company' && req.user.worker_role !== 'super_admin') {
+    if (req.user.role !== 'company' && req.user.role !== 'super_admin') {
       return res.status(403).json({ error: 'Only company owners or super admins can create workers' });
     }
     
-    if (!name || !password) {
-      return res.status(400).json({ error: 'Worker name and password are required' });
+    // Validate required fields
+    if (!name || !username || !password || !contact) {
+      return res.status(400).json({ error: 'Name, username, password, and contact are required' });
+    }
+    
+    // Check if username already exists
+    const existingWorker = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM Worker WHERE username = ? AND companyId = ?', [username, companyId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    
+    if (existingWorker) {
+      return res.status(400).json({ error: 'Username already exists' });
     }
     
     // Check if worker role is valid

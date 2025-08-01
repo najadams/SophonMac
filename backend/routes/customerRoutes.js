@@ -94,14 +94,14 @@ router.post('/', (req, res) => {
         // Insert email addresses if provided (handle array)
         if (email) {
           const emailArray = Array.isArray(email) ? email : [email];
-          const validEmails = emailArray.filter(e => e && e.trim() !== '');
+          const validEmails = [...new Set(emailArray.filter(e => e && e.trim() !== '').map(e => e.trim()))];
           
           if (validEmails.length > 0) {
             let emailInsertCount = 0;
             validEmails.forEach((emailAddress) => {
               db.run(
-                'INSERT INTO CustomerEmail (customerId, email) VALUES (?, ?)',
-                [customerId, emailAddress.trim()],
+                'INSERT OR IGNORE INTO CustomerEmail (customerId, email) VALUES (?, ?)',
+                [customerId, emailAddress],
                 function(emailErr) {
                   if (emailErr) {
                     db.run('ROLLBACK');
@@ -122,14 +122,14 @@ router.post('/', (req, res) => {
         // Insert phone numbers if provided (handle array)
         if (phone) {
           const phoneArray = Array.isArray(phone) ? phone : [phone];
-          const validPhones = phoneArray.filter(p => p && p.trim() !== '');
+          const validPhones = [...new Set(phoneArray.filter(p => p && p.trim() !== '').map(p => p.trim()))];
           
           if (validPhones.length > 0) {
             let phoneInsertCount = 0;
             validPhones.forEach((phoneNumber) => {
               db.run(
-                'INSERT INTO CustomerPhone (customerId, phone) VALUES (?, ?)',
-                [customerId, phoneNumber.trim()],
+                'INSERT OR IGNORE INTO CustomerPhone (customerId, phone) VALUES (?, ?)',
+                [customerId, phoneNumber],
                 function(phoneErr) {
                   if (phoneErr) {
                     db.run('ROLLBACK');
@@ -176,7 +176,7 @@ router.put('/:id', (req, res) => {
 
 // PATCH endpoint for updating customer (handles arrays for phone and email)
 router.patch('/:id', (req, res) => {
-  const { id, name, email, phone, address, company } = req.body;
+  const { name, email, phone, address, company } = req.body;
   const customerId = req.params.id;
   
   if (!name) {
@@ -244,14 +244,14 @@ router.patch('/:id', (req, res) => {
             
             // Insert new emails if provided
             const emailArray = Array.isArray(email) ? email : [email];
-            const validEmails = emailArray.filter(e => e && e.trim() !== '');
+            const validEmails = [...new Set(emailArray.filter(e => e && e.trim() !== '').map(e => e.trim()))];
             
             if (validEmails.length > 0) {
               let emailInsertCount = 0;
               validEmails.forEach((emailAddress) => {
                 db.run(
-                  'INSERT INTO CustomerEmail (customerId, email) VALUES (?, ?)',
-                  [customerId, emailAddress.trim()],
+                  'INSERT OR IGNORE INTO CustomerEmail (customerId, email) VALUES (?, ?)',
+                  [customerId, emailAddress],
                   function(emailErr) {
                     if (emailErr) {
                       db.run('ROLLBACK');
@@ -281,14 +281,14 @@ router.patch('/:id', (req, res) => {
             
             // Insert new phones if provided
             const phoneArray = Array.isArray(phone) ? phone : [phone];
-            const validPhones = phoneArray.filter(p => p && p.trim() !== '');
+            const validPhones = [...new Set(phoneArray.filter(p => p && p.trim() !== '').map(p => p.trim()))];
             
             if (validPhones.length > 0) {
               let phoneInsertCount = 0;
               validPhones.forEach((phoneNumber) => {
                 db.run(
-                  'INSERT INTO CustomerPhone (customerId, phone) VALUES (?, ?)',
-                  [customerId, phoneNumber.trim()],
+                  'INSERT OR IGNORE INTO CustomerPhone (customerId, phone) VALUES (?, ?)',
+                  [customerId, phoneNumber],
                   function(phoneErr) {
                     if (phoneErr) {
                       db.run('ROLLBACK');
@@ -632,6 +632,7 @@ router.get('/:customerId/summary', (req, res) => {
     // Transform phone and email to arrays
     customer.phone = customer.phone ? customer.phone.split(',') : [];
     customer.email = customer.email ? customer.email.split(',') : [];
+    console.log(customer)
     
     res.json({ customer });
   });
