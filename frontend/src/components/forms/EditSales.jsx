@@ -1269,7 +1269,6 @@ const EditSales = () => {
                           <MenuItem value="bank_transfer">
                             Bank Transfer
                           </MenuItem>
-                          <MenuItem value="check">Check</MenuItem>
                         </Select>
                         {hasError && (
                           <Typography

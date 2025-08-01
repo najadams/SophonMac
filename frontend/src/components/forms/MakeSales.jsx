@@ -11,8 +11,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  FormControlLabel,
-  Switch,
   Select,
   MenuItem,
   FormControl,
@@ -20,7 +18,6 @@ import {
 } from "@mui/material";
 import ErrorAlert from "../../utils/Error";
 import { Autocomplete } from "@mui/material";
-import { Input } from "@mui/material";
 import * as Yup from "yup";
 import {
   capitalizeFirstLetter,
@@ -96,9 +93,7 @@ const MakeSales = ({
       name: "<<<< Add New Product >>>>",
     },
 
-    ...Products?.sort((a, b) => a.name?.localeCompare(b.name)).filter(
-      (option) => option !== "<<<< Add New Product >>>>"
-    ),
+    ...Products?.sort((a, b) => a.name?.localeCompare(b.name))
   ]);
 
   // Update product options when Products prop changes
@@ -187,7 +182,6 @@ const MakeSales = ({
     values.total = total; // Maintain total before discount
     const balance = values.total - values.amountPaid - values.discount;
 
-    console.log(values);
     try {
       // Validate product details
       const errors = validateReceiptDetail(values);
@@ -363,15 +357,16 @@ const MakeSales = ({
         companyId,
       });
 
-      if (!data || !data.data) {
+
+      if (!data) {
         const errorMessage = typeof data === 'string' ? data : (data?.message || 'Failed to add product');
         throw new Error(errorMessage);
       }
 
-      const addedProduct = data.data.data;
+      const addedProduct = data;
       const acceptedProduct = {
         id: addedProduct.id,
-        name: capitalizeFirstLetter(addedProduct.name),
+        name: addedProduct.name,
         salesPrice: addedProduct.salesPrice || 0,
         onhand: addedProduct.onhand || 0,
         baseUnit: addedProduct.defaultUnit || "none",
@@ -398,7 +393,6 @@ const MakeSales = ({
             (option) => option.name !== "<<<< Add New Product >>>>"
           );
           return [
-            { id: 1, name: "<<<< Add New Product >>>>" },
             acceptedProduct,
             ...filteredOptions,
           ];
@@ -434,28 +428,6 @@ const MakeSales = ({
       [name]: value,
     }));
   };
-
-  // Apply a quick quantity value
-  // const applyQuickQuantity = (index, value, product, setFieldValue) => {
-  //   setFieldValue(`products.${index}.quantity`, value);
-
-  //   const selectedProduct = productOptions.find((p) => p.name === product.name);
-
-  //   if (selectedProduct) {
-  //     const currentPrice = product.price || selectedProduct.salesPrice;
-  //     const numericValue =
-  //       value === "¼"
-  //         ? 0.25
-  //         : value === "½"
-  //         ? 0.5
-  //         : value === "¾"
-  //         ? 0.75
-  //         : parseFloat(value);
-
-  //     const newTotalPrice = Math.ceil(numericValue * currentPrice);
-  //     setFieldValue(`products.${index}.totalPrice`, newTotalPrice);
-  //   }
-  // };
 
   const getProductUnits = (productName) => {
     if (!productName) return ["none"];
@@ -565,31 +537,20 @@ const MakeSales = ({
     );
     if (!product) return 0;
 
-    console.log('MakeSales getUnitPrice - Product:', product.name, 'Unit:', unit);
-    console.log('MakeSales getUnitPrice - Product conversions:', product.conversions);
-    console.log('MakeSales getUnitPrice - Base unit:', product.baseUnit, 'Base price:', product.salesPrice);
-
-    // If it's the base unit, return the base sales price
+     // If it's the base unit, return the base sales price
     if (unit === product.baseUnit) {
-      console.log('MakeSales getUnitPrice - Using base unit price:', product.salesPrice);
       return product.salesPrice;
     }
 
-    // If it's the atomic unit, calculate price based on conversion
-    // if (unit === product.atomicUnit) {
-    //   return product.salesPrice / product.conversionFactor;
-    // }
 
     // Find the conversion for this unit
     const conversion = product.conversions?.find(
       (conv) => conv.toUnit === unit
     );
     if (conversion) {
-      console.log('MakeSales getUnitPrice - Found conversion:', conversion, 'Price:', conversion.salesPrice);
       return conversion.salesPrice;
     }
 
-    console.log('MakeSales getUnitPrice - No conversion found, using base price:', product.salesPrice);
     return product.salesPrice;
   };
 
