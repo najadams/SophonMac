@@ -26,3 +26,8 @@ backend/data/db/database.sqlite
 logs/*
 troubleshoot.js
 test_restock.json
+distWorking
+.vercel
+frontend/pnpm-lock.yaml
+backend/pnpm-lock.yaml
+pnpm-workspace.yaml
