@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { API_BASE_URL } from '../config';
 import { motion } from 'framer-motion';
 import {
-  Container,
   Paper,
   Typography,
   Grid,
@@ -31,11 +30,14 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  TextField,
+  IconButton,
 } from "@mui/material";
-import { styled } from "@mui/material/styles";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import PersonIcon from "@mui/icons-material/Person";
+import SaveIcon from "@mui/icons-material/Save";
+import CancelIcon from "@mui/icons-material/Cancel";
 import PhoneIcon from "@mui/icons-material/Phone";
 import EmailIcon from "@mui/icons-material/Email";
 import BusinessIcon from "@mui/icons-material/Business";
@@ -52,88 +54,9 @@ import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import { capitalizeFirstLetter, tableActions } from "../config/Functions";
 
-const StyledPaper = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(5),
-  borderRadius: "32px",
-  boxShadow: "0 32px 80px rgba(102, 126, 234, 0.2), 0 16px 40px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8)",
-  background: 'white',
-  border: "2px solid transparent",
-  backgroundClip: "padding-box",
-  backdropFilter: "blur(30px) saturate(180%)",
-  position: "relative",
-  overflow: "hidden",
-  transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-  "&::before": {
-    content: '""',
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    // background: "linear-gradient(135deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 50%, rgba(240, 147, 251, 0.03) 100%)",
-    pointerEvents: "none",
-  },
-  "&::after": {
-    content: '""',
-    position: "absolute",
-    top: -2,
-    left: -2,
-    right: -2,
-    bottom: -2,
-    borderRadius: "34px",
-    zIndex: -1,
-    opacity: 0.6,
-  },
-  "&:hover": {
-    transform: "translateY(-4px)",
-    boxShadow: "0 40px 100px rgba(102, 126, 234, 0.3), 0 20px 50px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)",
-  },
-}));
+// Removed StyledPaper - using consistent Paper styling from SummaryReports
 
-const InfoCard = styled(Card)(({ theme }) => ({
-  height: "100%",
-  borderRadius: "24px",
-  boxShadow: "0 16px 50px rgba(102, 126, 234, 0.15), 0 6px 20px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7)",
-  transition: "all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-  background: "linear-gradient(145deg, #ffffff 0%, #fafbff 40%, #f8fafc 80%, #f1f5f9 100%)",
-  border: "1px solid rgba(102, 126, 234, 0.12)",
-  position: "relative",
-  overflow: "hidden",
-  "&::before": {
-    content: '""',
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: "6px",
-    background: "linear-gradient(90deg, #4A90E2 0%, #7BB3F0 30%, #A8D5F2 60%, #C8E6F5 100%)",
-    transform: "scaleX(0)",
-    transformOrigin: "left",
-    transition: "transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-  },
-  "&::after": {
-    content: '""',
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "radial-gradient(circle at 50% 50%, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 50%, rgba(240, 147, 251, 0.05) 100%)",
-    opacity: 0,
-    transition: "opacity 0.5s ease",
-    pointerEvents: "none",
-  },
-  "&:hover": {
-    transform: "translateY(-16px) scale(1.03) rotateX(5deg)",
-    boxShadow: "0 40px 100px rgba(102, 126, 234, 0.3), 0 20px 50px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9)",
-    "&::before": {
-      transform: "scaleX(1)",
-    },
-    "&::after": {
-      opacity: 1,
-    },
-  },
-}));
+// Removed InfoCard - using consistent Card styling from SummaryReports
 
 // Tab panel component
 function TabPanel({ children, value, index, ...other }) {
@@ -169,6 +92,8 @@ const CustomerInfo = () => {
   const [discountSummary, setDiscountSummary] = useState({ totalDiscounts: 0, discountCount: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editingField, setEditingField] = useState(null);
+  const [editValues, setEditValues] = useState({});
 
   const customerId = id || customer?.id;
 
@@ -250,10 +175,80 @@ const CustomerInfo = () => {
     });
   };
 
+  const handleEditStart = (field, currentValue) => {
+    setEditingField(field);
+    setEditValues({ [field]: currentValue });
+  };
+
+  const handleEditCancel = () => {
+    setEditingField(null);
+    setEditValues({});
+  };
+
+  const handleEditSave = async (field) => {
+    try {
+      let valueToSave = editValues[field];
+      
+      // Handle phone numbers as array
+      if (field === 'phone') {
+        valueToSave = editValues[field]
+          .split(',')
+          .map(phone => phone.trim())
+          .filter(phone => phone.length > 0);
+      }
+
+      // Prepare the data object with current customer data plus the updated field
+      const updateData = {
+        name: displayCustomer.name,
+        company: displayCustomer.company,
+        address: displayCustomer.address,
+        [field]: valueToSave
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/customers/${customerId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (response.ok) {
+        // Update local state
+        setCustomerData(prev => ({
+          ...prev,
+          [field]: valueToSave
+        }));
+        setEditingField(null);
+        setEditValues({});
+        // Refresh customer data to get updated info
+        fetchCustomerData();
+      } else {
+        throw new Error('Failed to update customer');
+      }
+    } catch (err) {
+      console.error('Error updating customer:', err);
+      setError('Failed to update customer information');
+    }
+  };
+
+  const handleEditChange = (field, value) => {
+    setEditValues(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   if (!customerId) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <StyledPaper>
+      <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: "100%" }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 1.5, sm: 2 },
+            backgroundColor: "#f8f9fa",
+            maxWidth: "100%",
+          }}>
           <Typography variant="h6" color="error">
             Customer not found. Please go back and try again.
           </Typography>
@@ -263,24 +258,24 @@ const CustomerInfo = () => {
             sx={{ mt: 2 }}>
             Back to Customers
           </Button>
-        </StyledPaper>
-      </Container>
+        </Paper>
+      </Box>
     );
   }
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4, display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: "100%", display: 'flex', justifyContent: 'center' }}>
         <CircularProgress />
-      </Container>
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ p: { xs: 1.5, sm: 2 }, maxWidth: "100%" }}>
         <Alert severity="error">{error}</Alert>
-      </Container>
+      </Box>
     );
   }
 
@@ -289,275 +284,324 @@ const CustomerInfo = () => {
   const emailAddresses = Array.isArray(displayCustomer?.email) ? displayCustomer.email : [displayCustomer?.email].filter(Boolean);
 
   return (
-    <Container
-      maxWidth="xl"
-      sx={{
-        mt: 4,
-        mb: 4,
-        height: "calc(100vh - 120px)",
-        overflow: "auto",
-        position: "relative",
-        "&::before": {
-          content: '""',
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background:
-            "linear-gradient(135deg, rgba(74, 144, 226, 0.02) 0%, rgba(123, 179, 240, 0.02) 25%, rgba(168, 213, 242, 0.02) 50%, rgba(200, 230, 245, 0.02) 75%, rgba(74, 144, 226, 0.02) 100%)",
-          backgroundImage: `
-            radial-gradient(circle at 20% 20%, rgba(74, 144, 226, 0.06) 0%, transparent 40%),
-            radial-gradient(circle at 80% 80%, rgba(123, 179, 240, 0.06) 0%, transparent 40%),
-            radial-gradient(circle at 40% 60%, rgba(168, 213, 242, 0.04) 0%, transparent 40%),
-            radial-gradient(circle at 60% 40%, rgba(200, 230, 245, 0.04) 0%, transparent 40%),
-            linear-gradient(45deg, transparent 30%, rgba(74, 144, 226, 0.015) 50%, transparent 70%),
-            linear-gradient(-45deg, transparent 30%, rgba(123, 179, 240, 0.015) 50%, transparent 70%)
-          `,
-          backgroundSize:
-            "100% 100%, 100% 100%, 100% 100%, 100% 100%, 200% 200%, 200% 200%",
-          animation: "backgroundShift 20s ease-in-out infinite",
-          pointerEvents: "none",
-          zIndex: -1,
-        },
-        "@keyframes backgroundShift": {
-          "0%, 100%": {
-            backgroundPosition: "0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%",
-          },
-          "50%": {
-            backgroundPosition:
-              "0% 0%, 0% 0%, 0% 0%, 0% 0%, 100% 100%, -100% -100%",
-          },
-        },
-      }}>
-      <Box sx={{ mb: 3 }}>
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate("/customers")}
-            variant="outlined"
-            sx={{
-              mb: 2,
-              borderRadius: "12px",
-              textTransform: "none",
-              fontWeight: 600,
-              borderColor: "#4A90E2",
-              color: "#4A90E2",
-              "&:hover": {
-                borderColor: "#7BB3F0",
-                backgroundColor: "rgba(155, 190, 230, 0.06)",
-                transform: "translateY(-2px)",
-                boxShadow: "0 4px 12px rgba(74, 144, 226, 0.25)",
-              },
-              transition: "all 0.3s ease",
-            }}>
-            Back to Customers
-          </Button>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}>
-          <Typography
-            variant="h4"
-            component="h1"
-            gutterBottom
-            sx={{
-              // background: 'linear-gradient(135deg, #4A90E2 0%, #7BB3F0 100%)',
-              background: "black",
-              backgroundClip: "text",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              fontWeight: 700,
-              letterSpacing: "-0.02em",
-            }}>
-            {capitalizeFirstLetter(displayCustomer?.company)}{" "}
-            {capitalizeFirstLetter(displayCustomer?.name)} - Customer Details
-          </Typography>
-        </motion.div>
-      </Box>
+    <Box sx={{ p: { xs: 0.5, sm: 2 }, pb: { xs: 3, sm: 4 }, maxWidth: "100%", height: "100vh", overflow: "auto" }}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.5, sm: 2 },
+          mb: 3,
+          backgroundColor: "#f8f9fa",
+          maxWidth: "100%",
+        }}>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate("/customers")}
+          variant="outlined"
+          sx={{
+            mb: 2,
+            borderRadius: "8px",
+            textTransform: "none",
+            fontWeight: 600,
+          }}>
+          Back to Customers
+        </Button>
+        <Typography
+          variant="h4"
+          gutterBottom
+          sx={{
+            fontWeight: 600,
+            color: "#1a237e",
+            mb: 2,
+            fontSize: { xs: "1.25rem", sm: "1.75rem" },
+          }}>
+          {capitalizeFirstLetter(displayCustomer?.company)}{" "}
+          {capitalizeFirstLetter(displayCustomer?.name)} - Customer Details
+        </Typography>
+      </Paper>
 
       {/* Customer Summary Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}>
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.5, sm: 2 },
+          mb: 3,
+          backgroundColor: "#f8f9fa",
+          maxWidth: "100%",
+        }}>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 600,
+            color: "#1a237e",
+            mb: 2,
+            fontSize: { xs: "1.1rem", sm: "1.25rem" },
+          }}>
+          Customer Summary
+        </Typography>
+        <Grid container spacing={{ xs: 1, sm: 1.5 }}>
           <Grid item xs={12} sm={6} md={3}>
-            <InfoCard>
-              <CardContent>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    mb: 2,
-                    position: "relative",
-                    zIndex: 1,
-                  }}>
-                  <SummaryIcon color="primary" sx={{ mr: 1 }} />
-                  <Typography variant="h6">Total Purchases</Typography>
-                </Box>
-                <Typography
-                  variant="h4"
-                  sx={{
-                    background:
-                      "linear-gradient(135deg, #4A90E2 0%, #7BB3F0 100%)",
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    fontWeight: 700,
-                    position: "relative",
-                    zIndex: 1,
-                  }}>
-                  {formatCurrency(displayCustomer?.totalPurchases)}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "rgba(74, 144, 226, 0.7)",
-                    fontWeight: 500,
-                    position: "relative",
-                    zIndex: 1,
-                  }}>
-                  {displayCustomer?.totalReceipts || 0} receipts
-                </Typography>
-              </CardContent>
-            </InfoCard>
+            <Card
+              elevation={2}
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                textAlign: "center",
+                backgroundColor: "#ffffff",
+                borderRadius: "8px",
+                transition: "transform 0.2s",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                "&:hover": {
+                  transform: "translateY(-3px)",
+                  boxShadow: 2,
+                },
+              }}>
+              <Box
+                sx={{
+                  backgroundColor: "#e3f2fd",
+                  borderRadius: "50%",
+                  width: { xs: 40, sm: 45 },
+                  height: { xs: 40, sm: 45 },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 8px",
+                }}>
+                <SummaryIcon
+                  color="primary"
+                  sx={{ fontSize: { xs: 20, sm: 24 } }}
+                />
+              </Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: "#666",
+                  mb: 0.5,
+                  fontWeight: 500,
+                  fontSize: { xs: "0.85rem", sm: "0.9rem" },
+                }}>
+                Total Purchases
+              </Typography>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: "#1976d2",
+                  fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                }}>
+                {formatCurrency(displayCustomer?.totalPurchases)}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "#666",
+                  fontWeight: 500,
+                }}>
+                {displayCustomer?.totalReceipts || 0} receipts
+              </Typography>
+            </Card>
           </Grid>
 
           <Grid item xs={12} sm={6} md={3}>
-            <InfoCard>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                  <AttachMoneyIcon color="success" sx={{ mr: 1 }} />
-                  <Typography variant="h6">Total Paid</Typography>
-                </Box>
-                <Typography
-                  variant="h4"
-                  sx={{
-                    background:
-                      "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    fontWeight: 700,
-                    position: "relative",
-                    zIndex: 1,
-                  }}>
-                  {formatCurrency(displayCustomer?.totalPaid)}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "rgba(16, 185, 129, 0.7)",
-                    fontWeight: 500,
-                    position: "relative",
-                    zIndex: 1,
-                  }}>
-                  Payments received
-                </Typography>
-              </CardContent>
-            </InfoCard>
+            <Card
+              elevation={2}
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                textAlign: "center",
+                backgroundColor: "#ffffff",
+                borderRadius: "8px",
+                transition: "transform 0.2s",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                "&:hover": {
+                  transform: "translateY(-3px)",
+                  boxShadow: 2,
+                },
+              }}>
+              <Box
+                sx={{
+                  backgroundColor: "#e8f5e9",
+                  borderRadius: "50%",
+                  width: { xs: 40, sm: 45 },
+                  height: { xs: 40, sm: 45 },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 8px",
+                }}>
+                <AttachMoneyIcon
+                  color="success"
+                  sx={{ fontSize: { xs: 20, sm: 24 } }}
+                />
+              </Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: "#666",
+                  mb: 0.5,
+                  fontWeight: 500,
+                  fontSize: { xs: "0.85rem", sm: "0.9rem" },
+                }}>
+                Total Paid
+              </Typography>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: "#2e7d32",
+                  fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                }}>
+                {formatCurrency(displayCustomer?.totalPaid)}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "#666",
+                  fontWeight: 500,
+                }}>
+                Payments received
+              </Typography>
+            </Card>
           </Grid>
 
           <Grid item xs={12} sm={6} md={3}>
-            <InfoCard>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                  <DebtIcon color="error" sx={{ mr: 1 }} />
-                  <Typography variant="h6">Outstanding Debt</Typography>
-                </Box>
-                <Typography
-                  variant="h4"
-                  sx={{
-                    background:
-                      "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    fontWeight: 700,
-                    position: "relative",
-                    zIndex: 1,
-                  }}>
-                  {formatCurrency(displayCustomer?.totalDebt)}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "rgba(239, 68, 68, 0.7)",
-                    fontWeight: 500,
-                    position: "relative",
-                    zIndex: 1,
-                  }}>
-                  {displayCustomer?.pendingDebts || 0} pending debts
-                </Typography>
-              </CardContent>
-            </InfoCard>
+            <Card
+              elevation={2}
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                textAlign: "center",
+                backgroundColor: "#ffffff",
+                borderRadius: "8px",
+                transition: "transform 0.2s",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                "&:hover": {
+                  transform: "translateY(-3px)",
+                  boxShadow: 2,
+                },
+              }}>
+              <Box
+                sx={{
+                  backgroundColor: "#ffebee",
+                  borderRadius: "50%",
+                  width: { xs: 40, sm: 45 },
+                  height: { xs: 40, sm: 45 },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 8px",
+                }}>
+                <DebtIcon
+                  color="error"
+                  sx={{ fontSize: { xs: 20, sm: 24 } }}
+                />
+              </Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: "#666",
+                  mb: 0.5,
+                  fontWeight: 500,
+                  fontSize: { xs: "0.85rem", sm: "0.9rem" },
+                }}>
+                Outstanding Debt
+              </Typography>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: "#d32f2f",
+                  fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                }}>
+                {formatCurrency(displayCustomer?.totalDebt)}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "#666",
+                  fontWeight: 500,
+                }}>
+                {displayCustomer?.pendingDebts || 0} pending debts
+              </Typography>
+            </Card>
           </Grid>
 
           <Grid item xs={12} sm={6} md={3}>
-            <InfoCard>
-              <CardContent>
-                <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-                  <LocalOfferIcon color="warning" sx={{ mr: 1 }} />
-                  <Typography variant="h6">Total Discounts</Typography>
-                </Box>
-                <Typography
-                  variant="h4"
-                  sx={{
-                    background:
-                      "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    fontWeight: 700,
-                    position: "relative",
-                    zIndex: 1,
-                  }}>
-                  {formatCurrency(discountSummary.totalDiscounts)}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "rgba(245, 158, 11, 0.7)",
-                    fontWeight: 500,
-                    position: "relative",
-                    zIndex: 1,
-                  }}>
-                  {discountSummary.discountCount} discount transactions
-                </Typography>
-              </CardContent>
-            </InfoCard>
+            <Card
+              elevation={2}
+              sx={{
+                p: { xs: 1.5, sm: 2 },
+                textAlign: "center",
+                backgroundColor: "#ffffff",
+                borderRadius: "8px",
+                transition: "transform 0.2s",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                "&:hover": {
+                  transform: "translateY(-3px)",
+                  boxShadow: 2,
+                },
+              }}>
+              <Box
+                sx={{
+                  backgroundColor: "#fff3e0",
+                  borderRadius: "50%",
+                  width: { xs: 40, sm: 45 },
+                  height: { xs: 40, sm: 45 },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 8px",
+                }}>
+                <LocalOfferIcon
+                  color="warning"
+                  sx={{ fontSize: { xs: 20, sm: 24 } }}
+                />
+              </Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: "#666",
+                  mb: 0.5,
+                  fontWeight: 500,
+                  fontSize: { xs: "0.85rem", sm: "0.9rem" },
+                }}>
+                Total Discounts
+              </Typography>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: "#f57c00",
+                  fontSize: { xs: "1.25rem", sm: "1.5rem" },
+                }}>
+                {formatCurrency(discountSummary.totalDiscounts)}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "#666",
+                  fontWeight: 500,
+                }}>
+                {discountSummary.discountCount} discount transactions
+              </Typography>
+            </Card>
           </Grid>
         </Grid>
-      </motion.div>
+      </Paper>
 
       {/* Tabs Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.2 }}>
-        <StyledPaper>
-          <Box
-            sx={{
-              borderBottom: "2px solid",
-              borderImage:
-                "linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%) 1",
-              position: "relative",
-              "&::after": {
-                content: '""',
-                position: "absolute",
-                bottom: "-2px",
-                left: 0,
-                right: 0,
-                height: "2px",
-                background:
-                  "linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)",
-              },
-            }}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.5, sm: 2 },
+          backgroundColor: "#f8f9fa",
+          maxWidth: "100%",
+        }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
             <Tabs
               value={tabValue}
               onChange={handleTabChange}
@@ -565,51 +609,17 @@ const CustomerInfo = () => {
               sx={{
                 "& .MuiTab-root": {
                   textTransform: "none",
-                  fontWeight: 600,
-                  fontSize: "1rem",
-                  borderRadius: "16px 16px 0 0",
-                  margin: "0 6px",
-                  padding: "12px 24px",
-                  minHeight: "64px",
-                  transition:
-                    "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-                  position: "relative",
-                  overflow: "hidden",
-                  "&::before": {
-                    content: '""',
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background:
-                      "linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)",
-                    opacity: 0,
-                    transition: "opacity 0.3s ease",
-                  },
-                  "&:hover": {
-                    backgroundColor: "rgba(102, 126, 234, 0.1)",
-                    transform: "translateY(-3px) scale(1.02)",
-                    boxShadow: "0 8px 25px rgba(102, 126, 234, 0.2)",
-                    "&::before": {
-                      opacity: 1,
-                    },
-                  },
+                  fontWeight: 500,
+                  fontSize: "0.9rem",
+                  minHeight: "48px",
+                  color: "#666",
                   "&.Mui-selected": {
-                    background:
-                      "linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)",
-                    color: "white",
-                    transform: "translateY(-3px)",
-                    boxShadow:
-                      "0 12px 30px rgba(102, 126, 234, 0.3), 0 6px 15px rgba(0, 0, 0, 0.1)",
-                    "& .MuiSvgIcon-root": {
-                      color: "white",
-                      filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))",
-                    },
+                    color: "#1976d2",
+                    fontWeight: 600,
                   },
                 },
                 "& .MuiTabs-indicator": {
-                  display: "none",
+                  backgroundColor: "#1976d2",
                 },
               }}>
               <Tab
@@ -657,9 +667,50 @@ const CustomerInfo = () => {
                       gutterBottom>
                       Full Name
                     </Typography>
-                    <Typography variant="body1" sx={{ mb: 2 }}>
-                      {capitalizeFirstLetter(displayCustomer?.name)}
-                    </Typography>
+                    {editingField === 'name' ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <TextField
+                          size="small"
+                          value={editValues.name || ''}
+                          onChange={(e) => handleEditChange('name', e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleEditSave('name');
+                            } else if (e.key === 'Escape') {
+                              handleEditCancel();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditSave('name')}
+                          color="primary"
+                        >
+                          <SaveIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={handleEditCancel}
+                          color="secondary"
+                        >
+                          <CancelIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <Typography variant="body1" sx={{ flexGrow: 1 }}>
+                          {capitalizeFirstLetter(displayCustomer?.name)}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditStart('name', displayCustomer?.name)}
+                          sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    )}
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
@@ -681,9 +732,50 @@ const CustomerInfo = () => {
                       gutterBottom>
                       Company
                     </Typography>
-                    <Typography variant="body1" sx={{ mb: 2 }}>
-                      {displayCustomer?.company || "Individual Customer"}
-                    </Typography>
+                    {editingField === 'company' ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <TextField
+                          size="small"
+                          value={editValues.company || ''}
+                          onChange={(e) => handleEditChange('company', e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleEditSave('company');
+                            } else if (e.key === 'Escape') {
+                              handleEditCancel();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditSave('company')}
+                          color="primary"
+                        >
+                          <SaveIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={handleEditCancel}
+                          color="secondary"
+                        >
+                          <CancelIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                        <Typography variant="body1" sx={{ flexGrow: 1 }}>
+                          {displayCustomer?.company || "Individual Customer"}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditStart('company', displayCustomer?.company || '')}
+                          sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    )}
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
@@ -729,17 +821,31 @@ const CustomerInfo = () => {
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <InfoCard>
+                <Card
+                  elevation={2}
+                  sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    backgroundColor: "#ffffff",
+                    borderRadius: "8px",
+                    transition: "transform 0.2s",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    "&:hover": {
+                      transform: "translateY(-3px)",
+                      boxShadow: 2,
+                    },
+                  }}>
                   <CardContent>
                     <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
                       <PersonIcon color="primary" sx={{ mr: 1 }} />
                       <Typography variant="h6">Contact Information</Typography>
                     </Box>
 
-                    {phoneNumbers.length > 0 && (
-                      <Box sx={{ mb: 2 }}>
-                        <Box
-                          sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                    <Box sx={{ mb: 2 }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", mb: 1, justifyContent: "space-between" }}>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
                           <PhoneIcon
                             fontSize="small"
                             color="primary"
@@ -751,18 +857,66 @@ const CustomerInfo = () => {
                             Phone Numbers
                           </Typography>
                         </Box>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditStart('phone', phoneNumbers.join(', '))}
+                          sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                      {editingField === 'phone' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            value={editValues.phone || ''}
+                            onChange={(e) => handleEditChange('phone', e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                handleEditSave('phone');
+                              } else if (e.key === 'Escape') {
+                                handleEditCancel();
+                              }
+                            }}
+                            placeholder="Enter phone numbers separated by commas"
+                            autoFocus
+                          />
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditSave('phone')}
+                            color="primary"
+                          >
+                            <SaveIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={handleEditCancel}
+                            color="secondary"
+                          >
+                            <CancelIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ) : (
                         <List dense>
-                          {phoneNumbers.map((phone, index) => (
+                          {phoneNumbers.length > 0 ? phoneNumbers.map((phone, index) => (
                             <ListItem key={index} sx={{ px: 0 }}>
                               <ListItemIcon sx={{ minWidth: 32 }}>
                                 <PhoneIcon fontSize="small" color="primary" />
                               </ListItemIcon>
                               <ListItemText primary={phone} />
                             </ListItem>
-                          ))}
+                          )) : (
+                            <ListItem sx={{ px: 0 }}>
+                              <ListItemText 
+                                primary="No phone numbers" 
+                                sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+                              />
+                            </ListItem>
+                          )}
                         </List>
-                      </Box>
-                    )}
+                      )}
+                    </Box>
 
                     {emailAddresses.length > 0 && (
                       <Box>
@@ -792,7 +946,7 @@ const CustomerInfo = () => {
                       </Box>
                     )}
                   </CardContent>
-                </InfoCard>
+                </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
           <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
@@ -1408,9 +1562,8 @@ const CustomerInfo = () => {
               </Box>
             )}
           </TabPanel>
-        </StyledPaper>
-      </motion.div>
-    </Container>
+        </Paper>
+    </Box>
   );
 };
 
