@@ -51,6 +51,7 @@ const ViewReceipt = () => {
     workerName,
     date,
     discount,
+    paymentMethod,
   } = row; // Destructure the receipt data from row
 
   // Define colors
@@ -128,7 +129,7 @@ const ViewReceipt = () => {
 
             {/* Customer Info */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={3}>
                 <Typography variant="subtitle1" color="primary" sx={{ mb: 1 }}>
                   Customer
                 </Typography>
@@ -137,7 +138,7 @@ const ViewReceipt = () => {
                   {capitalizeFirstLetter(customerCompany)}
                 </Typography>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={3}>
                 <Typography variant="subtitle1" color="primary" sx={{ mb: 1 }}>
                   Cashier
                 </Typography>
@@ -145,7 +146,7 @@ const ViewReceipt = () => {
                   {capitalizeFirstLetter(workerName)}
                 </Typography>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={3}>
                 <Typography variant="subtitle1" color="primary" sx={{ mb: 1 }}>
                   Date
                 </Typography>
@@ -154,6 +155,14 @@ const ViewReceipt = () => {
                     ? format(new Date(date), "dd/MM/yyyy")
                     : "Invalid Date"
                   }
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Typography variant="subtitle1" color="primary" sx={{ mb: 1 }}>
+                  Payment Method
+                </Typography>
+                <Typography variant="body1">
+                  {capitalizeFirstLetter(paymentMethod || "Cash")}
                 </Typography>
               </Grid>
             </Grid>
