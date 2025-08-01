@@ -53,6 +53,7 @@ const Employees = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
+    userName: '',
     contact: '',
     email: '',
     role: 'worker'
@@ -65,19 +66,21 @@ const Employees = () => {
   const userRole = currentUser?.role || currentUser?.worker?.role;
 
   const roleOptions = [
-    { value: ROLES.WORKER, label: 'Worker' },
-    { value: ROLES.ADMIN, label: 'Admin' },
+    { value: ROLES.COMPANY, label: 'Company' },
     { value: ROLES.SUPER_ADMIN, label: 'Super Admin' },
+    { value: ROLES.ADMIN, label: 'Admin' },
     { value: ROLES.STORE_MANAGER, label: 'Store Manager' },
-    { value: ROLES.SALES_ASSOCIATE, label: 'Sales Associate' },
     { value: ROLES.SALES_ASSOCIATE_AND_INVENTORY_MANAGER, label: 'Sales Associate & Inventory Manager' },
+    { value: ROLES.SALES_ASSOCIATE, label: 'Sales Associate' },
     { value: ROLES.INVENTORY_MANAGER, label: 'Inventory Manager' },
     { value: ROLES.HR, label: 'HR' },
-    { value: ROLES.IT_SUPPORT, label: 'IT Support' }
+    { value: ROLES.IT_SUPPORT, label: 'IT Support' },
+    { value: ROLES.WORKER, label: 'Worker' }
   ];
 
   const getRoleColor = (role) => {
     switch (role) {
+      case ROLES.COMPANY: return 'error';
       case ROLES.SUPER_ADMIN: return 'error';
       case ROLES.ADMIN: return 'warning';
       case ROLES.STORE_MANAGER: return 'info';
@@ -199,9 +202,8 @@ const Employees = () => {
   }
 
   return (
-    <Box sx={{ p: 3, height: '90vh', overflow: 'auto' }}>
+    <Box sx={{ p: 3, height: "90vh", overflow: "auto" }}>
       <Grid container spacing={3}>
-        {/* Header */}
         <Grid item xs={12}>
           <Box
             display="flex"
@@ -432,6 +434,13 @@ const Employees = () => {
             />
             <TextField
               fullWidth
+              label="Username"
+              value={formData.userName}
+              onChange={(e) => handleFormChange("userName", e.target.value)}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
               label="Contact"
               value={formData.contact}
               onChange={(e) => handleFormChange("contact", e.target.value)}
@@ -469,8 +478,6 @@ const Employees = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-
 
       {/* Delete Confirmation Dialog */}
       <Dialog
