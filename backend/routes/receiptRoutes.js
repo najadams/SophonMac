@@ -848,6 +848,27 @@ const updateReceipt = async (req, res) => {
       return res.status(404).json({ message: "Receipt not found" });
     }
 
+    // Check if receipt has debts with payments - prevent editing if so
+    if (receipt.debtId) {
+      const debtPayments = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT * FROM DebtPayment WHERE debtId = ?`,
+          [receipt.debtId],
+          (err, rows) => {
+            if (err) return reject(err);
+            resolve(rows);
+          }
+        );
+      });
+
+      if (debtPayments && debtPayments.length > 0) {
+        return res.status(400).json({
+          message: "Cannot edit receipt with debt payments. Please flag this receipt and recreate it with the correct details.",
+          hasDebtPayments: true
+        });
+      }
+    }
+
     let [company, name] = customerName.split(" - ");
     name = name.toLowerCase();
     company = company?.toLowerCase().trim();
