@@ -24,7 +24,7 @@ const MyPie = ({ data, dataKey, nameKey }) => {
   const formatTooltip = (value) => {
     // Format as currency if it's sales data
     if (dataKey === "totalSales") {
-      return `$${value.toFixed(2)}`;
+      return `₵${value.toFixed(2)}`;
     }
     return value;
   };
