@@ -753,6 +753,10 @@ export const tableActions = {
       }
     } catch (error) {
       console.error("Failed to update the receipt:", error.message);
+      // Handle specific validation errors from backend
+      if (error.response?.data?.hasDebtPayments) {
+        throw new Error(error.response.data.message);
+      }
       throw error;
     }
   },
