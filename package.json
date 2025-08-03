@@ -6,15 +6,15 @@
   "scripts": {
     "start": "cross-env NODE_ENV=production electron .",
     "dev": "concurrently \"pnpm run dev:frontend\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
-    "dev:frontend": "cd frontend && pnpm run dev",
-    "prebuild": "pnpm run install:backend && pnpm run build:frontend",
+    "dev:frontend": "pnpm --filter sophon-frontend run dev",
+    "prebuild": "pnpm run build:frontend && pnpm run install:backend",
     "build": "pnpm run prebuild && electron-builder",
     "build:win": "pnpm run prebuild && electron-builder --win --publish=never",
     "build:mac": "pnpm run prebuild && electron-builder --mac --publish=never",
     "package:win": "pnpm run build:frontend && electron-packager . Sophon --platform=win32 --arch=x64 --out=dist/win --overwrite --ignore=node_modules --ignore=frontend/node_modules --ignore=backend/node_modules",
-    "build:frontend": "cd frontend && pnpm run build",
-    "install:backend": "cd backend && pnpm install --production",
-    "install:frontend": "cd frontend && pnpm install",
+    "build:frontend": "pnpm --filter sophon-frontend run build",
+    "install:backend": "pnpm --filter sophon-backend install --production",
+    "install:frontend": "pnpm --filter sophon-frontend install",
     "install:all": "pnpm install && pnpm run install:backend && pnpm run install:frontend",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -27,7 +27,7 @@
   "devDependencies": {
     "concurrently": "^8.0.1",
     "cross-env": "^7.0.3",
-    "electron": "^24.8.8",
+    "electron": "24.8.8",
     "electron-builder": "^23.6.0",
     "electron-packager": "^17.1.2",
     "wait-on": "^8.0.3"
@@ -37,6 +37,7 @@
     "productName": "Sophon",
     "files": [
       "main.js",
+      "node_modules/**/*",
       "frontend/dist/**/*",
       "backend/**/*",
       "resources/**/*",
@@ -55,10 +56,7 @@
     "directories": {
       "buildResources": "resources"
     },
-    "asarUnpack": [
-      "backend/**/*",
-      "frontend/dist/**/*"
-    ],
+    "asar": false,
     "win": {
       "target": [
         {
@@ -76,6 +74,7 @@
     "mac": {
       "category": "public.app-category.business",
       "icon": "resources/icon.icns",
+      "asar": false,
       "target": {
         "target": "dmg",
         "arch": [

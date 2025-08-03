@@ -192,7 +192,7 @@ async function startFrontendServer() {
     
     // Use absolute paths based on app packaging status
     const frontendPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'app.asar.unpacked', 'frontend', 'dist')
+      ? path.join(process.resourcesPath, 'app', 'frontend', 'dist')
       : path.resolve(__dirname, 'frontend', 'dist');
     
     logToFile('INFO', `Frontend path: ${frontendPath}`);
