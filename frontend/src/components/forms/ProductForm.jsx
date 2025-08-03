@@ -414,7 +414,7 @@ const ProductForm = ({ data, editMutation, onClose, onProductUpdate }) => {
                     helperText={touched.costPrice && errors.costPrice}
                     InputProps={{
                       startAdornment: (
-                        <InputAdornment position="start">$</InputAdornment>
+                        <InputAdornment position="start">₵</InputAdornment>
                       ),
                     }}
                   />
@@ -432,7 +432,7 @@ const ProductForm = ({ data, editMutation, onClose, onProductUpdate }) => {
                     helperText={touched.salesPrice && errors.salesPrice}
                     InputProps={{
                       startAdornment: (
-                        <InputAdornment position="start">$</InputAdornment>
+                        <InputAdornment position="start">₵</InputAdornment>
                       ),
                     }}
                   />
