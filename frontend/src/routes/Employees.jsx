@@ -42,7 +42,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../config/index';
 import { toast } from 'react-toastify';
 import ProtectedRoute from '../components/ProtectedRoute';
-import { PERMISSIONS, ROLES } from '../context/userRoles';
+import { PERMISSIONS, ROLES, canChangeUserRole, getAssignableRoles } from '../context/userRoles';
 
 const Employees = () => {
   const navigate = useNavigate();
@@ -65,7 +65,7 @@ const Employees = () => {
   const companyId = useSelector((state) => state.userState.currentUser?.companyId);
   const userRole = currentUser?.role || currentUser?.worker?.role;
 
-  const roleOptions = [
+  const allRoleOptions = [
     { value: ROLES.COMPANY, label: 'Company' },
     { value: ROLES.SUPER_ADMIN, label: 'Super Admin' },
     { value: ROLES.ADMIN, label: 'Admin' },
@@ -77,6 +77,16 @@ const Employees = () => {
     { value: ROLES.IT_SUPPORT, label: 'IT Support' },
     { value: ROLES.WORKER, label: 'Worker' }
   ];
+
+  // Get roles that current user can assign to others
+  const assignableRoles = getAssignableRoles(userRole);
+  const roleOptions = allRoleOptions.filter(option => 
+    assignableRoles.includes(option.value)
+  );
+
+  // Check if current user can change the selected employee's role
+  const canChangeSelectedUserRole = selectedEmployee ? 
+    canChangeUserRole(userRole, selectedEmployee.role) : false;
 
   const getRoleColor = (role) => {
     switch (role) {
@@ -454,7 +464,7 @@ const Employees = () => {
               onChange={(e) => handleFormChange("email", e.target.value)}
               margin="normal"
             />
-            {canManageUsers() && (
+            {canManageUsers() && selectedEmployee?.id !== currentUser?.id && canChangeSelectedUserRole && (
               <FormControl fullWidth margin="normal">
                 <InputLabel>Role</InputLabel>
                 <Select
@@ -468,6 +478,20 @@ const Employees = () => {
                   ))}
                 </Select>
               </FormControl>
+            )}
+            {(selectedEmployee?.id === currentUser?.id || (canManageUsers() && selectedEmployee?.id !== currentUser?.id && !canChangeSelectedUserRole)) && (
+              <TextField
+                fullWidth
+                label="Role"
+                value={allRoleOptions.find(option => option.value === formData.role)?.label || formData.role}
+                margin="normal"
+                disabled
+                helperText={
+                  selectedEmployee?.id === currentUser?.id 
+                    ? "You cannot change your own role"
+                    : "You cannot change the role of someone with equal or higher authority"
+                }
+              />
             )}
           </Box>
         </DialogContent>
