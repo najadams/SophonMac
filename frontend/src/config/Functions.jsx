@@ -812,7 +812,7 @@ export const tableActions = {
   },
   fetchPaymentsById: async ({ debtId }) => {
     try {
-      const response = await axios.get(`/api/debt/debt/${debtId}/payments`);
+      const response = await axios.get(`/api/debts/debt/${debtId}/payments`);
       const data = response.data;
       
       // Transform the data to match PaymentDisplayDialog expectations

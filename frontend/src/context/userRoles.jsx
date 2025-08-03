@@ -68,3 +68,32 @@ export const rolePermissions = {
 };
 
 export const getPermissionsForRole = (role) => rolePermissions[role] || [];
+
+// Role hierarchy - higher number means higher authority
+export const ROLE_HIERARCHY = {
+  [ROLES.SALES_ASSOCIATE]: 1,
+  [ROLES.INVENTORY_MANAGER]: 2,
+  [ROLES.SALES_ASSOCIATE_AND_INVENTORY_MANAGER]: 2,
+  [ROLES.IT_SUPPORT]: 3,
+  [ROLES.HR]: 3,
+  [ROLES.WORKER]: 4,
+  [ROLES.STORE_MANAGER]: 5,
+  [ROLES.ADMIN]: 6,
+  [ROLES.SUPER_ADMIN]: 7,
+  [ROLES.COMPANY]: 8,
+};
+
+// Check if user can change another user's role
+export const canChangeUserRole = (currentUserRole, targetUserRole) => {
+  const currentUserLevel = ROLE_HIERARCHY[currentUserRole] || 0;
+  const targetUserLevel = ROLE_HIERARCHY[targetUserRole] || 0;
+  return currentUserLevel > targetUserLevel;
+};
+
+// Get roles that a user can assign to others
+export const getAssignableRoles = (currentUserRole) => {
+  const currentUserLevel = ROLE_HIERARCHY[currentUserRole] || 0;
+  return Object.keys(ROLE_HIERARCHY).filter(role => 
+    ROLE_HIERARCHY[role] < currentUserLevel
+  );
+};
