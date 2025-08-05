@@ -1,0 +1,1 @@
+import{j as e}from"./index-GTE1N4Ws.js";const n=()=>e.jsxs("div",{className:"notlogin",style:{backgroundColor:"#F8F8FF",display:"flex",alignItems:"center",justifyContent:"center",gap:50},children:[e.jsx("h1",{style:{fontSize:64},children:"404"}),e.jsx("p",{children:"Page not found!"})]});export{n as default};

@@ -4,43 +4,56 @@
   "description": "Sophon - Advanced Business Management System",
   "main": "main.js",
   "scripts": {
-    "start": "cross-env NODE_ENV=production electron .",
+    "start": "electron-forge start",
     "dev": "concurrently \"pnpm run dev:frontend\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "dev:frontend": "pnpm --filter sophon-frontend run dev",
     "prebuild": "pnpm run build:frontend && pnpm run install:backend",
     "build": "pnpm run prebuild && electron-builder",
-    "build:win": "pnpm run prebuild && electron-builder --win --publish=never",
+    "build:win": "pnpm run prebuild && npx electron-builder --win --publish=never --config.win.requestedExecutionLevel=asInvoker --config.win.verifyUpdateCodeSignature=false --config.win.icon=null",
+    "build:win-simple": "pnpm run prebuild && electron-builder --win --publish=never --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true --config.win.requestedExecutionLevel=asInvoker",
     "build:mac": "pnpm run prebuild && electron-builder --mac --publish=never",
     "package:win": "pnpm run build:frontend && electron-packager . Sophon --platform=win32 --arch=x64 --out=dist/win --overwrite --ignore=node_modules --ignore=frontend/node_modules --ignore=backend/node_modules",
-    "build:frontend": "pnpm --filter sophon-frontend run build",
+    "build:frontend": "cd frontend && npm run build",
     "install:backend": "pnpm --filter sophon-backend install --production",
     "install:frontend": "pnpm --filter sophon-frontend install",
     "install:all": "pnpm install && pnpm run install:backend && pnpm run install:frontend",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
   },
   "author": "Najm Adams",
   "license": "ISC",
   "dependencies": {
-    "asar": "^3.2.0",
+    "chromium-pickle-js": "^0.2.0",
     "express": "^4.18.2"
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.8.2",
+    "@electron-forge/maker-deb": "^7.8.2",
+    "@electron-forge/maker-dmg": "^7.8.2",
+    "@electron-forge/maker-rpm": "^7.8.2",
+    "@electron-forge/maker-squirrel": "^7.8.2",
+    "@electron-forge/maker-zip": "^7.8.2",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.8.2",
+    "@electron-forge/plugin-fuses": "^7.8.2",
+    "@electron/fuses": "^2.0.0",
     "concurrently": "^8.0.1",
     "cross-env": "^7.0.3",
     "electron": "24.8.8",
-    "electron-builder": "^23.6.0",
+    "electron-builder": "^26.0.12",
     "electron-packager": "^17.1.2",
+    "electron-squirrel-startup": "^1.0.1",
     "wait-on": "^8.0.3"
   },
   "build": {
     "appId": "com.sophon.app",
     "productName": "Sophon",
     "files": [
-      "main.js",
-      "node_modules/**/*",
-      "frontend/dist/**/*",
-      "backend/**/*",
-      "resources/**/*",
+      "**/*",
+      "!backend/node_modules",
+      "!frontend/node_modules",
+      "!frontend/src",
+      "!frontend/public",
       "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,__pycache__,thumbs.db,.gitignore,.gitmodules,.gitattributes,.flowconfig,.jshintrc,.eslintrc,.eslintrc.*,.stylelintrc,.stylelintrc.*}",
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
@@ -49,10 +62,20 @@
     "extraFiles": [
       {
         "from": "backend/node_modules",
+        "to": "app/backend/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "backend/node_modules",
         "to": "Resources/backend/node_modules",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
+    "beforePack": "scripts/before-pack.js",
     "directories": {
       "buildResources": "resources"
     },
@@ -60,7 +83,7 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "dir",
           "arch": [
             "x64"
           ]
@@ -69,7 +92,8 @@
       "requestedExecutionLevel": "asInvoker",
       "executableName": "Sophon",
       "artifactName": "${productName}-${version}-${arch}.${ext}",
-      "verifyUpdateCodeSignature": false
+      "verifyUpdateCodeSignature": false,
+      "icon": null
     },
     "mac": {
       "category": "public.app-category.business",

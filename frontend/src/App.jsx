@@ -16,6 +16,7 @@ import Loader from "./components/common/Loader";
 import AuthenticatedRoutes from "./routes/AuthenticatedRoutes";
 import UnauthenticatedRoutes from "./routes/UnauthenticatedRoutes";
 import { UserProvider } from "./context/UserContext";
+import { NetworkProvider } from "./context/NetworkContext";
 import SignIn from "./views/SignIn";
 import Vendors from "./views/Vendors";
 import VendorDetails from "./views/VendorDetails";
@@ -46,7 +47,8 @@ function App() {
       <Provider store={store}>
         <PersistGate loading={null} persistor={persistor}>
           <UserProvider>
-            <Router>
+            <NetworkProvider>
+              <Router>
               <div className="main">
                 {isLoggedIn && hasAccount !== undefined && hasAccount && (
                   <Header isLoggedIn={isLoggedIn} />
@@ -113,7 +115,8 @@ function App() {
                   </div>
                 </div>
               </div>
-            </Router>
+              </Router>
+            </NetworkProvider>
             <ToastContainer
               position="top-right"
               autoClose={5000}

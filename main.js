@@ -191,18 +191,51 @@ async function startFrontendServer() {
     const expressApp = express();
     
     // Use absolute paths based on app packaging status
-    const frontendPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'app', 'frontend', 'dist')
-      : path.resolve(__dirname, 'frontend', 'dist');
+    let frontendPath;
+    
+    if (app.isPackaged) {
+      // Try multiple possible locations for packaged apps
+      const possiblePaths = [
+        path.join(process.resourcesPath, 'app', 'frontend', 'dist'),
+        path.join(process.resourcesPath, 'app', 'frontend-dist'),
+        path.join(app.getAppPath(), 'frontend', 'dist'),
+        path.join(app.getAppPath(), 'frontend-dist')
+      ];
+      
+      for (const possiblePath of possiblePaths) {
+        if (fs.existsSync(possiblePath)) {
+          frontendPath = possiblePath;
+          break;
+        }
+      }
+      
+      if (!frontendPath) {
+        const error = new Error(`Frontend dist directory not found in any of these locations: ${possiblePaths.join(', ')}`);
+        logToFile('ERROR', 'Frontend dist directory missing', error);
+        throw error;
+      }
+    } else {
+      // Development mode - try multiple locations
+      const devPaths = [
+        path.resolve(__dirname, 'frontend', 'dist'),
+        path.resolve(__dirname, 'frontend-dist')
+      ];
+      
+      for (const devPath of devPaths) {
+        if (fs.existsSync(devPath)) {
+          frontendPath = devPath;
+          break;
+        }
+      }
+      
+      if (!frontendPath) {
+        const error = new Error(`Frontend dist directory not found in development paths: ${devPaths.join(', ')}`);
+        logToFile('ERROR', 'Frontend dist directory missing', error);
+        throw error;
+      }
+    }
     
     logToFile('INFO', `Frontend path: ${frontendPath}`);
-    
-    // Check if frontend dist exists
-    if (!fs.existsSync(frontendPath)) {
-      const error = new Error(`Frontend dist directory not found: ${frontendPath}`);
-      logToFile('ERROR', 'Frontend dist directory missing', error);
-      throw error;
-    }
 
     // Serve static files from the dist directory
     expressApp.use(express.static(frontendPath));
@@ -222,14 +255,14 @@ async function startFrontendServer() {
 
     const tryPort = (port) => {
       return new Promise((portResolve, portReject) => {
-        const server = frontendServer.listen(port, "localhost", (error) => {
+        const server = frontendServer.listen(port, "0.0.0.0", (error) => {
           if (error) {
             logToFile('ERROR', `Failed to start frontend server on port ${port}`, error);
             portReject(error);
           } else {
             frontendReady = true;
             frontendPort = port; // Store the successful port
-            logToFile('INFO', `Frontend server started on http://localhost:${port}`);
+            logToFile('INFO', `Frontend server started on http://0.0.0.0:${port}`);
             portResolve(port);
           }
         });
@@ -286,9 +319,13 @@ function startBackend() {
         // Try multiple possible locations for the backend
         const possiblePaths = [
           path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'index.js'),
+          path.join(process.resourcesPath, 'app', 'backend', 'index.js'),
           path.join(process.resourcesPath, 'backend', 'index.js'),
           path.join(app.getAppPath(), '..', 'backend', 'index.js'),
-          path.join(__dirname, 'backend', 'index.js')
+          path.join(__dirname, 'backend', 'index.js'),
+          // Windows specific paths
+          path.join(process.resourcesPath, '..', 'backend', 'index.js'),
+          path.join(app.getAppPath(), 'backend', 'index.js')
         ];
         
         logToFile('INFO', `Looking for backend in possible locations...`);
@@ -355,10 +392,16 @@ function startBackend() {
         DB_PATH: app.isPackaged ? path.join(app.getPath('userData'), 'database.sqlite') : undefined
       };
       
-      // For packaged apps, set NODE_PATH to include the extraFiles node_modules location
+      // For packaged apps, set NODE_PATH to include node_modules locations
       if (app.isPackaged) {
-        const extraNodeModulesPath = path.join(process.resourcesPath, 'backend', 'node_modules');
-        backendEnv.NODE_PATH = extraNodeModulesPath + (backendEnv.NODE_PATH ? path.delimiter + backendEnv.NODE_PATH : '');
+        const mainAppNodeModulesPath = path.join(process.resourcesPath, 'app', 'node_modules');
+        const extraNodeModulesPath = path.join(process.resourcesPath, 'Resources', 'backend', 'node_modules');
+        const localNodeModulesPath = path.join(backendDir, 'node_modules');
+        const nodePaths = [mainAppNodeModulesPath, localNodeModulesPath, extraNodeModulesPath];
+        if (backendEnv.NODE_PATH) {
+          nodePaths.push(backendEnv.NODE_PATH);
+        }
+        backendEnv.NODE_PATH = nodePaths.join(path.delimiter);
         logToFile('INFO', `Setting NODE_PATH to: ${backendEnv.NODE_PATH}`);
       }
       
@@ -368,7 +411,12 @@ function startBackend() {
       let nodeExecutable, spawnArgs;
       if (app.isPackaged) {
         // In packaged apps, try to find system Node.js first, fallback to Electron
-        const possibleNodePaths = [
+        const possibleNodePaths = process.platform === 'win32' ? [
+          'node.exe',
+          'node',
+          path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'node.exe'),
+          path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'nodejs', 'node.exe')
+        ] : [
           '/usr/local/bin/node',
           '/opt/homebrew/bin/node',
           '/usr/bin/node',
