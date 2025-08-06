@@ -48,7 +48,6 @@
   "build": {
     "files": [
       "**/*",
-      "!backend/node_modules",
       "!frontend/node_modules",
       "!frontend/src",
       "!frontend/public",
@@ -56,22 +55,6 @@
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/npm-debug.log"
-    ],
-    "extraFiles": [
-      {
-        "from": "backend/node_modules",
-        "to": "app/backend/node_modules",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "backend/node_modules",
-        "to": "Resources/backend/node_modules",
-        "filter": [
-          "**/*"
-        ]
-      }
     ],
     "beforePack": "scripts/before-pack.js",
     "asar": false,

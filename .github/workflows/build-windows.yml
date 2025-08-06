@@ -44,6 +44,14 @@ jobs:
         cd frontend
         npm run build
         
+    - name: Ensure backend node_modules are properly installed
+      run: |
+        cd backend
+        if (Test-Path "node_modules") {
+          Remove-Item -Recurse -Force "node_modules"
+        }
+        npm install --production --no-package-lock
+        
     - name: Build/release Electron app
       uses: samuelmeuli/action-electron-builder@v1
       with:

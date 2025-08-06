@@ -387,15 +387,30 @@ function startBackend() {
       
       // For packaged apps, set NODE_PATH to include node_modules locations
       if (app.isPackaged) {
-        const mainAppNodeModulesPath = path.join(process.resourcesPath, 'app', 'node_modules');
-        const extraNodeModulesPath = path.join(process.resourcesPath, 'Resources', 'backend', 'node_modules');
-        const localNodeModulesPath = path.join(backendDir, 'node_modules');
-        const nodePaths = [mainAppNodeModulesPath, localNodeModulesPath, extraNodeModulesPath];
+        const possibleNodeModulesPaths = [
+          path.join(backendDir, 'node_modules'),
+          path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'node_modules'),
+          path.join(process.resourcesPath, 'app', 'backend', 'node_modules'),
+          path.join(app.getAppPath(), 'backend', 'node_modules'),
+          path.join(app.getAppPath(), '..', 'backend', 'node_modules')
+        ];
+        
+        const validNodePaths = possibleNodeModulesPaths.filter(p => {
+          const exists = fs.existsSync(p);
+          logToFile('INFO', `Checking node_modules path ${p}: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+          return exists;
+        });
+        
         if (backendEnv.NODE_PATH) {
-          nodePaths.push(backendEnv.NODE_PATH);
+          validNodePaths.push(backendEnv.NODE_PATH);
         }
-        backendEnv.NODE_PATH = nodePaths.join(path.delimiter);
-        logToFile('INFO', `Setting NODE_PATH to: ${backendEnv.NODE_PATH}`);
+        
+        if (validNodePaths.length > 0) {
+          backendEnv.NODE_PATH = validNodePaths.join(path.delimiter);
+          logToFile('INFO', `Setting NODE_PATH to: ${backendEnv.NODE_PATH}`);
+        } else {
+          logToFile('WARNING', 'No valid node_modules paths found for backend');
+        }
       }
       
       logToFile('INFO', `Spawning backend process with NODE_ENV: ${backendEnv.NODE_ENV}`);

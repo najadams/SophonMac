@@ -48,6 +48,12 @@ jobs:
         cd frontend
         npm run build
         
+    - name: Ensure backend node_modules are properly installed
+      run: |
+        cd backend
+        rm -rf node_modules 2>/dev/null || true
+        npm install --production --no-package-lock
+        
     - name: Build/release Electron app
       uses: samuelmeuli/action-electron-builder@v1
       with:
