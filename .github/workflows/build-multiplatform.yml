@@ -66,11 +66,5 @@ jobs:
       with:
         name: ${{ matrix.os }}-build
         path: |
-          dist/*.exe
-          dist/*.dmg
-          dist/*.AppImage
-          dist/*.deb
-          dist/*.rpm
-          dist/*.zip
-          dist/*.tar.gz
+          dist/
         retention-days: 30
