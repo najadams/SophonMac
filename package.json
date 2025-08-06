@@ -48,6 +48,11 @@
   "build": {
     "files": [
       "**/*",
+      "node_modules/cors/**/*",
+      "node_modules/express/**/*",
+      "node_modules/sqlite3/**/*",
+      "node_modules/socket.io/**/*",
+      "node_modules/bcrypt/**/*",
       "!frontend/node_modules",
       "!frontend/src",
       "!frontend/public",
@@ -56,14 +61,8 @@
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/npm-debug.log"
     ],
-    "extraFiles": [
-      {
-        "from": "backend/node_modules",
-        "to": "backend/node_modules",
-        "filter": ["**/*"]
-      }
-    ],
     "beforePack": "scripts/before-pack.js",
+    "afterPack": "scripts/after-pack.js",
     "asar": false,
     "win": {
       "target": [
@@ -73,7 +72,11 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "verifyUpdateCodeSignature": false,
+      "signAndEditExecutable": false
     }
   }
 }

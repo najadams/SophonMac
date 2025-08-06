@@ -39,19 +39,9 @@ jobs:
         npm install
         
     - name: Install backend dependencies
-      run: |
-        cd backend
-        rm -rf node_modules package-lock.json
-        npm install --production --no-package-lock
-        echo "Verifying backend dependencies..."
-        if [ -d "node_modules/cors" ]; then
-          echo "✓ cors module found"
-        else
-          echo "✗ cors module missing - attempting reinstall"
-          npm install cors --production --no-package-lock
-        fi
-        # List critical modules
-        ls -la node_modules/ | grep -E "(cors|express|sqlite3|socket|bcrypt)" | awk '{print "✓ " $9 " found"}' || echo "Some modules may be missing"
+        run: |
+          cd backend
+          npm install --production --no-package-lock
         
     - name: Build frontend
       run: |

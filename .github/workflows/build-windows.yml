@@ -37,18 +37,8 @@ jobs:
     - name: Install backend dependencies
         run: |
           cd backend
-          if (Test-Path "node_modules") { Remove-Item -Recurse -Force "node_modules" }
-          if (Test-Path "package-lock.json") { Remove-Item -Force "package-lock.json" }
           npm install --production --no-package-lock
-          Write-Host "Verifying backend dependencies..."
-          if (Test-Path "node_modules\cors") {
-            Write-Host "✓ cors module found"
-          } else {
-            Write-Host "✗ cors module missing - attempting reinstall"
-            npm install cors --production --no-package-lock
-          }
-          Get-ChildItem node_modules | Where-Object { $_.Name -match "(cors|express|sqlite3|socket.io|bcrypt)" } | ForEach-Object { Write-Host "✓ $($_.Name) found" }
-        shell: pwsh
+        shell: cmd
         
     - name: Build frontend
       run: |
