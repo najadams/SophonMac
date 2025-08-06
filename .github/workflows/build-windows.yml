@@ -1,0 +1,82 @@
+name: Build Windows Electron App
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+        
+    - name: Install root dependencies
+      run: pnpm install
+      
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm install --production --no-package-lock
+        
+    - name: Create scripts directory
+      run: mkdir -p scripts
+      
+    - name: Ensure before-pack script exists
+      run: |
+        if (!(Test-Path "scripts/before-pack.js")) {
+          Write-Host "before-pack.js not found, creating empty script"
+          New-Item -ItemType File -Path "scripts/before-pack.js" -Force
+          Set-Content -Path "scripts/before-pack.js" -Value "module.exports = async function(context) { console.log('Before pack script executed'); };"
+        }
+      shell: pwsh
+        
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+        
+    - name: Build Windows app with electron-builder
+      run: pnpm run build:win
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Upload Windows build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-build
+        path: |
+          dist/*.exe
+          dist/*.zip
+          dist/win-unpacked/
+        retention-days: 30
+        
+    - name: Create Release (on tag)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*.exe
+          dist/*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

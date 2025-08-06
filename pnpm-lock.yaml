@@ -11,6 +11,9 @@ importers:
       chromium-pickle-js:
         specifier: ^0.2.0
         version: 0.2.0
+      express:
+        specifier: ^4.18.2
+        version: 4.21.2
     devDependencies:
       '@electron-forge/cli':
         specifier: ^7.8.2

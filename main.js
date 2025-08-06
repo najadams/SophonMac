@@ -104,25 +104,19 @@ function createWindow() {
         contextIsolation: false,
         enableRemoteModule: true,
       },
-      show: false, // Don't show immediately - wait for ready-to-show
+      show: true, // Show window immediately
     });
 
     // Load the index.html file
     const loadURL =
       process.env.NODE_ENV === "development"
         ? "http://localhost:5173/" // Vite development server default port
-        : `http://localhost:${frontendPort}`; // Use the actual frontend port
+        : "http://localhost:3002"; // Always use port 3002 for production
 
     logToFile("INFO", `Loading frontend from: ${loadURL}`);
 
-    // Handle window ready-to-show - only show once here
-    mainWindow.once("ready-to-show", () => {
-      logToFile("INFO", "Main window ready to show");
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.show();
-        mainWindow.focus();
-      }
-    });
+    // Focus the window since it's already shown
+    mainWindow.focus();
 
     // Handle load failures
     mainWindow.webContents.on(
@@ -133,10 +127,8 @@ function createWindow() {
           `Failed to load ${validatedURL}: ${errorCode} - ${errorDescription}`
         );
 
-        // Show error page or retry logic here
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.show(); // Show window even on load failure
-        }
+        // Log the error - window is already shown
+        logToFile('ERROR', 'Frontend failed to load, but window is visible for debugging');
       }
     );
 
@@ -279,25 +271,26 @@ async function startFrontendServer() {
       });
     };
     
-    // Try ports 3002, 3004, 3005, 3006
-    const portsToTry = [3002, 3004, 3005, 3006];
-    let lastError;
+    // Try ports 3004-3007 for frontend to avoid conflicts
+    const portsToTry = [3004, 3005, 3006, 3007];
     
     for (const port of portsToTry) {
       try {
         await tryPort(port);
+        logToFile('INFO', `Frontend server successfully started on port ${port}`);
         return;
       } catch (error) {
-        lastError = error;
-        if (error.code !== 'EADDRINUSE') {
+        if (error.code === 'EADDRINUSE') {
+          logToFile('WARNING', `Port ${port} is busy, trying next port`);
+          continue;
+        } else {
+          logToFile('ERROR', 'Failed to start frontend server', error);
           throw error;
         }
       }
     }
     
-    // If all ports failed
-    logToFile('ERROR', 'All frontend ports are busy', lastError);
-    throw lastError;
+    throw new Error('No available ports found for frontend server (tried 3004-3007)');
   } catch (error) {
     logToFile('ERROR', 'Error setting up frontend server', error);
     throw error;

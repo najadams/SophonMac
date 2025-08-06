@@ -9,10 +9,10 @@
     "dev:frontend": "pnpm --filter sophon-frontend run dev",
     "prebuild": "pnpm run build:frontend && pnpm run install:backend",
     "build": "pnpm run prebuild && electron-builder",
-    "build:win": "pnpm run prebuild && npx electron-builder --win --publish=never --config.win.requestedExecutionLevel=asInvoker --config.win.verifyUpdateCodeSignature=false --config.win.icon=null",
+    "build:win": "pnpm run prebuild && npx electron-builder --win --publish=never --config.win.requestedExecutionLevel=asInvoker --config.win.verifyUpdateCodeSignature=false",
     "build:win-simple": "pnpm run prebuild && electron-builder --win --publish=never --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true --config.win.requestedExecutionLevel=asInvoker",
     "build:mac": "pnpm run prebuild && electron-builder --mac --publish=never",
-    "package:win": "pnpm run build:frontend && electron-packager . Sophon --platform=win32 --arch=x64 --out=dist/win --overwrite --ignore=node_modules --ignore=frontend/node_modules --ignore=backend/node_modules",
+    "package:win": "pnpm run build:frontend && electron-packager . --platform=win32 --arch=x64 --out=dist/win --overwrite --ignore=node_modules --ignore=frontend/node_modules --ignore=backend/node_modules --no-prune",
     "build:frontend": "cd frontend && npm run build",
     "install:backend": "pnpm --filter sophon-backend install --production",
     "install:frontend": "pnpm --filter sophon-frontend install",
@@ -46,8 +46,6 @@
     "wait-on": "^8.0.3"
   },
   "build": {
-    "appId": "com.sophon.app",
-    "productName": "Sophon",
     "files": [
       "**/*",
       "!backend/node_modules",
@@ -76,9 +74,6 @@
       }
     ],
     "beforePack": "scripts/before-pack.js",
-    "directories": {
-      "buildResources": "resources"
-    },
     "asar": false,
     "win": {
       "target": [
@@ -88,27 +83,7 @@
             "x64"
           ]
         }
-      ],
-      "requestedExecutionLevel": "asInvoker",
-      "executableName": "Sophon",
-      "artifactName": "${productName}-${version}-${arch}.${ext}",
-      "verifyUpdateCodeSignature": false,
-      "icon": null
-    },
-    "mac": {
-      "category": "public.app-category.business",
-      "icon": "resources/icon.icns",
-      "asar": false,
-      "target": {
-        "target": "dmg",
-        "arch": [
-          "x64",
-          "arm64"
-        ]
-      }
-    },
-    "linux": {
-      "target": "AppImage"
+      ]
     }
   }
 }
