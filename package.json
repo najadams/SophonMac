@@ -56,6 +56,13 @@
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/npm-debug.log"
     ],
+    "extraFiles": [
+      {
+        "from": "backend/node_modules",
+        "to": "backend/node_modules",
+        "filter": ["**/*"]
+      }
+    ],
     "beforePack": "scripts/before-pack.js",
     "asar": false,
     "win": {

@@ -29,6 +29,7 @@ module.exports = async function(context) {
   
   console.log('Backend directory:', backendDir);
   console.log('Node modules directory:', nodeModulesDir);
+  console.log('Main node modules directory:', mainNodeModulesDir);
   
   // Remove existing node_modules to avoid symlink issues
   if (fs.existsSync(nodeModulesDir)) {
@@ -44,6 +45,18 @@ module.exports = async function(context) {
       stdio: 'inherit'
     });
     console.log('Backend dependencies installed successfully');
+    
+    // Verify critical modules are installed
+    const criticalModules = ['cors', 'express', 'sqlite3', 'socket.io', 'bcrypt'];
+    for (const module of criticalModules) {
+      const modulePath = path.join(nodeModulesDir, module);
+      if (fs.existsSync(modulePath)) {
+        console.log(`✓ ${module} installed successfully`);
+      } else {
+        console.error(`✗ ${module} is missing!`);
+        throw new Error(`Critical module ${module} not found`);
+      }
+    }
     
     // Copy all backend node_modules to main node_modules
     console.log('Copying all backend node_modules to main node_modules...');

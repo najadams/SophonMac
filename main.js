@@ -373,6 +373,20 @@ function startBackend() {
         reject(error);
         return;
       }
+      
+      // Verify package.json exists in backend
+      const backendPackageJson = path.join(backendDir, 'package.json');
+      if (fs.existsSync(backendPackageJson)) {
+        try {
+          const packageData = JSON.parse(fs.readFileSync(backendPackageJson, 'utf8'));
+          logToFile('INFO', `Backend package: ${packageData.name} v${packageData.version}`);
+          if (packageData.dependencies && packageData.dependencies.cors) {
+            logToFile('INFO', `CORS dependency listed: ${packageData.dependencies.cors}`);
+          }
+        } catch (e) {
+          logToFile('WARNING', `Could not read backend package.json: ${e.message}`);
+        }
+      }
 
       // Environment variables for backend
       const backendEnv = {
@@ -389,15 +403,28 @@ function startBackend() {
       if (app.isPackaged) {
         const possibleNodeModulesPaths = [
           path.join(backendDir, 'node_modules'),
+          path.join(process.resourcesPath, 'backend', 'node_modules'),
           path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'node_modules'),
           path.join(process.resourcesPath, 'app', 'backend', 'node_modules'),
           path.join(app.getAppPath(), 'backend', 'node_modules'),
-          path.join(app.getAppPath(), '..', 'backend', 'node_modules')
+          path.join(app.getAppPath(), '..', 'backend', 'node_modules'),
+          // Windows specific paths
+          path.join(process.resourcesPath, '..', 'backend', 'node_modules'),
+          path.join(__dirname, 'backend', 'node_modules'),
+          // Main node_modules as fallback
+          path.join(process.resourcesPath, 'node_modules'),
+          path.join(app.getAppPath(), 'node_modules')
         ];
         
         const validNodePaths = possibleNodeModulesPaths.filter(p => {
           const exists = fs.existsSync(p);
           logToFile('INFO', `Checking node_modules path ${p}: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+          if (exists) {
+            // Also check if cors module specifically exists
+            const corsPath = path.join(p, 'cors');
+            const corsExists = fs.existsSync(corsPath);
+            logToFile('INFO', `  - cors module at ${corsPath}: ${corsExists ? 'EXISTS' : 'NOT FOUND'}`);
+          }
           return exists;
         });
         
@@ -408,8 +435,31 @@ function startBackend() {
         if (validNodePaths.length > 0) {
           backendEnv.NODE_PATH = validNodePaths.join(path.delimiter);
           logToFile('INFO', `Setting NODE_PATH to: ${backendEnv.NODE_PATH}`);
+          
+          // Additional debugging - try to resolve cors module
+          for (const nodePath of validNodePaths) {
+            const corsPath = path.join(nodePath, 'cors');
+            if (fs.existsSync(corsPath)) {
+              logToFile('INFO', `CORS module confirmed at: ${corsPath}`);
+              const packageJsonPath = path.join(corsPath, 'package.json');
+              if (fs.existsSync(packageJsonPath)) {
+                try {
+                  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+                  logToFile('INFO', `CORS version: ${packageJson.version}`);
+                } catch (e) {
+                  logToFile('WARNING', `Could not read cors package.json: ${e.message}`);
+                }
+              }
+              break;
+            }
+          }
         } else {
           logToFile('WARNING', 'No valid node_modules paths found for backend');
+        }
+        
+        // Also set NODE_MODULES_PATH for additional resolution
+        if (validNodePaths.length > 0) {
+          backendEnv.NODE_MODULES_PATH = validNodePaths[0];
         }
       }
       
