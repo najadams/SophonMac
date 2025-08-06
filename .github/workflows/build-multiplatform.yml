@@ -39,9 +39,9 @@ jobs:
         npm install
         
     - name: Install backend dependencies
-        run: |
-          cd backend
-          npm install --production --no-package-lock
+      run: |
+        cd backend
+        npm install --production --no-package-lock
         
     - name: Build frontend
       run: |
