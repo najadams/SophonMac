@@ -51,7 +51,6 @@ jobs:
     - name: Ensure backend node_modules are properly installed
       run: |
         cd backend
-        rm -rf node_modules 2>/dev/null || true
         npm install --production --no-package-lock
         
     - name: Build/release Electron app
