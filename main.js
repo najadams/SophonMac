@@ -108,12 +108,24 @@ function createWindow() {
     });
 
     // Load the index.html file
-    const loadURL =
-      process.env.NODE_ENV === "development"
-        ? "http://localhost:5173/" // Vite development server default port
-        : "http://localhost:3002"; // Always use port 3002 for production
+    let loadURL;
+    if (process.env.NODE_ENV === "development") {
+      loadURL = "http://localhost:5173/"; // Vite development server default port
+    } else {
+      // In production, wait for frontend server to be ready
+      if (frontendReady) {
+        loadURL = `http://localhost:${frontendPort}`;
+      } else {
+        // Fallback to file:// protocol if frontend server isn't ready
+        const frontendPath = app.isPackaged 
+          ? path.join(process.resourcesPath, 'app', 'frontend', 'dist')
+          : path.join(__dirname, 'frontend', 'dist');
+        loadURL = `file://${path.join(frontendPath, 'index.html')}`;
+      }
+    }
 
     logToFile("INFO", `Loading frontend from: ${loadURL}`);
+    logToFile("INFO", `Frontend ready status: ${frontendReady}`);
 
     // Focus the window since it's already shown
     mainWindow.focus();
@@ -634,18 +646,30 @@ app.on("ready", async () => {
     
     logToFile('INFO', `Running in ${process.env.NODE_ENV} mode`);
 
-    // Start frontend server first (for production builds)
-    logToFile('INFO', 'Starting frontend server...');
-    await startFrontendServer();
-    logToFile('INFO', 'Frontend server startup completed');
+    if (process.env.NODE_ENV === "development") {
+      // In development, create window immediately and let it handle the dev server connection
+      logToFile('INFO', 'Development mode: creating window immediately');
+      createWindow();
+      
+      // Start backend in parallel
+      logToFile('INFO', 'Starting backend server...');
+      const backendPort = await startBackend();
+      logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
+    } else {
+      // In production, start servers first, then create window
+      logToFile('INFO', 'Starting frontend server...');
+      await startFrontendServer();
+      logToFile('INFO', 'Frontend server startup completed');
 
-    // Start backend and wait for it to be ready
-    logToFile('INFO', 'Starting backend server...');
-    const backendPort = await startBackend(); // This will now return the port
-    logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
+      // Start backend and wait for it to be ready
+      logToFile('INFO', 'Starting backend server...');
+      const backendPort = await startBackend();
+      logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
 
-    logToFile('INFO', 'Creating main window...');
-    createWindow();
+      logToFile('INFO', 'Creating main window...');
+      createWindow();
+    }
+    
     logToFile('INFO', 'Application startup completed successfully');
     
   } catch (error) {

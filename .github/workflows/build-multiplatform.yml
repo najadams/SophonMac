@@ -36,22 +36,22 @@ jobs:
     - name: Install frontend dependencies
       run: |
         cd frontend
-        npm install
+        pnpm install
         
     - name: Install backend dependencies
       run: |
         cd backend
-        npm install --production --no-package-lock
+        pnpm install --production
         
     - name: Build frontend
       run: |
         cd frontend
-        npm run build
+        pnpm run build
         
     - name: Ensure backend node_modules are properly installed
       run: |
         cd backend
-        npm install --production --no-package-lock
+        pnpm install --production
         
     - name: Build/release Electron app
       uses: samuelmeuli/action-electron-builder@v1

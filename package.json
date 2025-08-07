@@ -39,7 +39,6 @@
     "@electron/fuses": "^2.0.0",
     "concurrently": "^8.0.1",
     "cross-env": "^7.0.3",
-    "electron": "24.8.8",
     "electron-builder": "^26.0.12",
     "electron-packager": "^17.1.2",
     "electron-squirrel-startup": "^1.0.1",
@@ -48,6 +47,7 @@
   "build": {
     "files": [
       "**/*",
+      "frontend/dist/**/*",
       "node_modules/cors/**/*",
       "node_modules/express/**/*",
       "node_modules/sqlite3/**/*",
@@ -56,6 +56,9 @@
       "!frontend/node_modules",
       "!frontend/src",
       "!frontend/public",
+      "!frontend/vite.config.js",
+      "!frontend/package.json",
+      "!frontend/package-lock.json",
       "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,__pycache__,thumbs.db,.gitignore,.gitmodules,.gitattributes,.flowconfig,.jshintrc,.eslintrc,.eslintrc.*,.stylelintrc,.stylelintrc.*}",
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
