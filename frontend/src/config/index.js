@@ -1,11 +1,13 @@
 import axios from "axios";
 
 // Use the appropriate API URL based on environment
-// In production mode, backend runs on port 3003 due to port conflict resolution
+// Backend runs on port 3003
 const getBackendURL = () => {
   if (process.env.NODE_ENV === 'production') {
-    // In Electron production, backend runs on 3003 when 3001 is busy
-    return window.location.origin.replace(':3002', ':3003');
+    // In Electron production, backend always runs on 3003
+    const currentOrigin = window.location.origin;
+    const hostname = window.location.hostname;
+    return `http://${hostname}:3003`;
   }
   return 'http://localhost:3003';
 };

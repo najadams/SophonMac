@@ -104,25 +104,31 @@ function createWindow() {
         contextIsolation: false,
         enableRemoteModule: true,
       },
-      show: false, // Don't show immediately - wait for ready-to-show
+      show: true, // Show window immediately
     });
 
     // Load the index.html file
-    const loadURL =
-      process.env.NODE_ENV === "development"
-        ? "http://localhost:5173/" // Vite development server default port
-        : `http://localhost:${frontendPort}`; // Use the actual frontend port
+    let loadURL;
+    if (process.env.NODE_ENV === "development") {
+      loadURL = "http://localhost:5173/"; // Vite development server default port
+    } else {
+      // In production, wait for frontend server to be ready
+      if (frontendReady) {
+        loadURL = `http://localhost:${frontendPort}`;
+      } else {
+        // Fallback to file:// protocol if frontend server isn't ready
+        const frontendPath = app.isPackaged 
+          ? path.join(process.resourcesPath, 'app', 'frontend', 'dist')
+          : path.join(__dirname, 'frontend', 'dist');
+        loadURL = `file://${path.join(frontendPath, 'index.html')}`;
+      }
+    }
 
     logToFile("INFO", `Loading frontend from: ${loadURL}`);
+    logToFile("INFO", `Frontend ready status: ${frontendReady}`);
 
-    // Handle window ready-to-show - only show once here
-    mainWindow.once("ready-to-show", () => {
-      logToFile("INFO", "Main window ready to show");
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.show();
-        mainWindow.focus();
-      }
-    });
+    // Focus the window since it's already shown
+    mainWindow.focus();
 
     // Handle load failures
     mainWindow.webContents.on(
@@ -133,10 +139,8 @@ function createWindow() {
           `Failed to load ${validatedURL}: ${errorCode} - ${errorDescription}`
         );
 
-        // Show error page or retry logic here
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.show(); // Show window even on load failure
-        }
+        // Log the error - window is already shown
+        logToFile('ERROR', 'Frontend failed to load, but window is visible for debugging');
       }
     );
 
@@ -191,18 +195,51 @@ async function startFrontendServer() {
     const expressApp = express();
     
     // Use absolute paths based on app packaging status
-    const frontendPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'app', 'frontend', 'dist')
-      : path.resolve(__dirname, 'frontend', 'dist');
+    let frontendPath;
+    
+    if (app.isPackaged) {
+      // Try multiple possible locations for packaged apps
+      const possiblePaths = [
+        path.join(process.resourcesPath, 'app', 'frontend', 'dist'),
+        path.join(process.resourcesPath, 'app', 'frontend-dist'),
+        path.join(app.getAppPath(), 'frontend', 'dist'),
+        path.join(app.getAppPath(), 'frontend-dist')
+      ];
+      
+      for (const possiblePath of possiblePaths) {
+        if (fs.existsSync(possiblePath)) {
+          frontendPath = possiblePath;
+          break;
+        }
+      }
+      
+      if (!frontendPath) {
+        const error = new Error(`Frontend dist directory not found in any of these locations: ${possiblePaths.join(', ')}`);
+        logToFile('ERROR', 'Frontend dist directory missing', error);
+        throw error;
+      }
+    } else {
+      // Development mode - try multiple locations
+      const devPaths = [
+        path.resolve(__dirname, 'frontend', 'dist'),
+        path.resolve(__dirname, 'frontend-dist')
+      ];
+      
+      for (const devPath of devPaths) {
+        if (fs.existsSync(devPath)) {
+          frontendPath = devPath;
+          break;
+        }
+      }
+      
+      if (!frontendPath) {
+        const error = new Error(`Frontend dist directory not found in development paths: ${devPaths.join(', ')}`);
+        logToFile('ERROR', 'Frontend dist directory missing', error);
+        throw error;
+      }
+    }
     
     logToFile('INFO', `Frontend path: ${frontendPath}`);
-    
-    // Check if frontend dist exists
-    if (!fs.existsSync(frontendPath)) {
-      const error = new Error(`Frontend dist directory not found: ${frontendPath}`);
-      logToFile('ERROR', 'Frontend dist directory missing', error);
-      throw error;
-    }
 
     // Serve static files from the dist directory
     expressApp.use(express.static(frontendPath));
@@ -222,14 +259,14 @@ async function startFrontendServer() {
 
     const tryPort = (port) => {
       return new Promise((portResolve, portReject) => {
-        const server = frontendServer.listen(port, "localhost", (error) => {
+        const server = frontendServer.listen(port, "0.0.0.0", (error) => {
           if (error) {
             logToFile('ERROR', `Failed to start frontend server on port ${port}`, error);
             portReject(error);
           } else {
             frontendReady = true;
             frontendPort = port; // Store the successful port
-            logToFile('INFO', `Frontend server started on http://localhost:${port}`);
+            logToFile('INFO', `Frontend server started on http://0.0.0.0:${port}`);
             portResolve(port);
           }
         });
@@ -246,25 +283,26 @@ async function startFrontendServer() {
       });
     };
     
-    // Try ports 3002, 3004, 3005, 3006
-    const portsToTry = [3002, 3004, 3005, 3006];
-    let lastError;
+    // Try ports 3004-3007 for frontend to avoid conflicts
+    const portsToTry = [3004, 3005, 3006, 3007];
     
     for (const port of portsToTry) {
       try {
         await tryPort(port);
+        logToFile('INFO', `Frontend server successfully started on port ${port}`);
         return;
       } catch (error) {
-        lastError = error;
-        if (error.code !== 'EADDRINUSE') {
+        if (error.code === 'EADDRINUSE') {
+          logToFile('WARNING', `Port ${port} is busy, trying next port`);
+          continue;
+        } else {
+          logToFile('ERROR', 'Failed to start frontend server', error);
           throw error;
         }
       }
     }
     
-    // If all ports failed
-    logToFile('ERROR', 'All frontend ports are busy', lastError);
-    throw lastError;
+    throw new Error('No available ports found for frontend server (tried 3004-3007)');
   } catch (error) {
     logToFile('ERROR', 'Error setting up frontend server', error);
     throw error;
@@ -286,9 +324,13 @@ function startBackend() {
         // Try multiple possible locations for the backend
         const possiblePaths = [
           path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'index.js'),
+          path.join(process.resourcesPath, 'app', 'backend', 'index.js'),
           path.join(process.resourcesPath, 'backend', 'index.js'),
           path.join(app.getAppPath(), '..', 'backend', 'index.js'),
-          path.join(__dirname, 'backend', 'index.js')
+          path.join(__dirname, 'backend', 'index.js'),
+          // Windows specific paths
+          path.join(process.resourcesPath, '..', 'backend', 'index.js'),
+          path.join(app.getAppPath(), 'backend', 'index.js')
         ];
         
         logToFile('INFO', `Looking for backend in possible locations...`);
@@ -343,6 +385,20 @@ function startBackend() {
         reject(error);
         return;
       }
+      
+      // Verify package.json exists in backend
+      const backendPackageJson = path.join(backendDir, 'package.json');
+      if (fs.existsSync(backendPackageJson)) {
+        try {
+          const packageData = JSON.parse(fs.readFileSync(backendPackageJson, 'utf8'));
+          logToFile('INFO', `Backend package: ${packageData.name} v${packageData.version}`);
+          if (packageData.dependencies && packageData.dependencies.cors) {
+            logToFile('INFO', `CORS dependency listed: ${packageData.dependencies.cors}`);
+          }
+        } catch (e) {
+          logToFile('WARNING', `Could not read backend package.json: ${e.message}`);
+        }
+      }
 
       // Environment variables for backend
       const backendEnv = {
@@ -355,11 +411,68 @@ function startBackend() {
         DB_PATH: app.isPackaged ? path.join(app.getPath('userData'), 'database.sqlite') : undefined
       };
       
-      // For packaged apps, set NODE_PATH to include the extraFiles node_modules location
+      // For packaged apps, set NODE_PATH to include node_modules locations
       if (app.isPackaged) {
-        const extraNodeModulesPath = path.join(process.resourcesPath, 'backend', 'node_modules');
-        backendEnv.NODE_PATH = extraNodeModulesPath + (backendEnv.NODE_PATH ? path.delimiter + backendEnv.NODE_PATH : '');
-        logToFile('INFO', `Setting NODE_PATH to: ${backendEnv.NODE_PATH}`);
+        const possibleNodeModulesPaths = [
+          path.join(backendDir, 'node_modules'),
+          path.join(process.resourcesPath, 'backend', 'node_modules'),
+          path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'node_modules'),
+          path.join(process.resourcesPath, 'app', 'backend', 'node_modules'),
+          path.join(app.getAppPath(), 'backend', 'node_modules'),
+          path.join(app.getAppPath(), '..', 'backend', 'node_modules'),
+          // Windows specific paths
+          path.join(process.resourcesPath, '..', 'backend', 'node_modules'),
+          path.join(__dirname, 'backend', 'node_modules'),
+          // Main node_modules as fallback
+          path.join(process.resourcesPath, 'node_modules'),
+          path.join(app.getAppPath(), 'node_modules')
+        ];
+        
+        const validNodePaths = possibleNodeModulesPaths.filter(p => {
+          const exists = fs.existsSync(p);
+          logToFile('INFO', `Checking node_modules path ${p}: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+          if (exists) {
+            // Also check if cors module specifically exists
+            const corsPath = path.join(p, 'cors');
+            const corsExists = fs.existsSync(corsPath);
+            logToFile('INFO', `  - cors module at ${corsPath}: ${corsExists ? 'EXISTS' : 'NOT FOUND'}`);
+          }
+          return exists;
+        });
+        
+        if (backendEnv.NODE_PATH) {
+          validNodePaths.push(backendEnv.NODE_PATH);
+        }
+        
+        if (validNodePaths.length > 0) {
+          backendEnv.NODE_PATH = validNodePaths.join(path.delimiter);
+          logToFile('INFO', `Setting NODE_PATH to: ${backendEnv.NODE_PATH}`);
+          
+          // Additional debugging - try to resolve cors module
+          for (const nodePath of validNodePaths) {
+            const corsPath = path.join(nodePath, 'cors');
+            if (fs.existsSync(corsPath)) {
+              logToFile('INFO', `CORS module confirmed at: ${corsPath}`);
+              const packageJsonPath = path.join(corsPath, 'package.json');
+              if (fs.existsSync(packageJsonPath)) {
+                try {
+                  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+                  logToFile('INFO', `CORS version: ${packageJson.version}`);
+                } catch (e) {
+                  logToFile('WARNING', `Could not read cors package.json: ${e.message}`);
+                }
+              }
+              break;
+            }
+          }
+        } else {
+          logToFile('WARNING', 'No valid node_modules paths found for backend');
+        }
+        
+        // Also set NODE_MODULES_PATH for additional resolution
+        if (validNodePaths.length > 0) {
+          backendEnv.NODE_MODULES_PATH = validNodePaths[0];
+        }
       }
       
       logToFile('INFO', `Spawning backend process with NODE_ENV: ${backendEnv.NODE_ENV}`);
@@ -368,7 +481,12 @@ function startBackend() {
       let nodeExecutable, spawnArgs;
       if (app.isPackaged) {
         // In packaged apps, try to find system Node.js first, fallback to Electron
-        const possibleNodePaths = [
+        const possibleNodePaths = process.platform === 'win32' ? [
+          'node.exe',
+          'node',
+          path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'node.exe'),
+          path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'nodejs', 'node.exe')
+        ] : [
           '/usr/local/bin/node',
           '/opt/homebrew/bin/node',
           '/usr/bin/node',
@@ -528,18 +646,30 @@ app.on("ready", async () => {
     
     logToFile('INFO', `Running in ${process.env.NODE_ENV} mode`);
 
-    // Start frontend server first (for production builds)
-    logToFile('INFO', 'Starting frontend server...');
-    await startFrontendServer();
-    logToFile('INFO', 'Frontend server startup completed');
+    if (process.env.NODE_ENV === "development") {
+      // In development, create window immediately and let it handle the dev server connection
+      logToFile('INFO', 'Development mode: creating window immediately');
+      createWindow();
+      
+      // Start backend in parallel
+      logToFile('INFO', 'Starting backend server...');
+      const backendPort = await startBackend();
+      logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
+    } else {
+      // In production, start servers first, then create window
+      logToFile('INFO', 'Starting frontend server...');
+      await startFrontendServer();
+      logToFile('INFO', 'Frontend server startup completed');
 
-    // Start backend and wait for it to be ready
-    logToFile('INFO', 'Starting backend server...');
-    const backendPort = await startBackend(); // This will now return the port
-    logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
+      // Start backend and wait for it to be ready
+      logToFile('INFO', 'Starting backend server...');
+      const backendPort = await startBackend();
+      logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
 
-    logToFile('INFO', 'Creating main window...');
-    createWindow();
+      logToFile('INFO', 'Creating main window...');
+      createWindow();
+    }
+    
     logToFile('INFO', 'Application startup completed successfully');
     
   } catch (error) {

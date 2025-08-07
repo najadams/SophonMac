@@ -25,6 +25,7 @@ const MyAccount = lazy(() => import("../views/MyAccount"));
 const Notifications = lazy(() => import("../views/Notifications"));
 const ProductInfo = lazy(() => import("../views/ProductInfo"))
 const CustomerInfo = lazy(() => import("../views/CustomerInfo"))
+const NetworkManager = lazy(() => import("../components/NetworkManager"));
 
 const AuthenticatedRoutes = () => {
   const userRole = useSelector((state) => state.userState?.currentUser.role);
@@ -162,6 +163,14 @@ const AuthenticatedRoutes = () => {
         element={
           <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
             <Notifications />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/network" 
+        element={
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_SETTINGS}>
+            <NetworkManager />
           </ProtectedRoute>
         } 
       />
