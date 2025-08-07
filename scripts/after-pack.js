@@ -110,7 +110,7 @@ module.exports = async function(context) {
   }
   
   // Copy critical modules to the built app
-  const criticalModules = ['cors', 'express', 'sqlite3', 'socket.io', 'bcrypt'];
+  const criticalModules = ['cors', 'express', 'sqlite3', 'socket.io', 'bcrypt', 'jsonwebtoken'];
   
   for (const module of criticalModules) {
     console.log(`Copying ${module} with dependencies to built app...`);
