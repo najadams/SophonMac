@@ -35,9 +35,10 @@ const networkRoutes = require('./routes/networkRoutes');
 const NetworkManager = require('./services/networkManager');
 const http = require('http');
 const db = require('./data/db/db');
+const networkConfig = require('./config/network.config');
 
 const app = express();
-const PORT = parseInt(process.env.PORT) || 3001; 
+const PORT = networkConfig.server.port || parseInt(process.env.PORT) || 3003; 
 
 // Debug: Log the PORT value
 console.log('Backend starting with PORT:', PORT);
@@ -105,7 +106,7 @@ app.get('/', (req, res) => {
       const startServer = async (port) => {
         const server = http.createServer(app);
         
-        server.listen(port, '0.0.0.0', async () => {
+        server.listen(port, networkConfig.server.host || '0.0.0.0', async () => {
           console.log(`Server running on http://localhost:${port}`);
           
           // Initialize networking after server starts
