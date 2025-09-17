@@ -36,7 +36,8 @@ import {
   Refresh,
   PlayArrow,
   Stop,
-  BugReport
+  BugReport,
+  Search
 } from '@mui/icons-material';
 import networkService from '../services/networkService';
 
@@ -55,6 +56,7 @@ const NetworkManager = () => {
   const [diagnosticsDialogOpen, setDiagnosticsDialogOpen] = useState(false);
   const [diagnosticsResult, setDiagnosticsResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     initializeNetworkManager();
@@ -68,6 +70,17 @@ const NetworkManager = () => {
   const initializeNetworkManager = async () => {
     try {
       setLoading(true);
+      
+      // Initialize network service with token and company ID
+      const token = localStorage.getItem('userToken');
+      const companyId = localStorage.getItem('companyId') || '1';
+      
+      if (token) {
+        await networkService.initialize(token, companyId);
+      }
+      
+      // Update network status from API
+      await networkService.updateNetworkStatus();
       
       // Get initial network status
       const status = networkService.getNetworkStatus();
@@ -191,6 +204,23 @@ const NetworkManager = () => {
     }
   };
 
+  const handleScanForInstances = async () => {
+    try {
+      setScanning(true);
+      const result = await networkService.scanForInstances();
+      console.log('Network scan initiated:', result);
+      // Refresh peers after scan
+      setTimeout(async () => {
+        const peersData = await networkService.getConnectedPeers();
+        setPeers(peersData);
+        setScanning(false);
+      }, 2000); // Give some time for discovery
+    } catch (error) {
+      console.error('Failed to scan for instances:', error);
+      setScanning(false);
+    }
+  };
+
   const getStatusColor = () => {
     if (!networkStatus.isOnline) return 'error';
     if (conflicts.length > 0) return 'warning';
@@ -212,7 +242,14 @@ const NetworkManager = () => {
   }
 
   return (
-    <Box p={3}>
+    <Box 
+      p={3} 
+      sx={{ 
+        height: '100vh', 
+        overflowY: 'auto',
+        overflowX: 'hidden'
+      }}
+    >
       <Typography variant="h4" gutterBottom>
         Network Management
       </Typography>
@@ -296,7 +333,12 @@ const NetworkManager = () => {
               </Typography>
               
               <Typography variant="body2" color="textSecondary" mb={2}>
-                Current role: {networkStatus.isMaster ? 'Master' : 'Slave'}
+                Current role: <Chip 
+                  label={networkStatus.isMaster ? 'Master' : 'Slave'} 
+                  color={networkStatus.isMaster ? 'primary' : 'default'}
+                  size="small"
+                  sx={{ ml: 1 }}
+                />
               </Typography>
               
               <Box>
@@ -315,10 +357,24 @@ const NetworkManager = () => {
                   startIcon={<Stop />}
                   onClick={handleForceSlave}
                   disabled={!networkStatus.isMaster}
-                  sx={{ mb: 1 }}
+                  sx={{ mr: 1, mb: 1 }}
                 >
                   Force Slave
                 </Button>
+                
+                {/* Scan button - only show for masters */}
+                {networkStatus.isMaster && (
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    startIcon={scanning ? <CircularProgress size={16} /> : <Search />}
+                    onClick={handleScanForInstances}
+                    disabled={scanning || !networkStatus.isOnline}
+                    sx={{ mb: 1 }}
+                  >
+                    {scanning ? 'Scanning...' : 'Scan Network'}
+                  </Button>
+                )}
               </Box>
               
               <Typography variant="caption" display="block" mt={1}>
