@@ -63,6 +63,40 @@ router.get('/clients', verifyToken, (req, res) => {
   }
 });
 
+// Scan for network instances (Master only)
+router.post('/scan', verifyToken, (req, res) => {
+  try {
+    const networkManager = req.app.get('networkManager');
+    
+    if (!networkManager) {
+      return res.status(503).json({ error: 'Network manager not available' });
+    }
+    
+    const status = networkManager.getNetworkStatus();
+    if (!status.isMaster) {
+      return res.status(403).json({ error: 'Only master instances can initiate network scans' });
+    }
+    
+    // Trigger a fresh discovery scan
+    networkManager.startNetworkDiscovery(true);
+    
+    // Return current peers immediately, fresh discoveries will come via websocket
+    const peers = networkManager.getConnectedPeers();
+    
+    res.json({
+      success: true,
+      message: 'Network scan initiated',
+      data: {
+        currentPeers: peers,
+        scanInitiated: true
+      }
+    });
+  } catch (error) {
+    console.error('Error initiating network scan:', error);
+    res.status(500).json({ error: 'Failed to initiate network scan' });
+  }
+});
+
 // Get network configuration
 router.get('/config', verifyToken, (req, res) => {
   const { companyId } = req.user;
