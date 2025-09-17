@@ -191,17 +191,11 @@ class NetworkService {
       return false;
     }
     
-    // Additional connectivity test - try to reach the backend
+    // Additional connectivity test - try to reach the backend using axios
     try {
-      const response = await fetch('/api/network/status', {
-        method: 'HEAD',
-        headers: {
-          'Authorization': `Bearer ${this.token}`
-        },
-        timeout: 5000
-      });
+      const response = await axios.get('/api/network/status', this.getAxiosConfig());
       
-      const actuallyOnline = response.ok;
+      const actuallyOnline = response.status === 200;
       this.networkStatus = {
         ...this.networkStatus,
         isOnline: actuallyOnline
@@ -403,6 +397,17 @@ class NetworkService {
       return response.data.data || response.data;
     } catch (error) {
       console.error('Failed to run network diagnostics:', error);
+      throw error;
+    }
+  }
+
+  // Scan for network instances (Master only)
+  async scanForInstances() {
+    try {
+      const response = await axios.post('/api/network/scan', {}, this.getAxiosConfig());
+      return response.data;
+    } catch (error) {
+      console.error('Failed to scan for network instances:', error);
       throw error;
     }
   }
