@@ -2,6 +2,7 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../middleware/authMiddleware');
 const EventEmitter = require('events');
+const networkConfig = require('../config/network.config');
 
 class WebSocketServer extends EventEmitter {
   constructor() {
@@ -16,12 +17,15 @@ class WebSocketServer extends EventEmitter {
   initialize(httpServer) {
     this.server = httpServer;
     this.io = new Server(httpServer, {
-      cors: {
+      cors: networkConfig.websocket.cors || {
         origin: ['http://localhost:5173', 'http://localhost:3002', 'http://localhost:3003'],
         methods: ['GET', 'POST'],
         credentials: true
       },
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      pingTimeout: networkConfig.websocket.pingTimeout || 60000,
+      pingInterval: networkConfig.websocket.pingInterval || 25000,
+      maxHttpBufferSize: networkConfig.websocket.maxHttpBufferSize || 1e6
     });
 
     this.setupMiddleware();

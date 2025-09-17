@@ -3,6 +3,7 @@ const WebSocketServer = require('./websocketServer');
 const SyncEngine = require('./syncEngine');
 const EventEmitter = require('events');
 const db = require('../data/db/db');
+const networkConfig = require('../config/network.config');
 
 class NetworkManager extends EventEmitter {
   constructor() {
@@ -12,11 +13,20 @@ class NetworkManager extends EventEmitter {
     this.syncEngine = new SyncEngine(this.websocketServer, this.networkDiscovery);
     
     this.isInitialized = false;
+    // Use configuration from network.config.js with database overrides
     this.networkConfig = {
-      autoDiscovery: true,
-      autoSync: true,
+      autoDiscovery: networkConfig.discovery.serviceName ? true : false,
+      autoSync: networkConfig.sync.interval > 0,
       masterElection: true,
-      conflictResolution: 'last-write-wins'
+      conflictResolution: networkConfig.sync.conflictResolution || 'last-write-wins',
+      // Include all config sections for easy access
+      server: networkConfig.server,
+      discovery: networkConfig.discovery,
+      sync: networkConfig.sync,
+      websocket: networkConfig.websocket,
+      security: networkConfig.security,
+      monitoring: networkConfig.monitoring,
+      debug: networkConfig.debug
     };
     
     this.setupEventListeners();

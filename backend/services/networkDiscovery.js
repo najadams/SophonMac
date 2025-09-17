@@ -1,6 +1,7 @@
 const bonjour = require('bonjour')();
 const { machineId } = require('node-machine-id');
 const EventEmitter = require('events');
+const networkConfig = require('../config/network.config');
 
 // Handle bonjour errors gracefully
 process.on('uncaughtException', (error) => {
@@ -18,9 +19,13 @@ class NetworkDiscoveryService extends EventEmitter {
     this.service = null;
     this.discoveredPeers = new Map();
     this.isRunning = false;
-    this.serviceType = 'sophon-pos';
+    this.serviceType = networkConfig.discovery.serviceType || 'sophon-pos';
+    this.serviceName = networkConfig.discovery.serviceName || 'sophon-pos';
     this.port = null;
     this.companyId = null;
+    this.announceInterval = networkConfig.discovery.announceInterval || 5000;
+    this.discoveryTimeout = networkConfig.discovery.discoveryTimeout || 10000;
+    this.maxPeers = networkConfig.discovery.maxPeers || 10;
   }
 
   async initialize(port, companyId, companyName) {
