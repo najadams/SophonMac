@@ -3,6 +3,39 @@ const router = express.Router();
 const { verifyToken } = require('../middleware/authMiddleware');
 const db = require('../data/db/db');
 
+// Get machine IP address
+router.get('/machine-ip', verifyToken, (req, res) => {
+  try {
+    const os = require('os');
+    const networkInterfaces = os.networkInterfaces();
+    
+    // Find the first non-internal IPv4 address
+    let machineIP = 'localhost';
+    
+    for (const interfaceName in networkInterfaces) {
+      const interfaces = networkInterfaces[interfaceName];
+      for (const iface of interfaces) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          machineIP = iface.address;
+          break;
+        }
+      }
+      if (machineIP !== 'localhost') break;
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        ip: machineIP,
+        hostname: os.hostname()
+      }
+    });
+  } catch (error) {
+    console.error('Error getting machine IP:', error);
+    res.status(500).json({ error: 'Failed to get machine IP' });
+  }
+});
+
 // Get network status
 router.get('/status', verifyToken, (req, res) => {
   try {
@@ -392,6 +425,98 @@ router.get('/connectivity', verifyToken, (req, res) => {
   } catch (error) {
     console.error('Error testing connectivity:', error);
     res.status(500).json({ error: 'Failed to test peer connectivity' });
+  }
+});
+
+// Add manual peer
+router.post('/peers/add', verifyToken, async (req, res) => {
+  try {
+    const { ip, port, name } = req.body;
+    const { companyId } = req.user;
+    
+    if (!ip || !port) {
+      return res.status(400).json({ error: 'IP address and port are required' });
+    }
+    
+    const networkManager = req.app.get('networkManager');
+    
+    if (!networkManager) {
+      return res.status(503).json({ error: 'Network manager not available' });
+    }
+    
+    // Test connectivity first
+    const isReachable = await networkManager.testPeerConnectivity(ip, port);
+    
+    if (!isReachable) {
+      return res.status(400).json({ error: 'Peer is not reachable at the specified address' });
+    }
+    
+    // Add peer to manual peers list
+    const success = await networkManager.addManualPeer({
+      ip,
+      port: parseInt(port),
+      name: name || `${ip}:${port}`,
+      companyId
+    });
+    
+    if (success) {
+      res.json({
+        success: true,
+        message: 'Manual peer added successfully'
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to add manual peer' });
+    }
+  } catch (error) {
+    console.error('Error adding manual peer:', error);
+    res.status(500).json({ error: 'Failed to add manual peer' });
+  }
+});
+
+// Remove manual peer
+router.delete('/peers/:peerId', verifyToken, async (req, res) => {
+  try {
+    const { peerId } = req.params;
+    const networkManager = req.app.get('networkManager');
+    
+    if (!networkManager) {
+      return res.status(503).json({ error: 'Network manager not available' });
+    }
+    
+    const success = await networkManager.removeManualPeer(peerId);
+    
+    if (success) {
+      res.json({
+        success: true,
+        message: 'Manual peer removed successfully'
+      });
+    } else {
+      res.status(404).json({ error: 'Peer not found or failed to remove' });
+    }
+  } catch (error) {
+    console.error('Error removing manual peer:', error);
+    res.status(500).json({ error: 'Failed to remove manual peer' });
+  }
+});
+
+// Get manual peers
+router.get('/peers/manual', verifyToken, (req, res) => {
+  try {
+    const { companyId } = req.user;
+    const networkManager = req.app.get('networkManager');
+    
+    if (!networkManager) {
+      return res.status(503).json({ error: 'Network manager not available' });
+    }
+    
+    const manualPeers = networkManager.getManualPeers(companyId);
+    res.json({
+      success: true,
+      data: manualPeers
+    });
+  } catch (error) {
+    console.error('Error getting manual peers:', error);
+    res.status(500).json({ error: 'Failed to get manual peers' });
   }
 });
 

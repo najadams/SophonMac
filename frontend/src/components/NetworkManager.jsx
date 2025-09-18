@@ -22,7 +22,8 @@ import {
   CircularProgress,
   Divider,
   IconButton,
-  Tooltip
+  Tooltip,
+  ListItemSecondaryAction
 } from '@mui/material';
 import {
   Wifi,
@@ -37,7 +38,10 @@ import {
   PlayArrow,
   Stop,
   BugReport,
-  Search
+  Search,
+  Add,
+  Delete,
+  NetworkCheck
 } from '@mui/icons-material';
 import networkService from '../services/networkService';
 
@@ -49,10 +53,13 @@ const NetworkManager = () => {
     lastSync: null
   });
   const [peers, setPeers] = useState([]);
+  const [manualPeers, setManualPeers] = useState([]);
+  const [machineInfo, setMachineInfo] = useState({ ip: 'Loading...', hostname: 'Loading...' });
   const [conflicts, setConflicts] = useState([]);
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [manualPeerDialogOpen, setManualPeerDialogOpen] = useState(false);
   const [diagnosticsDialogOpen, setDiagnosticsDialogOpen] = useState(false);
   const [diagnosticsResult, setDiagnosticsResult] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -89,6 +96,14 @@ const NetworkManager = () => {
       // Load peers
       const peersData = await networkService.getConnectedPeers();
       setPeers(peersData);
+      
+      // Load manual peers
+      const manualPeersData = await networkService.getManualPeers();
+      setManualPeers(manualPeersData);
+      
+      // Load machine info
+      const machineData = await networkService.getMachineIP();
+      setMachineInfo(machineData);
       
       // Load conflicts
       const conflictsData = await networkService.getSyncConflicts();
@@ -204,6 +219,31 @@ const NetworkManager = () => {
     }
   };
 
+  const handleAddManualPeer = async (peerData) => {
+    try {
+      await networkService.addManualPeer(peerData);
+      // Refresh manual peers list
+      const manualPeersData = await networkService.getManualPeers();
+      setManualPeers(manualPeersData);
+      setManualPeerDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to add manual peer:', error);
+      // You might want to show an error message to the user here
+    }
+  };
+
+  const handleRemoveManualPeer = async (peerId) => {
+    try {
+      await networkService.removeManualPeer(peerId);
+      // Refresh manual peers list
+      const manualPeersData = await networkService.getManualPeers();
+      setManualPeers(manualPeersData);
+    } catch (error) {
+      console.error('Failed to remove manual peer:', error);
+      // You might want to show an error message to the user here
+    }
+  };
+
   const handleScanForInstances = async () => {
     try {
       setScanning(true);
@@ -287,6 +327,22 @@ const NetworkManager = () => {
                   </Typography>
                   <Typography variant="body1">
                     {peers.length}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    Machine IP
+                  </Typography>
+                  <Typography variant="body1">
+                    {machineInfo.ip}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    Hostname
+                  </Typography>
+                  <Typography variant="body1">
+                    {machineInfo.hostname}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -388,9 +444,19 @@ const NetworkManager = () => {
         <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Connected Peers ({peers.length})
-              </Typography>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">
+                  Connected Peers ({peers.length})
+                </Typography>
+                <Button
+                  variant="outlined"
+                  startIcon={<Add />}
+                  onClick={() => setManualPeerDialogOpen(true)}
+                  size="small"
+                >
+                  Add Manual Peer
+                </Button>
+              </Box>
               
               {peers.length === 0 ? (
                 <Typography variant="body2" color="textSecondary">
@@ -419,6 +485,42 @@ const NetworkManager = () => {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Manual Peers */}
+        {manualPeers.length > 0 && (
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Manual Peers ({manualPeers.length})
+                </Typography>
+                
+                <List>
+                  {manualPeers.map((peer) => (
+                    <ListItem key={peer.id}>
+                      <ListItemIcon>
+                        <NetworkCheck />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={peer.name}
+                        secondary={`${peer.ip}:${peer.port} - ${peer.status || 'Manual'}`}
+                      />
+                      <ListItemSecondaryAction>
+                        <IconButton
+                          edge="end"
+                          onClick={() => handleRemoveManualPeer(peer.id)}
+                          color="error"
+                        >
+                          <Delete />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
 
         {/* Sync Conflicts */}
         {conflicts.length > 0 && (
@@ -493,6 +595,20 @@ const NetworkManager = () => {
         onSave={handleConfigSave}
       />
 
+      {/* Manual Peer Addition Dialog */}
+      <Dialog 
+        open={manualPeerDialogOpen} 
+        onClose={() => setManualPeerDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Add Manual Peer</DialogTitle>
+        <ManualPeerDialog
+          onClose={() => setManualPeerDialogOpen(false)}
+          onSave={handleAddManualPeer}
+        />
+      </Dialog>
+
       {/* Diagnostics Dialog */}
       <NetworkDiagnosticsDialog
         open={diagnosticsDialogOpen}
@@ -527,7 +643,7 @@ const NetworkConfigDialog = ({ open, config, onClose, onSave }) => {
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Network Configuration</DialogTitle>
       <DialogContent>
-        <Box mt={2}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <FormControlLabel
             control={
               <Switch
@@ -539,21 +655,19 @@ const NetworkConfigDialog = ({ open, config, onClose, onSave }) => {
           />
           
           <TextField
-            fullWidth
             label="Sync Interval (seconds)"
             type="number"
             value={formData.syncInterval}
             onChange={(e) => setFormData({ ...formData, syncInterval: parseInt(e.target.value) })}
-            margin="normal"
+            fullWidth
           />
           
           <TextField
-            fullWidth
             label="Max Peers"
             type="number"
             value={formData.maxPeers}
             onChange={(e) => setFormData({ ...formData, maxPeers: parseInt(e.target.value) })}
-            margin="normal"
+            fullWidth
           />
           
           <FormControlLabel
@@ -575,6 +689,107 @@ const NetworkConfigDialog = ({ open, config, onClose, onSave }) => {
   );
 };
 
+// Manual Peer Dialog Component
+const ManualPeerDialog = ({ onClose, onSave }) => {
+  const [peerData, setPeerData] = useState({
+    name: '',
+    ip: '',
+    port: 3001
+  });
+  const [errors, setErrors] = useState({});
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!peerData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    
+    if (!peerData.ip.trim()) {
+      newErrors.ip = 'IP address is required';
+    } else {
+      // Basic IP validation
+      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      if (!ipRegex.test(peerData.ip)) {
+        newErrors.ip = 'Please enter a valid IP address';
+      }
+    }
+    
+    if (!peerData.port || peerData.port < 1 || peerData.port > 65535) {
+      newErrors.port = 'Port must be between 1 and 65535';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = () => {
+    if (validateForm()) {
+      onSave(peerData);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setPeerData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  return (
+    <>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <TextField
+            label="Peer Name"
+            value={peerData.name}
+            onChange={(e) => handleInputChange('name', e.target.value)}
+            error={!!errors.name}
+            helperText={errors.name}
+            fullWidth
+            placeholder="e.g., Store Branch 2"
+          />
+          
+          <TextField
+            label="IP Address"
+            value={peerData.ip}
+            onChange={(e) => handleInputChange('ip', e.target.value)}
+            error={!!errors.ip}
+            helperText={errors.ip}
+            fullWidth
+            placeholder="e.g., 192.168.1.100"
+          />
+          
+          <TextField
+            label="Port"
+            type="number"
+            value={peerData.port}
+            onChange={(e) => handleInputChange('port', parseInt(e.target.value) || '')}
+            error={!!errors.port}
+            helperText={errors.port}
+            fullWidth
+            inputProps={{ min: 1, max: 65535 }}
+          />
+        </Box>
+      </DialogContent>
+      
+      <DialogActions>
+        <Button onClick={onClose}>
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSave} 
+          variant="contained"
+          disabled={!peerData.name || !peerData.ip || !peerData.port}
+        >
+          Add Peer
+        </Button>
+      </DialogActions>
+    </>
+  );
+};
+
 // Network Diagnostics Dialog Component
 const NetworkDiagnosticsDialog = ({ open, result, onClose }) => {
   return (
@@ -582,54 +797,63 @@ const NetworkDiagnosticsDialog = ({ open, result, onClose }) => {
       <DialogTitle>Network Diagnostics</DialogTitle>
       <DialogContent>
         {!result ? (
-          <Box display="flex" justifyContent="center" p={3}>
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
             <CircularProgress />
+            <Typography variant="body1" ml={2}>
+              Running diagnostics...
+            </Typography>
           </Box>
         ) : result.error ? (
           <Alert severity="error">
-            {result.error}
+            <Typography variant="body1">
+              Diagnostics failed: {result.error}
+            </Typography>
           </Alert>
         ) : (
           <Box>
             <Typography variant="h6" gutterBottom>
-              Diagnostic Results
+              Diagnostics Results
             </Typography>
             
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2">Network Status</Typography>
-                <Chip
-                  label={result.networkStatus ? 'Online' : 'Offline'}
-                  color={result.networkStatus ? 'success' : 'error'}
-                  size="small"
-                />
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Network Status
+                    </Typography>
+                    <Chip
+                      label={result.networkStatus ? 'Online' : 'Offline'}
+                      color={result.networkStatus ? 'success' : 'error'}
+                    />
+                  </CardContent>
+                </Card>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2">Database Status</Typography>
-                <Chip
-                  label={result.databaseStatus ? 'Connected' : 'Disconnected'}
-                  color={result.databaseStatus ? 'success' : 'error'}
-                  size="small"
-                />
+              <Grid item xs={12} md={6}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Connected Peers
+                    </Typography>
+                    <Typography variant="h4">
+                      {result.connectedPeers || 0}
+                    </Typography>
+                  </CardContent>
+                </Card>
               </Grid>
               
               <Grid item xs={12}>
-                <Typography variant="subtitle2">Peer Connectivity</Typography>
-                {result.peerTests && result.peerTests.length > 0 ? (
-                  result.peerTests.map((test, index) => (
-                    <Box key={index} display="flex" alignItems="center" mt={1}>
-                      {test.success ? <CheckCircle color="success" /> : <Error color="error" />}
-                      <Typography ml={1}>
-                        {test.peer} - {test.success ? 'Connected' : test.error}
-                      </Typography>
-                    </Box>
-                  ))
-                ) : (
-                  <Typography variant="body2" color="textSecondary">
-                    No peers to test
-                  </Typography>
-                )}
+                <Card>
+                  <CardContent>
+                    <Typography variant="subtitle1" gutterBottom>
+                      Detailed Report
+                    </Typography>
+                    <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>
+                      {JSON.stringify(result, null, 2)}
+                    </pre>
+                  </CardContent>
+                </Card>
               </Grid>
             </Grid>
           </Box>

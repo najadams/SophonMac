@@ -402,6 +402,48 @@ class NetworkService {
   }
 
   // Scan for network instances (Master only)
+  // Get machine IP address
+  async getMachineIP() {
+    try {
+      const response = await axios.get('/api/network/machine-ip', this.getAxiosConfig());
+      return response.data.data;
+    } catch (error) {
+      console.error('Failed to get machine IP:', error);
+      return { ip: 'Unknown', hostname: 'Unknown' };
+    }
+  }
+
+  // Manual peer management
+  async addManualPeer(peerData) {
+    try {
+      const response = await axios.post('/api/network/peers/add', peerData, this.getAxiosConfig());
+      return response.data.success;
+    } catch (error) {
+      console.error('Failed to add manual peer:', error);
+      throw error;
+    }
+  }
+
+  async removeManualPeer(peerId) {
+    try {
+      const response = await axios.delete(`/api/network/peers/${peerId}`, this.getAxiosConfig());
+      return response.data.success;
+    } catch (error) {
+      console.error('Failed to remove manual peer:', error);
+      throw error;
+    }
+  }
+
+  async getManualPeers() {
+    try {
+      const response = await axios.get('/api/network/peers/manual', this.getAxiosConfig());
+      return response.data.data;
+    } catch (error) {
+      console.error('Failed to get manual peers:', error);
+      return [];
+    }
+  }
+
   async scanForInstances() {
     try {
       const response = await axios.post('/api/network/scan', {}, this.getAxiosConfig());
