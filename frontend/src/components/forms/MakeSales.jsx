@@ -369,7 +369,11 @@ const MakeSales = ({
         name: addedProduct.name,
         salesPrice: addedProduct.salesPrice || 0,
         onhand: addedProduct.onhand || 0,
-        baseUnit: addedProduct.defaultUnit || "none",
+        baseUnit: addedProduct.defaultUnit || addedProduct.baseUnit || "none",
+        allowsUnitBreakdown: addedProduct.allowsUnitBreakdown || false,
+        atomicUnit: addedProduct.atomicUnit || addedProduct.defaultUnit || addedProduct.baseUnit || "none",
+        conversionFactor: addedProduct.conversionFactor || 1,
+        conversions: addedProduct.conversions || [],
       };
 
       // Update product options properly
