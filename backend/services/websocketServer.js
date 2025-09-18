@@ -80,7 +80,7 @@ class WebSocketServer extends EventEmitter {
 
     this.connectedClients.set(socket.id, clientInfo);
     
-    console.log(`Client connected: ${socket.id} (User: ${socket.userId}, Company: ${socket.companyId})`);
+    console.log(`Company: ${socket.companyId})`);
     this.emit('clientConnected', clientInfo);
 
     // Join company-specific room
