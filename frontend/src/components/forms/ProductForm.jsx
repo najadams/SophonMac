@@ -38,8 +38,8 @@ const validationSchema = Yup.object().shape({
     .min(2, "Name must be at least 2 characters")
     .max(50, "Name must not exceed 50 characters")
     .matches(
-      /^[a-zA-Z0-9\s-]+$/,
-      "Only letters, numbers, spaces, and hyphens are allowed"
+      /^[a-zA-Z0-9\s-.]+$/,
+      "Only letters, numbers, spaces, periods, and hyphens are allowed"
     ),
   category: Yup.string(),
   baseUnit: Yup.string(),
