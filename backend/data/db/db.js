@@ -30,7 +30,18 @@ if (process.env.DB_PATH) {
   
   if (isPackaged) {
     // In packaged app, store database in user data directory for write permissions
-    const userDataPath = path.join(os.homedir(), 'Library', 'Application Support', 'Sophon');
+    const userDataPath = (() => {
+      switch (process.platform) {
+        case 'win32':
+          return path.join(os.homedir(), 'AppData', 'Roaming', 'Sophon');
+        case 'darwin':
+          return path.join(os.homedir(), 'Library', 'Application Support', 'Sophon');
+        case 'linux':
+          return path.join(os.homedir(), '.local', 'share', 'Sophon');
+        default:
+          return path.join(os.homedir(), '.sophon');
+      }
+    })();
     
     // Ensure the directory exists
     if (!fs.existsSync(userDataPath)) {

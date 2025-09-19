@@ -9,7 +9,19 @@ const os = require("os");
 
 // Set up crash logging
 const logDir = app.isPackaged 
-  ? path.join(os.homedir(), 'Library', 'Logs', 'Sophon')
+  ? (() => {
+      // Use platform-specific log directories
+      switch (process.platform) {
+        case 'win32':
+          return path.join(os.homedir(), 'AppData', 'Roaming', 'Sophon', 'logs');
+        case 'darwin':
+          return path.join(os.homedir(), 'Library', 'Logs', 'Sophon');
+        case 'linux':
+          return path.join(os.homedir(), '.local', 'share', 'Sophon', 'logs');
+        default:
+          return path.join(os.homedir(), '.sophon', 'logs');
+      }
+    })()
   : path.join(__dirname, 'logs');
 
 // Ensure log directory exists
@@ -66,8 +78,19 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Set up app paths and environment
 if (app.isPackaged) {
-  // Set proper app data path for packaged app
-  const appDataPath = path.join(os.homedir(), 'Library', 'Application Support', 'Sophon');
+  // Set proper app data path for packaged app with platform-specific directories
+  const appDataPath = (() => {
+    switch (process.platform) {
+      case 'win32':
+        return path.join(os.homedir(), 'AppData', 'Roaming', 'Sophon');
+      case 'darwin':
+        return path.join(os.homedir(), 'Library', 'Application Support', 'Sophon');
+      case 'linux':
+        return path.join(os.homedir(), '.local', 'share', 'Sophon');
+      default:
+        return path.join(os.homedir(), '.sophon');
+    }
+  })();
   app.setPath('userData', appDataPath);
   app.setPath('logs', logDir);
 }
@@ -104,7 +127,8 @@ function createWindow() {
         contextIsolation: false,
         enableRemoteModule: true,
       },
-      show: true, // Show window immediately
+      show: false, // Don't show immediately to prevent flashing
+      icon: process.platform === 'win32' ? path.join(__dirname, 'resources', 'icon.ico') : undefined,
     });
 
     // Load the index.html file
@@ -127,8 +151,15 @@ function createWindow() {
     logToFile("INFO", `Loading frontend from: ${loadURL}`);
     logToFile("INFO", `Frontend ready status: ${frontendReady}`);
 
-    // Focus the window since it's already shown
-    mainWindow.focus();
+    // Load the URL first
+    mainWindow.loadURL(loadURL);
+
+    // Show window after content is ready
+    mainWindow.webContents.once('ready-to-show', () => {
+      logToFile("INFO", "Window content ready, showing window");
+      mainWindow.show();
+      mainWindow.focus();
+    });
 
     // Handle load failures
     mainWindow.webContents.on(
@@ -139,8 +170,11 @@ function createWindow() {
           `Failed to load ${validatedURL}: ${errorCode} - ${errorDescription}`
         );
 
-        // Log the error - window is already shown
-        logToFile('ERROR', 'Frontend failed to load, but window is visible for debugging');
+        // Show window even on failure for debugging
+        if (!mainWindow.isVisible()) {
+          mainWindow.show();
+          logToFile('ERROR', 'Frontend failed to load, showing window for debugging');
+        }
       }
     );
 
@@ -158,9 +192,6 @@ function createWindow() {
     mainWindow.on("responsive", () => {
       logToFile("INFO", "Main window became responsive again");
     });
-
-    // Load the URL
-    mainWindow.loadURL(loadURL);
 
     // Open DevTools in development mode
     if (process.env.NODE_ENV === "development") {
