@@ -65,6 +65,110 @@ function logToFile(level, message, error = null) {
   }
 }
 
+// Enhanced system diagnostics logging
+function logSystemDiagnostics() {
+  logToFile('INFO', '=== SYSTEM DIAGNOSTICS ===');
+  logToFile('INFO', `Platform: ${process.platform}`);
+  logToFile('INFO', `Architecture: ${process.arch}`);
+  logToFile('INFO', `Node.js version: ${process.version}`);
+  logToFile('INFO', `Electron version: ${process.versions.electron}`);
+  logToFile('INFO', `Chrome version: ${process.versions.chrome}`);
+  logToFile('INFO', `V8 version: ${process.versions.v8}`);
+  
+  // Check for Visual C++ Redistributables on Windows
+  if (process.platform === 'win32') {
+    logToFile('INFO', '=== WINDOWS RUNTIME CHECKS ===');
+    
+    // Check for common Visual C++ runtime locations
+    const vcRedistPaths = [
+      'C:\\Windows\\System32\\msvcp140.dll',
+      'C:\\Windows\\System32\\vcruntime140.dll',
+      'C:\\Windows\\System32\\vcruntime140_1.dll',
+      'C:\\Windows\\SysWOW64\\msvcp140.dll',
+      'C:\\Windows\\SysWOW64\\vcruntime140.dll'
+    ];
+    
+    vcRedistPaths.forEach(dllPath => {
+      try {
+        if (fs.existsSync(dllPath)) {
+          logToFile('INFO', `✓ Found: ${dllPath}`);
+        } else {
+          logToFile('WARNING', `✗ Missing: ${dllPath}`);
+        }
+      } catch (error) {
+        logToFile('ERROR', `Error checking ${dllPath}: ${error.message}`);
+      }
+    });
+    
+    // Check Windows version
+    try {
+      const os = require('os');
+      logToFile('INFO', `Windows version: ${os.release()}`);
+      logToFile('INFO', `Total memory: ${Math.round(os.totalmem() / 1024 / 1024 / 1024)}GB`);
+      logToFile('INFO', `Free memory: ${Math.round(os.freemem() / 1024 / 1024 / 1024)}GB`);
+    } catch (error) {
+      logToFile('ERROR', `Error getting system info: ${error.message}`);
+    }
+  }
+  
+  logToFile('INFO', '=== END DIAGNOSTICS ===');
+}
+
+// Check for native module dependencies
+async function checkNativeDependencies() {
+  logToFile('INFO', '=== NATIVE DEPENDENCIES CHECK ===');
+  
+  const criticalNativeModules = ['sqlite3', 'bcrypt'];
+  
+  for (const moduleName of criticalNativeModules) {
+    try {
+      logToFile('INFO', `Checking ${moduleName}...`);
+      
+      // Try to require the module
+      const moduleInstance = require(moduleName);
+      logToFile('INFO', `✓ ${moduleName} loaded successfully`);
+      
+      // Test basic functionality
+      if (moduleName === 'sqlite3') {
+        // Test sqlite3 by creating an in-memory database
+        const sqlite3 = moduleInstance.verbose();
+        const testDb = new sqlite3.Database(':memory:', (err) => {
+          if (err) {
+            logToFile('ERROR', `SQLite3 test failed: ${err.message}`);
+          } else {
+            logToFile('INFO', '✓ SQLite3 functionality test passed');
+            testDb.close();
+          }
+        });
+      } else if (moduleName === 'bcrypt') {
+        // Test bcrypt by hashing a simple string
+        const testHash = await moduleInstance.hash('test', 10);
+        const testVerify = await moduleInstance.compare('test', testHash);
+        if (testVerify) {
+          logToFile('INFO', '✓ bcrypt functionality test passed');
+        } else {
+          logToFile('ERROR', 'bcrypt functionality test failed');
+        }
+      }
+      
+    } catch (error) {
+      logToFile('ERROR', `✗ Failed to load ${moduleName}: ${error.message}`);
+      logToFile('ERROR', `Stack trace: ${error.stack}`);
+      
+      // Provide specific guidance for common issues
+      if (error.message.includes('node_modules')) {
+        logToFile('ERROR', `SOLUTION: ${moduleName} may not be properly installed or bundled`);
+      } else if (error.message.includes('binding') || error.message.includes('dll')) {
+        logToFile('ERROR', `SOLUTION: Missing Visual C++ Redistributables or incompatible architecture`);
+        logToFile('ERROR', 'Install Microsoft Visual C++ Redistributable for Visual Studio 2015-2022');
+        logToFile('ERROR', 'Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe');
+      }
+    }
+  }
+  
+  logToFile('INFO', '=== END NATIVE DEPENDENCIES CHECK ===');
+}
+
 // Set up global error handlers
 process.on('uncaughtException', (error) => {
   logToFile('FATAL', 'Uncaught Exception:', error);
@@ -669,11 +773,11 @@ app.on("ready", async () => {
   try {
     logToFile('INFO', 'Electron app ready event triggered');
     
-    // Log system information
-    logToFile('INFO', `Platform: ${process.platform}`);
-    logToFile('INFO', `Architecture: ${process.arch}`);
-    logToFile('INFO', `Electron version: ${process.versions.electron}`);
-    logToFile('INFO', `Node version: ${process.versions.node}`);
+    // Log system diagnostics first
+    logSystemDiagnostics();
+    
+    // Check for native module dependencies
+    await checkNativeDependencies();
     
     logToFile('INFO', `Running in ${process.env.NODE_ENV} mode`);
 
