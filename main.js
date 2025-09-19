@@ -826,8 +826,16 @@ app.on("window-all-closed", function () {
   logToFile('INFO', 'All windows closed');
   
   if (process.platform !== "darwin") {
-    logToFile('INFO', 'Non-macOS platform - quitting app');
-    cleanupAndQuit();
+    if (!isQuitting) {
+      logToFile('INFO', 'Initiating app quit from window-all-closed');
+      isQuitting = true;
+      performCleanup().then(() => {
+        app.exit(0);
+      }).catch((error) => {
+        logToFile('ERROR', 'Error during window-all-closed cleanup', error);
+        app.exit(1);
+      });
+    }
   }
 });
 
@@ -846,51 +854,118 @@ app.on('will-quit', (event) => {
 });
 
 // Clean up backend process when app is quitting
+let isQuitting = false;
 app.on("before-quit", (event) => {
+  if (isQuitting) {
+    logToFile('INFO', 'App already quitting, skipping cleanup');
+    return;
+  }
+  
   logToFile('INFO', 'App before-quit event triggered');
-  cleanupAndQuit();
+  isQuitting = true;
+  
+  // Prevent the default quit behavior temporarily
+  event.preventDefault();
+  
+  // Perform cleanup and then quit
+  performCleanup().then(() => {
+    logToFile('INFO', 'Cleanup completed - allowing app to quit');
+    // Now allow the app to quit
+    app.exit(0);
+  }).catch((error) => {
+    logToFile('ERROR', 'Error during cleanup', error);
+    app.exit(1);
+  });
 });
 
 // Cleanup function
-function cleanupAndQuit() {
+async function performCleanup() {
   logToFile('INFO', 'Starting cleanup process...');
+  
+  const cleanupPromises = [];
   
   // Kill the backend process when the app is quitting
   if (backendProcess && !backendProcess.killed) {
     logToFile('INFO', 'Terminating backend process...');
-    try {
-      backendProcess.kill('SIGTERM');
-      // Force kill after 5 seconds if still running
-      setTimeout(() => {
-        if (backendProcess && !backendProcess.killed) {
-          logToFile('WARNING', 'Force killing backend process');
-          backendProcess.kill('SIGKILL');
-        }
-      }, 5000);
-    } catch (error) {
-      logToFile('ERROR', 'Error killing backend process', error);
-    }
+    const backendCleanup = new Promise((resolve) => {
+      try {
+        backendProcess.kill('SIGTERM');
+        
+        // Set up timeout for force kill
+        const forceKillTimeout = setTimeout(() => {
+          if (backendProcess && !backendProcess.killed) {
+            logToFile('WARNING', 'Force killing backend process');
+            try {
+              backendProcess.kill('SIGKILL');
+            } catch (error) {
+              logToFile('ERROR', 'Error force killing backend process', error);
+            }
+          }
+          resolve();
+        }, 3000); // Reduced timeout to 3 seconds
+        
+        // Listen for process exit
+        backendProcess.on('exit', () => {
+          clearTimeout(forceKillTimeout);
+          logToFile('INFO', 'Backend process terminated successfully');
+          resolve();
+        });
+        
+      } catch (error) {
+        logToFile('ERROR', 'Error killing backend process', error);
+        resolve();
+      }
+    });
+    cleanupPromises.push(backendCleanup);
   }
   
   // Close the frontend server when the app is quitting
   if (frontendServer) {
     logToFile('INFO', 'Closing frontend server...');
-    try {
-      frontendServer.close((error) => {
-        if (error) {
-          logToFile('ERROR', 'Error closing frontend server', error);
-        } else {
-          logToFile('INFO', 'Frontend server closed successfully');
-        }
-      });
-    } catch (error) {
-      logToFile('ERROR', 'Error closing frontend server', error);
+    const frontendCleanup = new Promise((resolve) => {
+      try {
+        frontendServer.close((error) => {
+          if (error) {
+            logToFile('ERROR', 'Error closing frontend server', error);
+          } else {
+            logToFile('INFO', 'Frontend server closed successfully');
+          }
+          resolve();
+        });
+        
+        // Timeout for frontend server close
+        setTimeout(() => {
+          logToFile('WARNING', 'Frontend server close timeout');
+          resolve();
+        }, 2000);
+        
+      } catch (error) {
+        logToFile('ERROR', 'Error closing frontend server', error);
+        resolve();
+      }
+    });
+    cleanupPromises.push(frontendCleanup);
+  }
+  
+  // Wait for all cleanup operations to complete
+  await Promise.all(cleanupPromises);
+  logToFile('INFO', 'All cleanup operations completed');
+}
+
+// Legacy cleanup function (kept for compatibility)
+function cleanupAndQuit() {
+  if (isQuitting) {
+    return;
+  }
+  
+  performCleanup().then(() => {
+    if (process.platform !== "darwin") {
+      app.quit();
     }
-  }
-  
-  logToFile('INFO', 'Cleanup completed - app will quit');
-  
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  }).catch((error) => {
+    logToFile('ERROR', 'Error during legacy cleanup', error);
+    if (process.platform !== "darwin") {
+      app.quit();
+    }
+  });
 }
