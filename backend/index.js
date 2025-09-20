@@ -149,43 +149,27 @@ app.get('/', (req, res) => {
         });
         
         // Graceful shutdown
-        let isShuttingDown = false;
-        
-        const gracefulShutdown = async (signal) => {
-          if (isShuttingDown) {
-            console.log(`${signal} received but already shutting down`);
-            return;
+        process.on('SIGTERM', async () => {
+          console.log('SIGTERM received, shutting down gracefully');
+          if (networkManager) {
+            await networkManager.shutdown();
           }
-          
-          console.log(`${signal} received, shutting down gracefully`);
-          isShuttingDown = true;
-          
-          try {
-            if (networkManager) {
-              console.log('Shutting down network manager...');
-              await networkManager.shutdown();
-            }
-            
-            console.log('Closing server...');
-            server.close(() => {
-              console.log('Server closed successfully');
-              process.exit(0);
-            });
-            
-            // Force exit after timeout
-            setTimeout(() => {
-              console.log('Force exit after timeout');
-              process.exit(1);
-            }, 5000);
-            
-          } catch (error) {
-            console.error('Error during graceful shutdown:', error);
-            process.exit(1);
-          }
-        };
+          server.close(() => {
+            console.log('Server closed');
+            process.exit(0);
+          });
+        });
         
-        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+        process.on('SIGINT', async () => {
+          console.log('SIGINT received, shutting down gracefully');
+          if (networkManager) {
+            await networkManager.shutdown();
+          }
+          server.close(() => {
+            console.log('Server closed');
+            process.exit(0);
+          });
+        });
       };
 
       startServer(PORT);

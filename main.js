@@ -65,110 +65,6 @@ function logToFile(level, message, error = null) {
   }
 }
 
-// Enhanced system diagnostics logging
-function logSystemDiagnostics() {
-  logToFile('INFO', '=== SYSTEM DIAGNOSTICS ===');
-  logToFile('INFO', `Platform: ${process.platform}`);
-  logToFile('INFO', `Architecture: ${process.arch}`);
-  logToFile('INFO', `Node.js version: ${process.version}`);
-  logToFile('INFO', `Electron version: ${process.versions.electron}`);
-  logToFile('INFO', `Chrome version: ${process.versions.chrome}`);
-  logToFile('INFO', `V8 version: ${process.versions.v8}`);
-  
-  // Check for Visual C++ Redistributables on Windows
-  if (process.platform === 'win32') {
-    logToFile('INFO', '=== WINDOWS RUNTIME CHECKS ===');
-    
-    // Check for common Visual C++ runtime locations
-    const vcRedistPaths = [
-      'C:\\Windows\\System32\\msvcp140.dll',
-      'C:\\Windows\\System32\\vcruntime140.dll',
-      'C:\\Windows\\System32\\vcruntime140_1.dll',
-      'C:\\Windows\\SysWOW64\\msvcp140.dll',
-      'C:\\Windows\\SysWOW64\\vcruntime140.dll'
-    ];
-    
-    vcRedistPaths.forEach(dllPath => {
-      try {
-        if (fs.existsSync(dllPath)) {
-          logToFile('INFO', `✓ Found: ${dllPath}`);
-        } else {
-          logToFile('WARNING', `✗ Missing: ${dllPath}`);
-        }
-      } catch (error) {
-        logToFile('ERROR', `Error checking ${dllPath}: ${error.message}`);
-      }
-    });
-    
-    // Check Windows version
-    try {
-      const os = require('os');
-      logToFile('INFO', `Windows version: ${os.release()}`);
-      logToFile('INFO', `Total memory: ${Math.round(os.totalmem() / 1024 / 1024 / 1024)}GB`);
-      logToFile('INFO', `Free memory: ${Math.round(os.freemem() / 1024 / 1024 / 1024)}GB`);
-    } catch (error) {
-      logToFile('ERROR', `Error getting system info: ${error.message}`);
-    }
-  }
-  
-  logToFile('INFO', '=== END DIAGNOSTICS ===');
-}
-
-// Check for native module dependencies
-async function checkNativeDependencies() {
-  logToFile('INFO', '=== NATIVE DEPENDENCIES CHECK ===');
-  
-  const criticalNativeModules = ['sqlite3', 'bcrypt'];
-  
-  for (const moduleName of criticalNativeModules) {
-    try {
-      logToFile('INFO', `Checking ${moduleName}...`);
-      
-      // Try to require the module
-      const moduleInstance = require(moduleName);
-      logToFile('INFO', `✓ ${moduleName} loaded successfully`);
-      
-      // Test basic functionality
-      if (moduleName === 'sqlite3') {
-        // Test sqlite3 by creating an in-memory database
-        const sqlite3 = moduleInstance.verbose();
-        const testDb = new sqlite3.Database(':memory:', (err) => {
-          if (err) {
-            logToFile('ERROR', `SQLite3 test failed: ${err.message}`);
-          } else {
-            logToFile('INFO', '✓ SQLite3 functionality test passed');
-            testDb.close();
-          }
-        });
-      } else if (moduleName === 'bcrypt') {
-        // Test bcrypt by hashing a simple string
-        const testHash = await moduleInstance.hash('test', 10);
-        const testVerify = await moduleInstance.compare('test', testHash);
-        if (testVerify) {
-          logToFile('INFO', '✓ bcrypt functionality test passed');
-        } else {
-          logToFile('ERROR', 'bcrypt functionality test failed');
-        }
-      }
-      
-    } catch (error) {
-      logToFile('ERROR', `✗ Failed to load ${moduleName}: ${error.message}`);
-      logToFile('ERROR', `Stack trace: ${error.stack}`);
-      
-      // Provide specific guidance for common issues
-      if (error.message.includes('node_modules')) {
-        logToFile('ERROR', `SOLUTION: ${moduleName} may not be properly installed or bundled`);
-      } else if (error.message.includes('binding') || error.message.includes('dll')) {
-        logToFile('ERROR', `SOLUTION: Missing Visual C++ Redistributables or incompatible architecture`);
-        logToFile('ERROR', 'Install Microsoft Visual C++ Redistributable for Visual Studio 2015-2022');
-        logToFile('ERROR', 'Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe');
-      }
-    }
-  }
-  
-  logToFile('INFO', '=== END NATIVE DEPENDENCIES CHECK ===');
-}
-
 // Set up global error handlers
 process.on('uncaughtException', (error) => {
   logToFile('FATAL', 'Uncaught Exception:', error);
@@ -773,11 +669,11 @@ app.on("ready", async () => {
   try {
     logToFile('INFO', 'Electron app ready event triggered');
     
-    // Log system diagnostics first
-    logSystemDiagnostics();
-    
-    // Check for native module dependencies
-    await checkNativeDependencies();
+    // Log system information
+    logToFile('INFO', `Platform: ${process.platform}`);
+    logToFile('INFO', `Architecture: ${process.arch}`);
+    logToFile('INFO', `Electron version: ${process.versions.electron}`);
+    logToFile('INFO', `Node version: ${process.versions.node}`);
     
     logToFile('INFO', `Running in ${process.env.NODE_ENV} mode`);
 
@@ -826,16 +722,8 @@ app.on("window-all-closed", function () {
   logToFile('INFO', 'All windows closed');
   
   if (process.platform !== "darwin") {
-    if (!isQuitting) {
-      logToFile('INFO', 'Initiating app quit from window-all-closed');
-      isQuitting = true;
-      performCleanup().then(() => {
-        app.exit(0);
-      }).catch((error) => {
-        logToFile('ERROR', 'Error during window-all-closed cleanup', error);
-        app.exit(1);
-      });
-    }
+    logToFile('INFO', 'Non-macOS platform - quitting app');
+    cleanupAndQuit();
   }
 });
 
@@ -854,118 +742,51 @@ app.on('will-quit', (event) => {
 });
 
 // Clean up backend process when app is quitting
-let isQuitting = false;
 app.on("before-quit", (event) => {
-  if (isQuitting) {
-    logToFile('INFO', 'App already quitting, skipping cleanup');
-    return;
-  }
-  
   logToFile('INFO', 'App before-quit event triggered');
-  isQuitting = true;
-  
-  // Prevent the default quit behavior temporarily
-  event.preventDefault();
-  
-  // Perform cleanup and then quit
-  performCleanup().then(() => {
-    logToFile('INFO', 'Cleanup completed - allowing app to quit');
-    // Now allow the app to quit
-    app.exit(0);
-  }).catch((error) => {
-    logToFile('ERROR', 'Error during cleanup', error);
-    app.exit(1);
-  });
+  cleanupAndQuit();
 });
 
 // Cleanup function
-async function performCleanup() {
+function cleanupAndQuit() {
   logToFile('INFO', 'Starting cleanup process...');
-  
-  const cleanupPromises = [];
   
   // Kill the backend process when the app is quitting
   if (backendProcess && !backendProcess.killed) {
     logToFile('INFO', 'Terminating backend process...');
-    const backendCleanup = new Promise((resolve) => {
-      try {
-        backendProcess.kill('SIGTERM');
-        
-        // Set up timeout for force kill
-        const forceKillTimeout = setTimeout(() => {
-          if (backendProcess && !backendProcess.killed) {
-            logToFile('WARNING', 'Force killing backend process');
-            try {
-              backendProcess.kill('SIGKILL');
-            } catch (error) {
-              logToFile('ERROR', 'Error force killing backend process', error);
-            }
-          }
-          resolve();
-        }, 3000); // Reduced timeout to 3 seconds
-        
-        // Listen for process exit
-        backendProcess.on('exit', () => {
-          clearTimeout(forceKillTimeout);
-          logToFile('INFO', 'Backend process terminated successfully');
-          resolve();
-        });
-        
-      } catch (error) {
-        logToFile('ERROR', 'Error killing backend process', error);
-        resolve();
-      }
-    });
-    cleanupPromises.push(backendCleanup);
+    try {
+      backendProcess.kill('SIGTERM');
+      // Force kill after 5 seconds if still running
+      setTimeout(() => {
+        if (backendProcess && !backendProcess.killed) {
+          logToFile('WARNING', 'Force killing backend process');
+          backendProcess.kill('SIGKILL');
+        }
+      }, 5000);
+    } catch (error) {
+      logToFile('ERROR', 'Error killing backend process', error);
+    }
   }
   
   // Close the frontend server when the app is quitting
   if (frontendServer) {
     logToFile('INFO', 'Closing frontend server...');
-    const frontendCleanup = new Promise((resolve) => {
-      try {
-        frontendServer.close((error) => {
-          if (error) {
-            logToFile('ERROR', 'Error closing frontend server', error);
-          } else {
-            logToFile('INFO', 'Frontend server closed successfully');
-          }
-          resolve();
-        });
-        
-        // Timeout for frontend server close
-        setTimeout(() => {
-          logToFile('WARNING', 'Frontend server close timeout');
-          resolve();
-        }, 2000);
-        
-      } catch (error) {
-        logToFile('ERROR', 'Error closing frontend server', error);
-        resolve();
-      }
-    });
-    cleanupPromises.push(frontendCleanup);
+    try {
+      frontendServer.close((error) => {
+        if (error) {
+          logToFile('ERROR', 'Error closing frontend server', error);
+        } else {
+          logToFile('INFO', 'Frontend server closed successfully');
+        }
+      });
+    } catch (error) {
+      logToFile('ERROR', 'Error closing frontend server', error);
+    }
   }
   
-  // Wait for all cleanup operations to complete
-  await Promise.all(cleanupPromises);
-  logToFile('INFO', 'All cleanup operations completed');
-}
-
-// Legacy cleanup function (kept for compatibility)
-function cleanupAndQuit() {
-  if (isQuitting) {
-    return;
-  }
+  logToFile('INFO', 'Cleanup completed - app will quit');
   
-  performCleanup().then(() => {
-    if (process.platform !== "darwin") {
-      app.quit();
-    }
-  }).catch((error) => {
-    logToFile('ERROR', 'Error during legacy cleanup', error);
-    if (process.platform !== "darwin") {
-      app.quit();
-    }
-  });
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
 }

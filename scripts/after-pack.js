@@ -112,19 +112,7 @@ module.exports = async function(context) {
   // Copy critical modules to the built app
   const criticalModules = ['cors', 'express', 'sqlite3', 'socket.io', 'bcrypt', 'jsonwebtoken', 'bonjour', 'node-machine-id'];
   
-  // Also copy native module bindings and dependencies
-  const nativeModuleDependencies = [
-    'node-pre-gyp',
-    'node-addon-api', 
-    'node-gyp-build',
-    '@mapbox/node-pre-gyp',
-    'prebuild-install',
-    'detect-libc'
-  ];
-  
-  const allModulesToCopy = [...criticalModules, ...nativeModuleDependencies];
-  
-  for (const module of allModulesToCopy) {
+  for (const module of criticalModules) {
     console.log(`Copying ${module} with dependencies to built app...`);
     
     // Copy to main node_modules with dependencies
@@ -136,7 +124,7 @@ module.exports = async function(context) {
   
   // Verify the modules are now present
   console.log('Verifying critical modules in built app...');
-  for (const module of allModulesToCopy) {
+  for (const module of criticalModules) {
     const mainModulePath = path.join(appNodeModulesDir, module);
     const backendModulePath = path.join(backendNodeModulesDir, module);
     
