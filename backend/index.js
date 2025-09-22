@@ -30,6 +30,7 @@ const vendorPaymentRoutes = require('./routes/vendorPaymentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const networkRoutes = require('./routes/networkRoutes');
+const syncRoutes = require('./routes/syncRoutes');
 
 // Import networking services
 const NetworkManager = require('./services/networkManager');
@@ -79,6 +80,7 @@ app.use('/api/vendor-payments', vendorPaymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/network', networkRoutes);
+app.use('/api/sync', syncRoutes);
 
 // Default route
 app.get('/', (req, res) => {

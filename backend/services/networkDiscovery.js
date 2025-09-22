@@ -48,8 +48,10 @@ class NetworkDiscoveryService extends EventEmitter {
       this.stopAdvertising();
     }
 
+    // Add timestamp to make service name unique and avoid conflicts
+    const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
     const serviceData = {
-      name: `Sophon-${this.companyName}-${this.instanceId.substring(0, 8)}`,
+      name: `Sophon-${this.companyName}-${this.instanceId.substring(0, 8)}-${timestamp}`,
       type: this.serviceType,
       port: this.port,
       txt: {

@@ -1,5 +1,7 @@
 const EventEmitter = require('events');
+const { v4: uuidv4 } = require('uuid');
 const db = require('../data/db/db');
+const { createSupabaseServiceClient, supabaseConfig } = require('../config/supabase.config');
 
 class SyncEngine extends EventEmitter {
   constructor(websocketServer, networkDiscovery) {
@@ -12,6 +14,13 @@ class SyncEngine extends EventEmitter {
     this.conflictResolutionStrategy = 'last-write-wins';
     this.syncInterval = null;
     this.isRunning = false;
+    
+    // Supabase sync properties
+    this.supabase = createSupabaseServiceClient();
+    this.isOnline = false;
+    this.supabaseSyncInProgress = false;
+    this.lastSupabaseSyncTime = null;
+    this.supabaseSyncInterval = null;
   }
 
   initialize(companyId, isMaster = false) {
@@ -421,24 +430,531 @@ class SyncEngine extends EventEmitter {
   }
 
   generateSyncId() {
-    return `${this.networkDiscovery.getInstanceId()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return uuidv4();
   }
 
-  getStats() {
+  // ===== SUPABASE SYNC METHODS =====
+
+  // Check internet connectivity
+  async checkSupabaseConnectivity() {
+    try {
+      const { data, error } = await this.supabase.from('company').select('id').limit(1);
+      this.isOnline = !error;
+      return this.isOnline;
+    } catch (error) {
+      this.isOnline = false;
+      return false;
+    }
+  }
+
+  // Add record to sync outbox for offline operations
+  async addToSupabaseOutbox(tableName, recordId, operation, data = null) {
+    return new Promise((resolve, reject) => {
+      const syncId = this.generateSyncId();
+      const stmt = db.prepare(`
+        INSERT INTO SyncOutbox (table_name, record_id, operation, data, sync_id)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      
+      stmt.run([tableName, recordId, operation, JSON.stringify(data), syncId], function(err) {
+        if (err) {
+          console.error('Error adding to Supabase outbox:', err);
+          reject(err);
+        } else {
+          resolve(this.lastID);
+        }
+      });
+    });
+  }
+
+  // Process outbox - sync pending operations to Supabase
+  async processSupabaseOutbox() {
+    if (!this.isOnline || this.supabaseSyncInProgress) return;
+
+    return new Promise((resolve, reject) => {
+      db.all(`
+        SELECT * FROM SyncOutbox 
+        WHERE status = 'pending' 
+        ORDER BY created_at ASC 
+        LIMIT ?
+      `, [supabaseConfig.syncSettings.maxBatchSize], async (err, rows) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        for (const row of rows) {
+          try {
+            await this.processSupabaseOutboxItem(row);
+          } catch (error) {
+            console.error(`Failed to process Supabase outbox item ${row.id}:`, error);
+            await this.markSupabaseOutboxItemFailed(row.id, error.message);
+          }
+        }
+        resolve();
+      });
+    });
+  }
+
+  // Process individual outbox item for Supabase
+  async processSupabaseOutboxItem(item) {
+    const { table_name, operation, data, sync_id } = item;
+    const parsedData = JSON.parse(data || '{}');
+    
+    // Convert table name to lowercase for PostgreSQL
+    const pgTableName = table_name.toLowerCase();
+
+    try {
+      let result;
+      switch (operation) {
+        case 'INSERT':
+          result = await this.supabase.from(pgTableName).insert(parsedData);
+          break;
+        case 'UPDATE':
+          result = await this.supabase.from(pgTableName)
+            .update(parsedData)
+            .eq('sync_id', sync_id);
+          break;
+        case 'DELETE':
+          result = await this.supabase.from(pgTableName)
+            .delete()
+            .eq('sync_id', sync_id);
+          break;
+      }
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      // Mark as synced in outbox
+      await this.markSupabaseOutboxItemSynced(item.id);
+      
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Mark outbox item as synced
+  async markSupabaseOutboxItemSynced(outboxId) {
+    return new Promise((resolve, reject) => {
+      db.run(`
+        UPDATE SyncOutbox 
+        SET status = 'synced', last_retry_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `, [outboxId], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  // Mark outbox item as failed
+  async markSupabaseOutboxItemFailed(outboxId, errorMessage) {
+    return new Promise((resolve, reject) => {
+      db.run(`
+        UPDATE SyncOutbox 
+        SET status = 'failed', error_message = ?, retry_count = retry_count + 1, last_retry_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `, [errorMessage, outboxId], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  // Upload local changes to Supabase
+  async uploadChangesToSupabase(tableName, companyId) {
+    return new Promise((resolve, reject) => {
+      // Convert table name to lowercase for PostgreSQL
+      const pgTableName = tableName.toLowerCase();
+      
+      // Different filtering logic for Company table vs other tables
+      let query, params;
+      if (tableName === 'Company') {
+        query = `
+          SELECT * FROM ${tableName} 
+          WHERE id = ? 
+          AND (is_synced = 0 OR is_synced IS NULL)
+          ORDER BY COALESCE(updatedAt, createdAt) ASC
+          LIMIT ?
+        `;
+        params = [companyId, supabaseConfig.syncSettings.maxBatchSize];
+      } else {
+        // Check if table has companyId column
+        // Define which tables have companyId column (using correct column names)
+        const tablesWithCompanyId = ['Settings', 'Worker', 'Inventory', 'Receipt', 'Debt', 'Supplies', 'PurchaseOrder', 'VendorPayment', 'Notification', 'Purchases'];
+        // ReceiptDetail doesn't have companyId - it's linked through Receipt
+        // DebtPayment doesn't have companyId - it's linked through Debt
+        // SuppliesDetail doesn't have companyId - it's linked through Supplies
+        // PurchaseOrderItem doesn't have companyId - it's linked through PurchaseOrder
+        // Customer and Vendor tables will sync all records for now (no company filtering)
+        const tablesWithBelongsTo = [];
+        
+        // Tables that don't have updatedAt column (use id for ordering instead)
+        const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+        const orderByClause = tablesWithoutUpdatedAt.includes(tableName) ? 'id ASC' : 'COALESCE(updatedAt, createdAt) ASC';
+        
+        if (tablesWithCompanyId.includes(tableName)) {
+          query = `
+            SELECT * FROM ${tableName} 
+            WHERE companyId = ? 
+            AND (is_synced = 0 OR is_synced IS NULL)
+            ORDER BY ${orderByClause}
+            LIMIT ?
+          `;
+          params = [companyId, supabaseConfig.syncSettings.maxBatchSize];
+          console.log(`Querying ${tableName} with companyId filter`);
+        } else if (tablesWithBelongsTo.includes(tableName)) {
+          query = `
+            SELECT * FROM ${tableName} 
+            WHERE belongsTo = ? 
+            AND (is_synced = 0 OR is_synced IS NULL)
+            ORDER BY ${orderByClause}
+            LIMIT ?
+          `;
+          params = [companyId, supabaseConfig.syncSettings.maxBatchSize];
+          console.log(`Querying ${tableName} with belongsTo filter`);
+        } else {
+          // For tables without companyId, sync all records
+          query = `
+            SELECT * FROM ${tableName} 
+            WHERE (is_synced = 0 OR is_synced IS NULL)
+            ORDER BY ${orderByClause}
+            LIMIT ?
+          `;
+          params = [supabaseConfig.syncSettings.maxBatchSize];
+          console.log(`Querying ${tableName} without companyId filter`);
+        }
+      }
+
+      db.all(query, params, async (err, rows) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        let uploadedCount = 0;
+        for (const row of rows) {
+          try {
+            // Ensure sync_id exists
+            if (!row.sync_id) {
+              row.sync_id = this.generateSyncId();
+              await this.updateSyncId(tableName, row.id, row.sync_id);
+            }
+
+            // Upload to Supabase
+            const { error } = await this.supabase.from(pgTableName).upsert(row);
+            
+            if (error) {
+              console.error(`Error uploading ${tableName} record ${row.id}:`, error);
+              continue;
+            }
+
+            // Mark as synced locally
+            await this.markRecordSynced(tableName, row.id);
+            uploadedCount++;
+            
+          } catch (error) {
+            console.error(`Failed to upload ${tableName} record ${row.id}:`, error);
+          }
+        }
+        
+        resolve(uploadedCount);
+      });
+    });
+  }
+
+  // Download changes from Supabase
+  async downloadChangesFromSupabase(tableName, companyId) {
+    try {
+      // Convert table name to lowercase for PostgreSQL
+      const pgTableName = tableName.toLowerCase();
+      
+      // Get last sync time for this table
+      const lastSync = await this.getLastSupabaseSyncTime(tableName);
+      
+      let query = this.supabase.from(pgTableName).select('*');
+      
+      // Filter by company if applicable - different logic for Company table
+      if (companyId) {
+        if (tableName === 'Company') {
+          query = query.eq('id', companyId);
+        } else {
+          // Check if table has companyId column
+          const tablesWithCompanyId = ['Settings', 'Worker', 'Inventory', 'Receipt', 'Debt', 'Supplies', 'PurchaseOrder', 'VendorPayment', 'Notification', 'Purchases'];
+          // ReceiptDetail doesn't have companyId - it's linked through Receipt
+          // DebtPayment doesn't have companyId - it's linked through Debt
+          // SuppliesDetail doesn't have companyId - it's linked through Supplies
+          // PurchaseOrderItem doesn't have companyId - it's linked through PurchaseOrder
+          // Customer and Vendor tables will sync all records for now (no company filtering)
+          const tablesWithBelongsTo = [];
+          
+          // Tables that don't have updatedAt column (use id for ordering instead)
+           const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+           const orderByClause = tablesWithoutUpdatedAt.includes(tableName) ? 'id ASC' : 'COALESCE(updatedAt, createdAt) ASC';
+          
+          if (tablesWithCompanyId.includes(tableName)) {
+            // Use snake_case for PostgreSQL/Supabase
+            query = query.eq('company_id', companyId);
+          } else if (tablesWithBelongsTo.includes(tableName)) {
+            // For Customer and Vendor tables, try different column name variations
+            // First try company_id (standard), then belongs_to, then belongsTo
+            try {
+              query = query.eq('company_id', companyId);
+            } catch (e) {
+              try {
+                query = query.eq('belongs_to', companyId);
+              } catch (e2) {
+                query = query.eq('belongsTo', companyId);
+              }
+            }
+          }
+          // For tables without companyId, don't filter by company
+        }
+      }
+      
+      // Only get records updated since last sync
+      if (lastSync) {
+        // Use updated_at for Supabase (PostgreSQL naming convention)
+        query = query.gt('updated_at', lastSync);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+
+      // Apply changes to local database
+      for (const record of data || []) {
+        await this.applySupabaseChange(tableName, record);
+      }
+
+      // Update last sync time
+      await this.updateLastSupabaseSyncTime(tableName);
+      
+      return data?.length || 0;
+    } catch (error) {
+      console.error(`Error downloading changes for ${tableName}:`, error);
+      throw error;
+    }
+  }
+
+  // Apply remote change from Supabase to local database
+  async applySupabaseChange(tableName, record) {
+    return new Promise((resolve, reject) => {
+      // Check if record exists locally
+      db.get(`SELECT id FROM ${tableName} WHERE sync_id = ?`, [record.sync_id], (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (row) {
+          // Update existing record
+          this.updateLocalRecord(tableName, record, resolve, reject);
+        } else {
+          // Insert new record
+          this.insertLocalRecord(tableName, record, resolve, reject);
+        }
+      });
+    });
+  }
+
+  // Update local record from Supabase
+  updateLocalRecord(tableName, record, resolve, reject) {
+    const columns = Object.keys(record).filter(key => key !== 'id');
+    const setClause = columns.map(col => `${col} = ?`).join(', ');
+    const values = columns.map(col => record[col]);
+    values.push(record.sync_id);
+
+    db.run(`
+      UPDATE ${tableName} 
+      SET ${setClause}, is_synced = 1, last_synced_at = CURRENT_TIMESTAMP 
+      WHERE sync_id = ?
+    `, values, function(err) {
+      if (err) reject(err);
+      else resolve();
+    });
+  }
+
+  // Insert local record from Supabase
+  insertLocalRecord(tableName, record, resolve, reject) {
+    const columns = Object.keys(record).filter(key => key !== 'id');
+    const placeholders = columns.map(() => '?').join(', ');
+    const values = columns.map(col => record[col]);
+
+    db.run(`
+      INSERT INTO ${tableName} (${columns.join(', ')}, is_synced, last_synced_at) 
+      VALUES (${placeholders}, 1, CURRENT_TIMESTAMP)
+    `, values, function(err) {
+      if (err) reject(err);
+      else resolve();
+    });
+  }
+
+  // Update sync_id for a record
+  async updateSyncId(tableName, recordId, syncId) {
+    return new Promise((resolve, reject) => {
+      db.run(`UPDATE ${tableName} SET sync_id = ? WHERE id = ?`, [syncId, recordId], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  // Mark record as synced
+  async markRecordSynced(tableName, recordId) {
+    return new Promise((resolve, reject) => {
+      db.run(`
+        UPDATE ${tableName} 
+        SET is_synced = 1, last_synced_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `, [recordId], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  // Get last sync time for a table from Supabase
+  async getLastSupabaseSyncTime(tableName) {
+    return new Promise((resolve, reject) => {
+      db.get(`
+        SELECT completed_at FROM SyncLog 
+        WHERE table_name = ? AND operation = 'supabase_sync' AND status = 'completed' 
+        ORDER BY completed_at DESC LIMIT 1
+      `, [tableName], (err, row) => {
+        if (err) reject(err);
+        else resolve(row?.completed_at || null);
+      });
+    });
+  }
+
+  // Update last sync time for Supabase
+  async updateLastSupabaseSyncTime(tableName) {
+    return new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO SyncLog (table_name, operation, records_processed, status, completed_at)
+        VALUES (?, 'supabase_sync', 0, 'completed', CURRENT_TIMESTAMP)
+      `, [tableName], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  // Full Supabase sync for a company
+  async syncWithSupabase(companyId) {
+    if (this.supabaseSyncInProgress) {
+      throw new Error('Supabase sync already in progress');
+    }
+
+    this.supabaseSyncInProgress = true;
+    const startTime = Date.now();
+    
+    try {
+      // Check connectivity
+      await this.checkSupabaseConnectivity();
+      
+      if (!this.isOnline) {
+        throw new Error('No internet connection available for Supabase sync');
+      }
+
+      console.log(`Starting Supabase sync for company ${companyId}...`);
+      
+      // Process outbox first
+      await this.processSupabaseOutbox();
+      
+      // Sync each table in dependency order
+      for (const tableName of supabaseConfig.syncSettings.syncTables) {
+        console.log(`Syncing ${tableName} with Supabase...`);
+        
+        // Upload local changes
+        const uploaded = await this.uploadChangesToSupabase(tableName, companyId);
+        console.log(`Uploaded ${uploaded} ${tableName} records to Supabase`);
+        
+        // Download remote changes
+        const downloaded = await this.downloadChangesFromSupabase(tableName, companyId);
+        console.log(`Downloaded ${downloaded} ${tableName} records from Supabase`);
+      }
+      
+      this.lastSupabaseSyncTime = new Date().toISOString();
+      const duration = Date.now() - startTime;
+      
+      console.log(`Supabase sync completed in ${duration}ms`);
+      this.emit('supabaseSyncCompleted', { success: true, duration, lastSyncTime: this.lastSupabaseSyncTime });
+      
+      return { success: true, duration, lastSyncTime: this.lastSupabaseSyncTime };
+      
+    } catch (error) {
+      console.error('Supabase sync failed:', error);
+      this.emit('supabaseSyncFailed', { error: error.message });
+      throw error;
+    } finally {
+      this.supabaseSyncInProgress = false;
+    }
+  }
+
+  // Start automatic Supabase sync
+  startAutomaticSupabaseSync() {
+    if (this.supabaseSyncInterval) {
+      clearInterval(this.supabaseSyncInterval);
+    }
+
+    this.supabaseSyncInterval = setInterval(async () => {
+      try {
+        if (this.companyId && !this.supabaseSyncInProgress) {
+          await this.syncWithSupabase(this.companyId);
+        }
+      } catch (error) {
+        console.error('Automatic Supabase sync failed:', error);
+      }
+    }, supabaseConfig.syncSettings.batchSyncInterval);
+
+    console.log(`Automatic Supabase sync started (interval: ${supabaseConfig.syncSettings.batchSyncInterval}ms)`);
+  }
+
+  // Stop automatic Supabase sync
+  stopAutomaticSupabaseSync() {
+    if (this.supabaseSyncInterval) {
+      clearInterval(this.supabaseSyncInterval);
+      this.supabaseSyncInterval = null;
+      console.log('Automatic Supabase sync stopped');
+    }
+  }
+
+  // Get comprehensive sync status
+  getComprehensiveSyncStatus() {
     return {
+      // Peer-to-peer sync status
       isMaster: this.isMaster,
       queueSize: this.syncQueue.length,
       lastSyncTimestamp: this.lastSyncTimestamp,
-      isRunning: this.isRunning
+      isRunning: this.isRunning,
+      
+      // Supabase sync status
+      isOnline: this.isOnline,
+      supabaseSyncInProgress: this.supabaseSyncInProgress,
+      lastSupabaseSyncTime: this.lastSupabaseSyncTime,
+      supabaseSyncEnabled: !!this.supabaseSyncInterval
     };
+  }
+
+  getStats() {
+    return this.getComprehensiveSyncStatus();
   }
 
   shutdown() {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
     }
+    
+    // Stop Supabase sync
+    this.stopAutomaticSupabaseSync();
+    
     this.isRunning = false;
-    console.log('Sync Engine shutdown');
+    console.log('Sync Engine shutdown complete');
     this.emit('syncEngineStopped');
   }
 }

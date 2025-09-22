@@ -12,6 +12,8 @@ all_customers.json
 api_response.json
 backend/data/db/database.db
 backend/nohup.out
+supabase_schema.sql
+test*
 specific_customer.json
 tmp/
 updated_customer.json
