@@ -93,9 +93,52 @@ const runNetworkingMigrations = async () => {
   }
 };
 
+// Run CustomRoles table migration
+const runCustomRolesMigration = async () => {
+  try {
+    // Check if CustomRoles table exists
+    const tableExists = await new Promise((resolve, reject) => {
+      db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='CustomRoles'", (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(!!row);
+        }
+      });
+    });
+    
+    if (!tableExists) {
+      console.log('Running CustomRoles table migration...');
+      
+      // Read CustomRoles migration SQL file
+      const migrationPath = path.join(__dirname, '../migrations/add_custom_roles_table.sql');
+      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      
+      // Execute the entire SQL file at once to handle complex statements
+      await new Promise((resolve, reject) => {
+        db.exec(migrationSQL, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      })
+      
+      console.log('CustomRoles table migration completed successfully!');
+    } else {
+      console.log('CustomRoles table migration already applied.');
+    }
+  } catch (error) {
+    console.error('Error running CustomRoles migration:', error);
+    throw error;
+  }
+};
+
 const runMigrations = async () => {
   try {
     await runReceiptDetailMigration();
+    await runCustomRolesMigration();
     console.log('All migrations completed successfully!');
   } catch (error) {
     console.error('Migration error:', error);
@@ -106,6 +149,7 @@ const runMigrations = async () => {
 module.exports = {
   runMigrations,
   runReceiptDetailMigration,
+  runCustomRolesMigration,
   runNetworkingMigrations,
   columnExists
 };

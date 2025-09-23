@@ -77,7 +77,7 @@ const AuthenticatedRoutes = () => {
       <Route
         path="/customers"
         element={
-          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_CUSTOMERS}>
             <Customers />
           </ProtectedRoute>
         }
@@ -93,7 +93,7 @@ const AuthenticatedRoutes = () => {
       <Route
         path="/transactions"
         element={
-          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_TRANSACTIONS}>
             <Transactions />
           </ProtectedRoute>
         }
@@ -101,7 +101,7 @@ const AuthenticatedRoutes = () => {
       <Route
         path="/vendors/*"
         element={
-          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_VENDORS}>
             <VendorsRoutes />
           </ProtectedRoute>
         }
@@ -109,7 +109,7 @@ const AuthenticatedRoutes = () => {
       <Route
         path="/debt/*"
         element={
-          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_DEBT}>
             <DebtsRoutes />
           </ProtectedRoute>
         }
@@ -117,7 +117,7 @@ const AuthenticatedRoutes = () => {
       <Route
         path="/receipts/:receiptId"
         element={
-          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
+          <ProtectedRoute requiredPermission={PERMISSIONS.PROCESS_SALES}>
             <ViewReceipt />
           </ProtectedRoute>
         }
@@ -137,7 +137,7 @@ const AuthenticatedRoutes = () => {
       <Route 
         path="/vendors/:vendorId" 
         element={
-          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_VENDORS}>
             <VendorDetails />
           </ProtectedRoute>
         } 
@@ -161,7 +161,7 @@ const AuthenticatedRoutes = () => {
       <Route 
         path="/notification" 
         element={
-          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
+          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_NOTIFICATIONS}>
             <Notifications />
           </ProtectedRoute>
         } 
@@ -187,7 +187,7 @@ const AuthenticatedRoutes = () => {
       <Route 
         path="/customers/:id" 
         element={
-          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_CUSTOMERS}>
             <CustomerInfo />
           </ProtectedRoute>
         } 

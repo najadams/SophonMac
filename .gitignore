@@ -14,6 +14,7 @@ backend/data/db/database.db
 backend/nohup.out
 supabase_schema.sql
 test*
+.database.db
 specific_customer.json
 tmp/
 updated_customer.json

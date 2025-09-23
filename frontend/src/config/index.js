@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Use the appropriate API URL based on environment and role
-// Backend runs on port 3004
+// Backend runs on port 3003
 const getBackendURL = () => {
   const hostname = window.location.hostname;
   

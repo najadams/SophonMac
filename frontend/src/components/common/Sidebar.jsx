@@ -2,14 +2,38 @@ import { NavLink } from "react-router-dom";
 import { useMediaQuery } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSelector } from "react-redux";
+import { useState, useEffect } from "react";
 import { getSidebarPagesForUser, ROLES, PERMISSIONS } from "../../context/userRoles";
 
 const Sidebar = ({ isExpanded, toggleSidebar }) => {
   const isMobile = useMediaQuery((theme) => theme.breakpoints.down("mymd"));
   const currentUser = useSelector((state) => state.userState.currentUser);
-  
-  // Get sidebar pages based on user's role and custom permissions
-  const menuItems = getSidebarPagesForUser(currentUser);
+  const [customRoles, setCustomRoles] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
+
+  // Fetch custom roles and update menu items
+  useEffect(() => {
+    const loadCustomRoles = async () => {
+      try {
+        const customRoleService = await import('../../services/customRoleService');
+        const roles = await customRoleService.default.getAllCustomRoles();
+        setCustomRoles(roles);
+        
+        // Get sidebar pages based on user's role and custom permissions
+        const items = getSidebarPagesForUser(currentUser, roles);
+        setMenuItems(items);
+      } catch (error) {
+        console.error('Error loading custom roles:', error);
+        // Fallback to default behavior without custom roles
+        const items = getSidebarPagesForUser(currentUser, []);
+        setMenuItems(items);
+      }
+    };
+
+    if (currentUser) {
+      loadCustomRoles();
+    }
+  }, [currentUser]);
 
   const sidebarVariants = {
     expanded: {

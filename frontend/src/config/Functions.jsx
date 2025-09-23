@@ -706,9 +706,13 @@ export const tableActions = {
         throw new Error(`Unexpected status code: ${response.status}`);
       }
     } catch (error) {
-      console.error(error.response?.data?.message);
-      // Throw the error so the calling function can handle it
-      throw error?.response?.data?.message;
+      console.error('Error creating worker:', error);
+      // Provide a more descriptive error message
+      const errorMessage = error?.response?.data?.error || 
+                          error?.response?.data?.message || 
+                          error?.message || 
+                          'An error occurred while creating the user';
+      throw new Error(errorMessage);
     }
   },
 

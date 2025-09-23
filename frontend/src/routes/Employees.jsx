@@ -42,7 +42,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../config/index';
 import { toast } from 'react-toastify';
 import ProtectedRoute from '../components/ProtectedRoute';
-import { PERMISSIONS, ROLES, canChangeUserRole, getAssignableRoles } from '../context/userRoles';
+import { PERMISSIONS, ROLES, canChangeUserRole, getAssignableRoles, getAllRoles, getRoleDisplayName } from '../context/userRoles';
+import customRoleService from '../services/customRoleService';
 
 const Employees = () => {
   const navigate = useNavigate();
@@ -60,29 +61,72 @@ const Employees = () => {
   });
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
+  const [allRoleOptions, setAllRoleOptions] = useState([]);
+  const [customRoles, setCustomRoles] = useState([]);
 
   const currentUser = useSelector((state) => state.userState.currentUser);
   const companyId = useSelector((state) => state.userState.currentUser?.companyId);
   const userRole = currentUser?.role || currentUser?.worker?.role;
 
-  const allRoleOptions = [
-    { value: ROLES.COMPANY, label: 'Company' },
-    { value: ROLES.SUPER_ADMIN, label: 'Super Admin' },
-    { value: ROLES.ADMIN, label: 'Admin' },
-    { value: ROLES.STORE_MANAGER, label: 'Store Manager' },
-    { value: ROLES.SALES_ASSOCIATE_AND_INVENTORY_MANAGER, label: 'Sales Associate & Inventory Manager' },
-    { value: ROLES.SALES_ASSOCIATE, label: 'Sales Associate' },
-    { value: ROLES.INVENTORY_MANAGER, label: 'Inventory Manager' },
-    { value: ROLES.HR, label: 'HR' },
-    { value: ROLES.IT_SUPPORT, label: 'IT Support' },
-    { value: ROLES.WORKER, label: 'Worker' }
-  ];
+  // Load all roles (built-in + custom)
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        // Built-in roles
+        const builtInRoles = [
+          { value: ROLES.SUPER_ADMIN, label: 'Super Admin', isCustom: false },
+          { value: ROLES.ADMIN, label: 'Admin', isCustom: false },
+          { value: ROLES.MANAGER, label: 'Manager', isCustom: false },
+          { value: ROLES.EMPLOYEE, label: 'Employee', isCustom: false },
+          { value: ROLES.VIEWER, label: 'Viewer', isCustom: false }
+        ];
+
+        // Load custom roles
+        let customRolesList = [];
+        try {
+          customRolesList = await customRoleService.getAllCustomRoles();
+          setCustomRoles(customRolesList);
+        } catch (error) {
+          console.error('Failed to load custom roles:', error);
+        }
+
+        // Convert custom roles to options format
+        const customRoleOptions = customRolesList.map(role => ({
+          value: role.name,
+          label: role.displayName || role.name,
+          isCustom: true
+        }));
+
+        // Combine all roles
+        setAllRoleOptions([...builtInRoles, ...customRoleOptions]);
+      } catch (error) {
+        console.error('Error loading roles:', error);
+        // Fallback to built-in roles only
+        setAllRoleOptions([
+          { value: ROLES.SUPER_ADMIN, label: 'Super Admin', isCustom: false },
+          { value: ROLES.ADMIN, label: 'Admin', isCustom: false },
+          { value: ROLES.MANAGER, label: 'Manager', isCustom: false },
+          { value: ROLES.EMPLOYEE, label: 'Employee', isCustom: false },
+          { value: ROLES.VIEWER, label: 'Viewer', isCustom: false }
+        ]);
+      }
+    };
+
+    if (companyId) {
+      loadRoles();
+    }
+  }, [companyId]);
 
   // Get roles that current user can assign to others
   const assignableRoles = getAssignableRoles(userRole);
-  const roleOptions = allRoleOptions.filter(option => 
-    assignableRoles.includes(option.value)
-  );
+  const roleOptions = allRoleOptions.filter(option => {
+    // For built-in roles, check if they're assignable
+    if (!option.isCustom) {
+      return assignableRoles.includes(option.value);
+    }
+    // For custom roles, allow assignment (you might want to add hierarchy logic here)
+    return true;
+  });
 
   // Check if current user can change the selected employee's role
   const canChangeSelectedUserRole = selectedEmployee ? 
@@ -90,18 +134,33 @@ const Employees = () => {
 
   const getRoleColor = (role) => {
     switch (role) {
-      case ROLES.COMPANY: return 'error';
       case ROLES.SUPER_ADMIN: return 'error';
       case ROLES.ADMIN: return 'warning';
-      case ROLES.STORE_MANAGER: return 'info';
-      case ROLES.WORKER: return 'primary';
-      case ROLES.SALES_ASSOCIATE:
-      case ROLES.SALES_ASSOCIATE_AND_INVENTORY_MANAGER:
-      case ROLES.INVENTORY_MANAGER: return 'success';
-      case ROLES.HR:
-      case ROLES.IT_SUPPORT: return 'secondary';
-      default: return 'default';
+      case ROLES.MANAGER: return 'info';
+      case ROLES.EMPLOYEE: return 'primary';
+      case ROLES.VIEWER: return 'success';
+      default: 
+        // For custom roles, use a default color
+        return 'secondary';
     }
+  };
+
+  // Helper function to get role display name
+  const getRoleDisplayName = (role) => {
+    // Check if it's a custom role
+    const customRole = customRoles.find(cr => cr.name === role);
+    if (customRole) {
+      return customRole.displayName || customRole.name;
+    }
+    
+    // Built-in roles
+    const builtInRole = allRoleOptions.find(option => option.value === role && !option.isCustom);
+    if (builtInRole) {
+      return builtInRole.label;
+    }
+    
+    // Fallback
+    return role;
   };
 
   const fetchEmployees = async () => {
@@ -384,7 +443,7 @@ const Employees = () => {
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={employee.role || "worker"}
+                            label={getRoleDisplayName(employee.role) || "Worker"}
                             color={getRoleColor(employee.role)}
                             size="small"
                             sx={{ textTransform: "capitalize" }}

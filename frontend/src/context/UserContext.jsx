@@ -13,8 +13,8 @@ const UserContext = createContext();
 // UserProvider component
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState({
-    role: ROLES.WORKER, // Example initial role
-    permissions: rolePermissions[ROLES.WORKER],
+    role: ROLES.EMPLOYEE, // Example initial role
+    permissions: rolePermissions[ROLES.EMPLOYEE],
   });
 
   // Update user permissions whenever the role changes
