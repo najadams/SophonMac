@@ -64,9 +64,10 @@ import {
   Stop as StopIcon,
   Launch as LaunchIcon,
 } from "@mui/icons-material";
-import { ROLES, rolePermissions } from "../context/userRoles";
+import { ROLES, rolePermissions, PERMISSIONS } from "../context/userRoles";
 import { useNavigate } from "react-router-dom";
 import networkService from "../services/networkService";
+import RoleManager from "../components/admin/RoleManager";
 
 const StyledField = styled(Field)({
   margin: "10px 0",
@@ -115,9 +116,9 @@ const Settings = () => {
 
   // Check if user has admin privileges
   const isAdmin =
-    user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.STORE_MANAGER;
+    user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.ADMIN;
   const canManageUsers = isAdmin;
-  const canManageSettings = isAdmin || user?.role === ROLES.IT_SUPPORT;
+  const canManageSettings = isAdmin || user?.role === ROLES.MANAGER;
 
   const {
     data: workers,
@@ -870,6 +871,23 @@ const Settings = () => {
                             </Button>
                           </Grid>
                         </Grid>
+                      </CardContent>
+                    </StyledCard>
+                  </Slide>
+                )}
+
+                {/* Role Management Section */}
+                {canManageUsers && (
+                  <Slide direction="up" in timeout={900}>
+                    <StyledCard sx={{ mb: 4 }}>
+                      <CardContent>
+                        <Box display="flex" alignItems="center" mb={2}>
+                          <SecurityIcon sx={{ mr: 1, color: "primary.main" }} />
+                          <Typography variant="h6">
+                            Role Management
+                          </Typography>
+                        </Box>
+                        <RoleManager currentUserRole={user?.role} />
                       </CardContent>
                     </StyledCard>
                   </Slide>
