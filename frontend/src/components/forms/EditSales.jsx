@@ -34,7 +34,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import ReceiptTemplate from "../compPrint/ReceiptTemplate";
 import { useLocation, useNavigate } from "react-router-dom";
 import { set } from "date-fns";
-import { motion } from "framer-motion";
+
 
 const validationSchema = Yup.object().shape({
   customerName: Yup.string().required("Customer name is required"),
@@ -255,12 +255,12 @@ const EditSales = () => {
 
   const handleSubmit = async (values, setSubmitting, resetForm) => {
     // Calculate total price
-    const total = values.products.reduce(
+    const total = Math.ceil(values.products.reduce(
       (sum, product) => sum + (product?.totalPrice || 0),
       0
-    );
+    ));
     values.total = total; // Maintain total before discount
-    const balance = values.total - values.amountPaid - values.discount;
+    const balance = Math.ceil(values.total - values.amountPaid - values.discount);
 
     try {
       // Validate product details
@@ -546,11 +546,7 @@ const EditSales = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="page">
+    <div className="page">
       <div
         className="heading"
         style={{ background: "none", marginBottom: "2rem" }}>
@@ -651,11 +647,8 @@ const EditSales = () => {
                       (p) => p?.name || ""
                     );
                     return (
-                      <motion.div
+                      <div
                         key={index}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.1 }}
                         style={{
                           display: "flex",
                           flex: 1,
@@ -1111,7 +1104,7 @@ const EditSales = () => {
                           }}> */}
 
                         {/* </div> */}
-                      </motion.div>
+                      </div>
                     );
                   })}
                   <Button
@@ -1168,10 +1161,10 @@ const EditSales = () => {
                   {() => (
                     <Typography variant="h6" sx={{ color: "#2196f3" }}>
                       ₵
-                      {values.products?.reduce(
+                      {Math.ceil(values.products?.reduce(
                         (sum, product) => sum + (product?.totalPrice || 0),
                         0
-                      )}
+                      ))}
                     </Typography>
                   )}
                 </Field>
@@ -1692,7 +1685,7 @@ const EditSales = () => {
           />
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 

@@ -258,7 +258,7 @@ const SyncStatus = ({ companyId }) => {
                 Sync in Progress: {syncStatus.supabaseSyncInProgress ? 'Yes' : 'No'}
               </Typography>
               <Typography variant="body2">
-                Auto Sync Interval: {syncStatus.supabaseAutoSyncInterval || 'Not set'}ms
+                Auto Sync Interval: {syncStatus.supabaseAutoSyncInterval || 'Not set'}
               </Typography>
             </Box>
           )}

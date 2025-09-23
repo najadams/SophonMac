@@ -29,7 +29,7 @@ import SearchField from "../../hooks/SearchField";
 import { useDispatch } from "react-redux";
 import { ActionCreators } from "../../actions/action";
 import { capitalizeFirstLetter } from "../../config/Functions";
-import { motion, AnimatePresence } from "framer-motion";
+
 import { alpha } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 
@@ -61,7 +61,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   },
 }));
 
-const MotionTableRow = motion(StyledTableRow);
+
 
 const TableCreater = ({ companyId, data, type, onDataUpdate }) => {
   const [Headers, setHeaders] = useState([]);
@@ -359,14 +359,8 @@ const TableCreater = ({ companyId, data, type, onDataUpdate }) => {
             </TableRow>
           </TableHead>
           <TableBody className="table__body">
-            <AnimatePresence>
-              {filteredData.map((row, index) => (
-                <MotionTableRow
-                  key={row.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.2, delay: index * 0.05 }}>
+            {filteredData.map((row, index) => (
+              <StyledTableRow key={row.id}>
                   {Headers.map((header) => (
                     <TableCell align="left" key={header}>
                       {capitalizeFirstLetter(row[header])}
@@ -386,9 +380,8 @@ const TableCreater = ({ companyId, data, type, onDataUpdate }) => {
                       <MoreVertIcon />
                     </IconButton>
                   </TableCell>
-                </MotionTableRow>
+                </StyledTableRow>
               ))}
-            </AnimatePresence>
           </TableBody>
         </Table>
       </TableContainer>
