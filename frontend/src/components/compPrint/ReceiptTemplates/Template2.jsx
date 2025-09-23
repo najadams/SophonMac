@@ -2,7 +2,6 @@ import React from "react";
 import { useSelector } from "react-redux";
 import { format } from "date-fns";
 import { capitalizeFirstLetter } from "../../../config/Functions";
-import { QRCodeSVG as QRCode } from "qrcode.react";
 
 
 const Template2 = React.forwardRef(({ data }, ref) => {
@@ -24,26 +23,14 @@ const Template2 = React.forwardRef(({ data }, ref) => {
   const safeBalance = Number(balance) || 0;
   const safeDiscount = Number(discount) || 0;
 
-  // Generate receipt data for QR code
-  const qrData = JSON.stringify({
-    company: company.companyName,
-    date: date && !isNaN(new Date(date).getTime()) 
-      ? format(new Date(date), "yyyy-MM-dd HH:mm")
-      : "Invalid Date",
-    total: total,
-    receiptNo: date && !isNaN(new Date(date).getTime()) 
-      ? format(new Date(date), "yyyyMMddHHmm")
-      : "Invalid",
-  });
-
   return (
     <div
       ref={ref}
       style={{
         fontFamily: "Arial, sans-serif",
         margin: 0,
-        padding: "15px",
-        maxWidth: "58mm", // Compact width
+        padding: "2px",
+        maxWidth: "80mm", // Increased width for more space
         margin: "0 auto",
         backgroundColor: "#ffffff",
         fontSize: "12px", // Smaller base font size
@@ -52,9 +39,9 @@ const Template2 = React.forwardRef(({ data }, ref) => {
       <div
         style={{
           textAlign: "center",
-          marginBottom: "15px",
+          marginBottom: "3px",
           borderBottom: "1px solid #000",
-          paddingBottom: "10px",
+          paddingBottom: "4px",
         }}>
         <h3
           style={{
@@ -72,21 +59,19 @@ const Template2 = React.forwardRef(({ data }, ref) => {
         )}
       </div>
 
-      {/* QR Code */}
-      <div style={{ textAlign: "center", marginBottom: "10px" }}>
-        <QRCode value={qrData} size={100} level="L" />
-      </div>
-
-      {/* Transaction Details - Compact */}
+      {/* Transaction Details - Compact with borders */}
       <div
         style={{
           fontSize: "11px",
-          marginBottom: "10px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "2px",
+          marginBottom: "6px",
+          border: "1px solid #000",
         }}>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between",
+          padding: "2px 4px",
+          borderBottom: "1px solid #000"
+        }}>
           <span>Receipt: {date && !isNaN(new Date(date).getTime()) 
             ? format(new Date(date), "yyyyMMddHHmm")
             : "Invalid"
@@ -96,27 +81,44 @@ const Template2 = React.forwardRef(({ data }, ref) => {
             : "Invalid Date"
           }</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between",
+          padding: "2px 4px"
+        }}>
           <span>Customer: {capitalizeFirstLetter(customerName)}</span>
           <span>Staff: {capitalizeFirstLetter(workerName)}</span>
         </div>
       </div>
 
-      {/* Products List - Compact */}
-      <div style={{ marginBottom: "10px", fontSize: "11px" }}>
+      {/* Products List - Compact with borders */}
+      <div style={{ marginBottom: "6px", fontSize: "11px" }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "0.8fr 1.2fr 1fr",
-            gap: "4px",
-            borderBottom: "1px solid #000",
-            paddingBottom: "4px",
-            marginBottom: "4px",
+            gridTemplateColumns: "0.5fr 2fr 0.7fr 0.8fr",
+            border: "1px solid #000",
             fontWeight: "bold",
           }}>
-          <span>Qty</span>
-          <span>Item</span>
-          <span style={{ textAlign: "right" }}>Amount</span>
+          <span style={{ 
+            padding: "2px 4px", 
+            borderRight: "1px solid #000",
+            textAlign: "center"
+          }}>Qty</span>
+          <span style={{ 
+            padding: "2px 4px", 
+            borderRight: "1px solid #000",
+            textAlign: "center"
+          }}>Item</span>
+          <span style={{ 
+            padding: "2px 4px", 
+            borderRight: "1px solid #000",
+            textAlign: "center"
+          }}>Price</span>
+          <span style={{ 
+            padding: "2px 4px", 
+            textAlign: "center"
+          }}>Amount</span>
         </div>
         {products.map((product, index) => {
           // Display original quantity and sales unit if available
@@ -129,38 +131,60 @@ const Template2 = React.forwardRef(({ data }, ref) => {
             ? `${capitalizeFirstLetter(product.name)} (${displayUnit})`
             : capitalizeFirstLetter(product.name);
           
+          // Get unit price
+          const unitPrice = product.price || product.salesPrice;
+          
           return (
             <div
               key={index}
               style={{
                 display: "grid",
-                gridTemplateColumns: "0.8fr 1.2fr 1fr",
-                gap: "4px",
-                marginBottom: "2px",
+                gridTemplateColumns: "0.5fr 2fr 0.7fr 0.8fr",
+                borderLeft: "1px solid #000",
+                borderRight: "1px solid #000",
+                borderBottom: "1px solid #000",
               }}>
-              <span>{quantityWithUnit}</span>
-              <span>{productNameWithUnit}</span>
-              <span style={{ textAlign: "right" }}>
+              <span style={{ 
+                padding: "2px 4px", 
+                borderRight: "1px solid #000",
+                textAlign: "center"
+              }}>{quantityWithUnit}</span>
+              <span style={{ 
+                padding: "2px 4px", 
+                borderRight: "1px solid #000"
+              }}>{productNameWithUnit}</span>
+              <span style={{ 
+                padding: "2px 4px", 
+                borderRight: "1px solid #000",
+                textAlign: "right"
+              }}>
+                ₵{unitPrice.toFixed(2)}
+              </span>
+              <span style={{ 
+                padding: "2px 4px", 
+                textAlign: "right"
+              }}>
                 ₵
-                {(product.price
-                  ? product.price * displayQuantity
-                  : product.salesPrice * displayQuantity
-                ).toFixed(2)}
+                {(unitPrice * displayQuantity).toFixed(2)}
               </span>
             </div>
           );
         })}
       </div>
 
-      {/* Totals Section - Compact */}
+      {/* Totals Section - Compact with borders */}
       <div
         style={{
-          borderTop: "1px solid #000",
-          paddingTop: "5px",
+          border: "1px solid #000",
           fontSize: "11px",
         }}>
         {safeDiscount > 0 && (
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <div style={{ 
+            display: "flex", 
+            justifyContent: "space-between",
+            padding: "2px 4px",
+            borderBottom: "1px solid #000"
+          }}>
             <span>Discount:</span>
             <span>₵{safeDiscount.toFixed(2)}</span>
           </div>
@@ -171,31 +195,41 @@ const Template2 = React.forwardRef(({ data }, ref) => {
             justifyContent: "space-between",
             fontWeight: "bold",
             fontSize: "13px",
-            marginTop: "5px",
+            padding: "2px 4px",
+            borderBottom: safeBalance !== 0 || safeAmountPaid !== safeTotal ? "1px solid #000" : "none",
           }}>
           <span>Total:</span>
           <span>₵{safeTotal.toFixed(2)}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between",
+          padding: "2px 4px",
+          borderBottom: safeBalance !== 0 ? "1px solid #000" : "none"
+        }}>
           <span>Paid:</span>
           <span>₵{safeAmountPaid.toFixed(2)}</span>
         </div>
         {safeBalance !== 0 && (
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <div style={{ 
+            display: "flex", 
+            justifyContent: "space-between",
+            padding: "2px 4px"
+          }}>
             <span>Balance:</span>
             <span>₵{safeBalance.toFixed(2)}</span>
           </div>
         )}
       </div>
 
-      {/* Footer - Compact */}
+      {/* Footer - Compact with border */}
       <div
         style={{
-          marginTop: "15px",
+          marginTop: "6px",
           textAlign: "center",
           fontSize: "10px",
-          borderTop: "1px solid #000",
-          paddingTop: "5px",
+          border: "1px solid #000",
+          padding: "3px",
         }}>
         <p style={{ margin: "2px 0" }}>Thank you!</p>
         {company.receiptFooter && (
