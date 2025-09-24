@@ -1,4 +1,13 @@
-require('dotenv').config();
+// Handle dotenv loading - only load in development mode
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    require('dotenv').config();
+  } catch (error) {
+    console.warn('Could not load dotenv in development mode:', error.message);
+  }
+} else {
+  console.log('Running in production mode, skipping dotenv');
+}
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -20,9 +29,17 @@ const transactionRoutes = require('./routes/transactionRoutes');
 const vendorPaymentRoutes = require('./routes/vendorPaymentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const networkRoutes = require('./routes/networkRoutes');
+const syncRoutes = require('./routes/syncRoutes');
+
+// Import networking services
+const NetworkManager = require('./services/networkManager');
+const db = require('./data/db/db');
+const networkConfig = require('./config/network.config');
+const networkConfig = require('./config/network.config');
 
 const app = express();
-const PORT = process.env.PORT || 3001; 
+const PORT = networkConfig.server.port || parseInt(process.env.PORT) || 3003; 
 
 // Debug: Log the PORT value
 console.log('Backend starting with PORT:', PORT);
@@ -30,16 +47,20 @@ console.log('process.env.PORT:', process.env.PORT);
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3002', 'http://localhost:3003'], // Dev and production frontend URLs
-  credentials: true,
-  methods: ['GET', 'POST','PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: true, // Allow all origins for network access
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
+if (typeof __dirname !== 'undefined') {
+  app.use(express.static(path.join(__dirname, 'public')));
+} else {
+  // In packaged apps, __dirname might not be available
+  const publicPath = process.env.BACKEND_DIR ? path.join(process.env.BACKEND_DIR, 'public') : './public';
+  app.use(express.static(publicPath));
+}
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -56,49 +77,110 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/vendor-payments', vendorPaymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
-
-// Default route
-app.get('/', (req, res) => {
+app.use('/api/network', networkRoutes);
+app.use('/api/sync', syncRoutes);
+app.use('/api/network', networkRoutes);
+app.use('/api/sync', syncRoutes);
   res.send('POS API is running');
 });
 
 // Initialize database and start server
 (async () => {
   const initialized = await dbUtils.initialize();
-  if (initialized) {
-    console.log('Database initialized successfully');
-    
-    // Run migrations
-    try {
-      await migrationUtils.runMigrations();
+      
+      // Initialize networking system
+      const networkManager = new NetworkManager();
+      app.set('networkManager', networkManager);
       
       // Start server after successful initialization
-      const startServer = (port) => {
-        const server = app.listen(port, 'localhost', () => {
-          console.log(`Server running on http://localhost:${port}`);
-          // This is the ready signal for the main process
-          console.log(`Backend ready on port ${port}`);
-        });
-
-        server.on('error', (err) => {
-          if (err.code === 'EADDRINUSE') {
-            console.log(`Port ${port} is busy, trying port ${port + 1}`);
-            // The error event is emitted before the 'listening' event, so no need to close the server.
-            startServer(port + 1); // Recursively try the next port
-          } else {
+      const startServer = async (port) => {
+        const server = http.createServer(app);
+        
+        server.listen(port, networkConfig.server.host || '0.0.0.0', async () => {
+      // Run networking migrations
+      await migrationUtils.runNetworkingMigrations();
+          // Initialize networking after server starts
+      // Initialize networking system
+      const networkManager = new NetworkManager();
+      app.set('networkManager', networkManager);
+            if (companyInfo) {
+              const success = await networkManager.initialize(
+                server, 
+                port, 
+                companyInfo.id, 
+        server.listen(port, networkConfig.server.host || '0.0.0.0', async () => {
+              );
+              
+          // Initialize networking after server starts
+          try {
+            // Get company info for networking
+            const companyInfo = await getFirstCompanyInfo();
+            if (companyInfo) {
+              const success = await networkManager.initialize(
+                server, 
+                port, 
+                companyInfo.id, 
+                companyInfo.companyName
+              );
+              
+              if (success) {
+                console.log('Networking system initialized successfully');
+              } else {
+                console.warn('Failed to initialize networking system');
+              }
+            } else {
+              console.log('No company found, networking will be initialized after company registration');
+            }
+          } catch (networkError) {
+            console.error('Networking initialization error:', networkError);
+          }
             console.error('Server error:', err);
             process.exit(1);
           }
+        });
+        
+        // Graceful shutdown
+        process.on('SIGTERM', async () => {
+          console.log('SIGTERM received, shutting down gracefully');
+          if (networkManager) {
+            await networkManager.shutdown();
+          }
+          server.close(() => {
+            console.log('Server closed');
+            process.exit(0);
+          });
+        });
+        
+        process.on('SIGINT', async () => {
+          console.log('SIGINT received, shutting down gracefully');
+          if (networkManager) {
+            await networkManager.shutdown();
+          }
+            console.log('Server closed');
+            process.exit(0);
+          });
         });
       };
 
       startServer(PORT);
     } catch (error) {
-      console.error('Migration failed:', error);
-      process.exit(1);
-    }
-  } else {
+          if (networkManager) {
+            await networkManager.shutdown();
+          }
     console.log('Failed to initialize database');
     process.exit(1);
   }
 })();
+
+// Helper function to get first company info
+function getFirstCompanyInfo() {
+  return new Promise((resolve, reject) => {
+    db.get('SELECT id, companyName FROM Company LIMIT 1', (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row);
+      }
+    });
+  });
+}

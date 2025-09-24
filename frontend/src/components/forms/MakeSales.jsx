@@ -30,7 +30,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import ReceiptTemplate from "../compPrint/ReceiptTemplate";
 import { useLocation } from "react-router-dom";
 import Loader from "../common/Loader";
-import { motion } from "framer-motion";
+
 
 const validationSchema = Yup.object().shape({
   customerName: Yup.string().required("Customer name is required"),
@@ -175,12 +175,12 @@ const MakeSales = ({
 
   const handleSubmit = async (values, setSubmitting, resetForm) => {
     // Calculate total price
-    const total = values.products.reduce(
+    const total = Math.ceil(values.products.reduce(
       (sum, product) => sum + (product?.totalPrice || 0),
       0
-    );
+    ));
     values.total = total; // Maintain total before discount
-    const balance = values.total - values.amountPaid - values.discount;
+    const balance = Math.ceil(values.total - values.amountPaid - values.discount);
 
     try {
       // Validate product details
@@ -369,7 +369,11 @@ const MakeSales = ({
         name: addedProduct.name,
         salesPrice: addedProduct.salesPrice || 0,
         onhand: addedProduct.onhand || 0,
-        baseUnit: addedProduct.defaultUnit || "none",
+        baseUnit: addedProduct.defaultUnit || addedProduct.baseUnit || "none",
+        allowsUnitBreakdown: addedProduct.allowsUnitBreakdown || false,
+        atomicUnit: addedProduct.atomicUnit || addedProduct.defaultUnit || addedProduct.baseUnit || "none",
+        conversionFactor: addedProduct.conversionFactor || 1,
+        conversions: addedProduct.conversions || [],
       };
 
       // Update product options properly
@@ -583,11 +587,7 @@ const MakeSales = ({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="page">
+    <div className="page">
       <div
         className="heading"
         style={{ background: "none", marginBottom: "2rem" }}>
@@ -688,11 +688,8 @@ const MakeSales = ({
                       (p) => p?.name || ""
                     );
                     return (
-                      <motion.div
+                      <div
                         key={index}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.1 }}
                         style={{
                           display: "flex",
                           flex: 1,
@@ -1148,7 +1145,7 @@ const MakeSales = ({
                           }}> */}
 
                         {/* </div> */}
-                      </motion.div>
+                      </div>
                     );
                   })}
                   <Button
@@ -1205,10 +1202,10 @@ const MakeSales = ({
                   {() => (
                     <Typography variant="h6" sx={{ color: "#2196f3" }}>
                       ₵
-                      {values.products?.reduce(
+                      {Math.ceil(values.products?.reduce(
                         (sum, product) => sum + (product?.totalPrice || 0),
                         0
-                      )}
+                      ))}
                     </Typography>
                   )}
                 </Field>
@@ -1729,7 +1726,7 @@ const MakeSales = ({
           />
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 

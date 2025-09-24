@@ -29,20 +29,16 @@ const runReceiptDetailMigration = async () => {
       const migrationPath = path.join(__dirname, '../migrations/add_receipt_detail_units.sql');
       const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
       
-      // Split SQL statements and execute them
-      const statements = migrationSQL.split(';').filter(stmt => stmt.trim());
-      
-      for (const statement of statements) {
-        await new Promise((resolve, reject) => {
-          db.exec(statement, (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve();
-            }
-          });
+      // Execute the entire SQL file at once to handle complex statements
+      await new Promise((resolve, reject) => {
+        db.exec(migrationSQL, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
         });
-      }
+      })
       
       console.log('ReceiptDetail migration completed successfully!');
     } else {
@@ -55,12 +51,97 @@ const runReceiptDetailMigration = async () => {
 };
 
 // Run all migrations
+// Run networking migrations
+const runNetworkingMigrations = async () => {
+  try {
+    // Check if NetworkConfig table exists
+    const tableExists = await new Promise((resolve, reject) => {
+      db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='NetworkConfig'", (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(!!row);
+        }
+      });
+    });
+    
+    if (!tableExists) {
+      console.log('Running networking migrations...');
+      
+      // Read networking migration SQL file
+      const migrationPath = path.join(__dirname, '../migrations/add_networking_tables.sql');
+      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      
+      // Execute the entire SQL file at once to handle complex statements
+      await new Promise((resolve, reject) => {
+        db.exec(migrationSQL, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      })
+      
+      console.log('Networking migrations completed successfully!');
+    } else {
+      console.log('Networking migrations already applied.');
+    }
+  } catch (error) {
+    console.error('Networking migration error:', error);
+    throw error;
+  }
+};
+
+// Run CustomRoles table migration
+const runCustomRolesMigration = async () => {
+  try {
+    // Check if CustomRoles table exists
+    const tableExists = await new Promise((resolve, reject) => {
+      db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='CustomRoles'", (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(!!row);
+        }
+      });
+    });
+    
+    if (!tableExists) {
+      console.log('Running CustomRoles table migration...');
+      
+      // Read CustomRoles migration SQL file
+      const migrationPath = path.join(__dirname, '../migrations/add_custom_roles_table.sql');
+      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      
+      // Execute the entire SQL file at once to handle complex statements
+      await new Promise((resolve, reject) => {
+        db.exec(migrationSQL, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      })
+      
+      console.log('CustomRoles table migration completed successfully!');
+    } else {
+      console.log('CustomRoles table migration already applied.');
+    }
+  } catch (error) {
+    console.error('Error running CustomRoles migration:', error);
+    throw error;
+  }
+};
+
 const runMigrations = async () => {
   try {
     await runReceiptDetailMigration();
+    await runCustomRolesMigration();
     console.log('All migrations completed successfully!');
   } catch (error) {
-    console.error('Migration failed:', error);
+    console.error('Migration error:', error);
     throw error;
   }
 };
@@ -68,5 +149,7 @@ const runMigrations = async () => {
 module.exports = {
   runMigrations,
   runReceiptDetailMigration,
+  runCustomRolesMigration,
+  runNetworkingMigrations,
   columnExists
 };

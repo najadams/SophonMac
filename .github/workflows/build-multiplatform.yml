@@ -1,0 +1,70 @@
+name: Build Multi-Platform Electron App
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+        
+    - name: Install root dependencies
+      run: pnpm install
+      
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        pnpm install
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        pnpm install --production
+        
+    - name: Build frontend
+      run: |
+        cd frontend
+        pnpm run build
+        
+    - name: Ensure backend node_modules are properly installed
+      run: |
+        cd backend
+        pnpm install --production
+        
+    - name: Build/release Electron app
+      run: |
+        pnpm run prebuild
+        npx electron-builder --publish=never
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Upload build artifacts
+      if: "!startsWith(github.ref, 'refs/tags/')"
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.os }}-build
+        path: |
+          dist/
+        retention-days: 30

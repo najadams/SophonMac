@@ -17,7 +17,7 @@ if (process.env.DB_PATH) {
   }
   
   // Copy initial database from resources if it doesn't exist
-  if (!fs.existsSync(dbPath) && process.resourcesPath) {
+  if (!fs.existsSync(dbPath) && process.resourcesPath && typeof process.resourcesPath === 'string') {
     const sourcePath = path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'data', 'db', 'database.sqlite');
     if (fs.existsSync(sourcePath)) {
       fs.copyFileSync(sourcePath, dbPath);
@@ -30,7 +30,18 @@ if (process.env.DB_PATH) {
   
   if (isPackaged) {
     // In packaged app, store database in user data directory for write permissions
-    const userDataPath = path.join(os.homedir(), 'Library', 'Application Support', 'Sophon');
+    const userDataPath = (() => {
+      switch (process.platform) {
+        case 'win32':
+          return path.join(os.homedir(), 'AppData', 'Roaming', 'Sophon');
+        case 'darwin':
+          return path.join(os.homedir(), 'Library', 'Application Support', 'Sophon');
+        case 'linux':
+          return path.join(os.homedir(), '.local', 'share', 'Sophon');
+        default:
+          return path.join(os.homedir(), '.sophon');
+      }
+    })();
     
     // Ensure the directory exists
     if (!fs.existsSync(userDataPath)) {
@@ -39,11 +50,13 @@ if (process.env.DB_PATH) {
     
     dbPath = path.join(userDataPath, 'database.sqlite');
     
-    // Copy initial database from resources if it doesn't exist
-    const sourcePath = path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'data', 'db', 'database.sqlite');
-    if (!fs.existsSync(dbPath) && fs.existsSync(sourcePath)) {
-      fs.copyFileSync(sourcePath, dbPath);
-      console.log('Copied initial database to user data directory');
+    // Copy initial database if it doesn't exist
+    if (process.resourcesPath && typeof process.resourcesPath === 'string') {
+      const sourcePath = path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'data', 'db', 'database.sqlite');
+      if (!fs.existsSync(dbPath) && fs.existsSync(sourcePath)) {
+        fs.copyFileSync(sourcePath, dbPath);
+        console.log('Copied initial database to user data directory');
+      }
     }
   } else {
     // In development, use the current directory

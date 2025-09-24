@@ -2,35 +2,38 @@ import { NavLink } from "react-router-dom";
 import { useMediaQuery } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSelector } from "react-redux";
-import { getPermissionsForRole, PERMISSIONS } from "../../context/userRoles";
+import { useState, useEffect } from "react";
+import { getSidebarPagesForUser, ROLES, PERMISSIONS } from "../../context/userRoles";
 
 const Sidebar = ({ isExpanded, toggleSidebar }) => {
   const isMobile = useMediaQuery((theme) => theme.breakpoints.down("mymd"));
   const currentUser = useSelector((state) => state.userState.currentUser);
-  const userRole = currentUser?.role || currentUser?.worker?.role;
-  const userPermissions = getPermissionsForRole(userRole);
+  const [customRoles, setCustomRoles] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
 
-  const allMenuItems = [
-    { path: "/dashboard", icon: "bx-home", text: "Dashboard", permission: PERMISSIONS.VIEW_DASHBOARD },
-    { path: "/sales", icon: "bx-receipt", text: "Make Sales", permission: PERMISSIONS.PROCESS_SALES },
-    { path: "/products", icon: "bx-cart-alt", text: "Inventory", permission: PERMISSIONS.MANAGE_INVENTORY },
-    { path: "/customers", icon: "bx-user-plus", text: "Customers", permission: PERMISSIONS.VIEW_DASHBOARD },
-    { path: "/vendors", icon: "bx-store-alt", text: "Vendors", permission: PERMISSIONS.VIEW_DASHBOARD },
-    { path: "/debt", icon: "bx-money", text: "Debt", permission: PERMISSIONS.VIEW_DASHBOARD },
-    { path: "/transactions", icon: "bx-money-withdraw", text: "Transactions", permission: PERMISSIONS.VIEW_DASHBOARD },
-    { path: "/reports", icon: "bx-line-chart", text: "Reports", permission: PERMISSIONS.VIEW_REPORTS },
-    { path: "/notification", icon: "bx-notification", text: "Notification", permission: PERMISSIONS.VIEW_DASHBOARD },
-  ];
+  // Fetch custom roles and update menu items
+  useEffect(() => {
+    const loadCustomRoles = async () => {
+      try {
+        const customRoleService = await import('../../services/customRoleService');
+        const roles = await customRoleService.default.getAllCustomRoles();
+        setCustomRoles(roles);
+        
+        // Get sidebar pages based on user's role and custom permissions
+        const items = getSidebarPagesForUser(currentUser, roles);
+        setMenuItems(items);
+      } catch (error) {
+        console.error('Error loading custom roles:', error);
+        // Fallback to default behavior without custom roles
+        const items = getSidebarPagesForUser(currentUser, []);
+        setMenuItems(items);
+      }
+    };
 
-  // Filter menu items based on user permissions
-  const menuItems = allMenuItems.filter(item => {
-    // Company and super_admin have access to all items
-    if (userRole === 'company' || userRole === 'super_admin') {
-      return true;
+    if (currentUser) {
+      loadCustomRoles();
     }
-    // Check if user has the required permission
-    return userPermissions.includes(item.permission);
-  });
+  }, [currentUser]);
 
   const sidebarVariants = {
     expanded: {

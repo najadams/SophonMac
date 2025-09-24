@@ -33,6 +33,7 @@ import {
 import { useSidebar } from "../../context/context";
 import bcrypt from "bcryptjs";
 import axios from "../../config/index";
+import SyncStatus from "../SyncStatus";
 
 export default function Header() {
   const dispatch = useDispatch();
@@ -44,7 +45,28 @@ export default function Header() {
   const { isSidebarExpanded, setIsSidebarExpanded } = useSidebar();
   const user = useSelector((state) => state.userState.currentUser);
   const userRole = user?.role || user?.worker?.role;
-  const userPermissions = getPermissionsForRole(userRole);
+  const [userPermissions, setUserPermissions] = useState([]);
+
+  // Load user permissions including custom roles
+  useEffect(() => {
+    const loadUserPermissions = async () => {
+      try {
+        const customRoleService = await import('../../services/customRoleService');
+        const customRoles = await customRoleService.default.getAllCustomRoles();
+        const permissions = getPermissionsForRole(userRole, customRoles);
+        setUserPermissions(permissions);
+      } catch (error) {
+        console.error('Error loading custom roles for permissions:', error);
+        // Fallback to default permissions
+        const permissions = getPermissionsForRole(userRole, []);
+        setUserPermissions(permissions);
+      }
+    };
+
+    if (userRole) {
+      loadUserPermissions();
+    }
+  }, [userRole]);
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -145,6 +167,12 @@ export default function Header() {
               <h3 className="title">Sophon</h3>
             </span>
           </Typography>
+          
+          {/* Sync Status Component */}
+          <Box sx={{ flexGrow: 0, mr: 2 }}>
+            <SyncStatus companyId={user?.companyId || user?.company?.id} />
+          </Box>
+          
           <div>
             <Tooltip title="Profile">
               <IconButton

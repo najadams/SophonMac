@@ -6,7 +6,7 @@ import { useSelector } from "react-redux";
 import CustomerForm from "../components/forms/CustomerForm";
 import { tableActions } from "../config/Functions";
 import Loader from "../components/common/Loader";
-import { motion } from "framer-motion";
+
 import { Box, Typography, Paper } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -24,11 +24,8 @@ const Customers = () => {
   if (isError) return <div>Error fetching data</div>;
 
   return (
-    <motion.div
-      className="page"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}>
+    <div
+      className="page">
       <Box
         className="heading"
         sx={{
@@ -92,7 +89,7 @@ const Customers = () => {
           </Box>
         )}
       </Box>
-    </motion.div>
+    </div>
   );
 };
 

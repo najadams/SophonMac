@@ -8,7 +8,7 @@ import { useSelector } from "react-redux";
 import Loader from "../components/common/Loader";
 import { Box, Tabs, Tab, Typography, Paper } from "@mui/material";
 import ReceiveInventory from "../components/forms/ReceiveInventory";
-import { motion } from "framer-motion";
+
 import { alpha } from "@mui/material/styles";
 
 const fetchProducts = async (companyId) => {
@@ -40,22 +40,18 @@ export const TabPanel = (props) => {
   const { children, value, index, ...other } = props;
 
   return (
-    <motion.div
+    <div
       role="tabpanel"
       hidden={value !== index}
       id={`full-width-tabpanel-${index}`}
       aria-labelledby={`full-width-tab-${index}`}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
       {...other}>
       {value === index && (
         <Box sx={{ p: 0 }}>
           <Typography>{children}</Typography>
         </Box>
       )}
-    </motion.div>
+    </div>
   );
 };
 
@@ -93,11 +89,8 @@ const ProductCatalogue = () => {
   if (isError) return <div>Error fetching data</div>;
 
   return (
-    <motion.div
-      className="page"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}>
+    <div
+      className="page">
       <Box
         className="heading"
         sx={{
@@ -209,7 +202,7 @@ const ProductCatalogue = () => {
           />
         </TabPanel>
       </Box>
-    </motion.div>
+    </div>
   );
 };
 

@@ -1,4 +1,5 @@
 backend/node_modules
+frontend-dist/
 frontend/node_modules
 frontend/build
 frontend/dist
@@ -11,6 +12,9 @@ all_customers.json
 api_response.json
 backend/data/db/database.db
 backend/nohup.out
+supabase_schema.sql
+test*
+.database.db
 specific_customer.json
 tmp/
 updated_customer.json

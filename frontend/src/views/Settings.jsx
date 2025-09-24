@@ -56,9 +56,18 @@ import {
   PersonAdd,
   Add as AddIcon,
   Delete as DeleteIcon,
+  Wifi as WifiIcon,
+  WifiOff as WifiOffIcon,
+  Computer as ComputerIcon,
+  Sync as SyncIcon,
+  PlayArrow as PlayArrowIcon,
+  Stop as StopIcon,
+  Launch as LaunchIcon,
 } from "@mui/icons-material";
-import { ROLES, rolePermissions } from "../context/userRoles";
+import { ROLES, rolePermissions, PERMISSIONS } from "../context/userRoles";
 import { useNavigate } from "react-router-dom";
+import networkService from "../services/networkService";
+import RoleManager from "../components/admin/RoleManager";
 
 const StyledField = styled(Field)({
   margin: "10px 0",
@@ -72,7 +81,7 @@ const StyledCard = styled(Card)(({ theme }) => ({
   transition: "all 0.3s ease-in-out",
   "&:hover": {
     transform: "translateY(-5px)",
-    boxShadow: theme.shadows[8],
+    boxShadow: theme?.shadows?.[8] || "0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12)",
   },
 }));
 
@@ -80,7 +89,7 @@ const StyledButton = styled(Button)(({ theme }) => ({
   transition: "all 0.3s ease-in-out",
   "&:hover": {
     transform: "translateY(-2px)",
-    boxShadow: theme.shadows[4],
+    boxShadow: theme?.shadows?.[4] || "0px 2px 4px -1px rgba(0,0,0,0.2),0px 4px 5px 0px rgba(0,0,0,0.14),0px 1px 10px 0px rgba(0,0,0,0.12)",
   },
 }));
 
@@ -102,12 +111,14 @@ const Settings = () => {
     "bank_transfer",
     "check",
   ]);
+  const [networkStatus, setNetworkStatus] = useState(null);
+  const [isLoadingNetwork, setIsLoadingNetwork] = useState(false);
 
   // Check if user has admin privileges
   const isAdmin =
-    user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.STORE_MANAGER;
+    user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.ADMIN;
   const canManageUsers = isAdmin;
-  const canManageSettings = isAdmin || user?.role === ROLES.IT_SUPPORT;
+  const canManageSettings = isAdmin || user?.role === ROLES.MANAGER;
 
   const {
     data: workers,
@@ -126,6 +137,59 @@ const Settings = () => {
     setOpen(false);
     setSnackbarMessage("");
   };
+
+  // Network management functions
+  const fetchNetworkStatus = async () => {
+    try {
+      setIsLoadingNetwork(true);
+      const status = await networkService.getNetworkStatus();
+      setNetworkStatus(status);
+    } catch (error) {
+      console.error('Failed to fetch network status:', error);
+      setSnackbarMessage('Failed to fetch network status');
+      setOpen(true);
+    } finally {
+      setIsLoadingNetwork(false);
+    }
+  };
+
+  const handleForceRole = async (role) => {
+    try {
+      setIsLoadingNetwork(true);
+      await networkService.forceRole(role);
+      setSnackbarMessage(`Successfully switched to ${role} role`);
+      setOpen(true);
+      await fetchNetworkStatus();
+    } catch (error) {
+      console.error('Failed to force role:', error);
+      setSnackbarMessage(`Failed to switch to ${role} role`);
+      setOpen(true);
+    } finally {
+      setIsLoadingNetwork(false);
+    }
+  };
+
+  const handleSyncData = async () => {
+    try {
+      setIsLoadingNetwork(true);
+      await networkService.syncData();
+      setSnackbarMessage('Data synchronization initiated');
+      setOpen(true);
+    } catch (error) {
+      console.error('Failed to sync data:', error);
+      setSnackbarMessage('Failed to sync data');
+      setOpen(true);
+    } finally {
+      setIsLoadingNetwork(false);
+    }
+  };
+
+  // Fetch network status on component mount
+  React.useEffect(() => {
+    if (canManageSettings) {
+      fetchNetworkStatus();
+    }
+  }, [canManageSettings]);
 
   return (
     <ErrorBoundary>
@@ -164,78 +228,78 @@ const Settings = () => {
               tinNumber: company.tinNumber || "",
               taxRate: company.taxRate || "",
               taxId: company.taxId || "",
-              emailNotifications: company.emailNotifications || true,
-              smsNotifications: company.smsNotifications || false,
+              emailNotifications: Boolean(company.emailNotifications) || true,
+              smsNotifications: Boolean(company.smsNotifications) || false,
               currentPlan: company.currentPlan || "Standard",
               nextBillingDate: company.nextBillingDate || "2024-06-15",
               receiptHeader: company.receiptHeader || "",
               receiptFooter: company.receiptFooter || "",
               defaultPrinter: company.defaultPrinter || "",
               receiptWidth: company.receiptWidth || "80mm",
-              enableBarcode: company.enableBarcode || true,
-              enableStockAlerts: company.enableStockAlerts || true,
+              enableBarcode: Boolean(company.enableBarcode) !== false,
+              enableStockAlerts: Boolean(company.enableStockAlerts) !== false,
               lowStockThreshold: company.lowStockThreshold || 10,
-              enableCustomerLoyalty: company.enableCustomerLoyalty || false,
+              enableCustomerLoyalty: Boolean(company.enableCustomerLoyalty),
               loyaltyPointsRate: company.loyaltyPointsRate || 1,
-              enableDiscounts: company.enableDiscounts || true,
+              enableDiscounts: Boolean(company.enableDiscounts) !== false,
               defaultTaxRate: company.defaultTaxRate || 12.5,
-              enableMultipleTaxRates: company.enableMultipleTaxRates || false,
-              enableCashDrawer: company.enableCashDrawer || false,
+              enableMultipleTaxRates: Boolean(company.enableMultipleTaxRates),
+              enableCashDrawer: Boolean(company.enableCashDrawer),
               cashDrawerPort: company.cashDrawerPort || "",
               backupFrequency: company.backupFrequency || "daily",
-              enableAutoBackup: company.enableAutoBackup || true,
-              enableOfflineMode: company.enableOfflineMode || true,
+              enableAutoBackup: Boolean(company.enableAutoBackup) !== false,
+              enableOfflineMode: Boolean(company.enableOfflineMode) !== false,
               enableCustomerManagement:
-                company.enableCustomerManagement || true,
+                Boolean(company.enableCustomerManagement) !== false,
               enableSupplierManagement:
-                company.enableSupplierManagement || true,
-              enableInventoryTracking: company.enableInventoryTracking || true,
-              enablePurchaseOrders: company.enablePurchaseOrders || true,
-              enableSalesReturns: company.enableSalesReturns || true,
-              enableStockTransfers: company.enableStockTransfers || true,
-              enablePriceHistory: company.enablePriceHistory || true,
-              enableBulkOperations: company.enableBulkOperations || true,
-              enableReports: company.enableReports || true,
-              enableAnalytics: company.enableAnalytics || true,
-              enableMultiCurrency: company.enableMultiCurrency || false,
+                Boolean(company.enableSupplierManagement) !== false,
+              enableInventoryTracking: Boolean(company.enableInventoryTracking) !== false,
+              enablePurchaseOrders: Boolean(company.enablePurchaseOrders) !== false,
+              enableSalesReturns: Boolean(company.enableSalesReturns) !== false,
+              enableStockTransfers: Boolean(company.enableStockTransfers) !== false,
+              enablePriceHistory: Boolean(company.enablePriceHistory) !== false,
+              enableBulkOperations: Boolean(company.enableBulkOperations) !== false,
+              enableReports: Boolean(company.enableReports) !== false,
+              enableAnalytics: Boolean(company.enableAnalytics) !== false,
+              enableMultiCurrency: Boolean(company.enableMultiCurrency),
               defaultCurrency: company.defaultCurrency || "GHS",
-              enableExchangeRates: company.enableExchangeRates || false,
-              enablePaymentMethods: company.enablePaymentMethods || true,
+              enableExchangeRates: Boolean(company.enableExchangeRates),
+              enablePaymentMethods: Boolean(company.enablePaymentMethods) !== false,
               defaultPaymentMethod: company.defaultPaymentMethod || "cash",
-              enableSplitPayments: company.enableSplitPayments || true,
-              enablePartialPayments: company.enablePartialPayments || true,
-              enableHoldOrders: company.enableHoldOrders || true,
-              enableTableManagement: company.enableTableManagement || false,
-              enableKitchenDisplay: company.enableKitchenDisplay || false,
+              enableSplitPayments: Boolean(company.enableSplitPayments) !== false,
+              enablePartialPayments: Boolean(company.enablePartialPayments) !== false,
+              enableHoldOrders: Boolean(company.enableHoldOrders) !== false,
+              enableTableManagement: Boolean(company.enableTableManagement),
+              enableKitchenDisplay: Boolean(company.enableKitchenDisplay),
               enableEmployeeTimeTracking:
-                company.enableEmployeeTimeTracking || true,
+                Boolean(company.enableEmployeeTimeTracking) !== false,
               enableEmployeeCommission:
-                company.enableEmployeeCommission || false,
+                Boolean(company.enableEmployeeCommission),
               commissionRate: company.commissionRate || 0,
-              enableShiftManagement: company.enableShiftManagement || true,
-              enableCashManagement: company.enableCashManagement || true,
+              enableShiftManagement: Boolean(company.enableShiftManagement) !== false,
+              enableCashManagement: Boolean(company.enableCashManagement) !== false,
               enableBankReconciliation:
-                company.enableBankReconciliation || true,
-              enableAuditLogs: company.enableAuditLogs || true,
-              enableUserActivityLogs: company.enableUserActivityLogs || true,
-              enableSystemLogs: company.enableSystemLogs || true,
-              enableSecurityLogs: company.enableSecurityLogs || true,
-              enableDataExport: company.enableDataExport || true,
-              enableDataImport: company.enableDataImport || true,
-              enableDataBackup: company.enableDataBackup || true,
-              enableDataRestore: company.enableDataRestore || true,
-              enableSystemUpdates: company.enableSystemUpdates || true,
-              enableSystemMaintenance: company.enableSystemMaintenance || true,
-              enableSystemDiagnostics: company.enableSystemDiagnostics || true,
+                Boolean(company.enableBankReconciliation) !== false,
+              enableAuditLogs: Boolean(company.enableAuditLogs) !== false,
+              enableUserActivityLogs: Boolean(company.enableUserActivityLogs) !== false,
+              enableSystemLogs: Boolean(company.enableSystemLogs) !== false,
+              enableSecurityLogs: Boolean(company.enableSecurityLogs) !== false,
+              enableDataExport: Boolean(company.enableDataExport) !== false,
+              enableDataImport: Boolean(company.enableDataImport) !== false,
+              enableDataBackup: Boolean(company.enableDataBackup) !== false,
+              enableDataRestore: Boolean(company.enableDataRestore) !== false,
+              enableSystemUpdates: Boolean(company.enableSystemUpdates) !== false,
+              enableSystemMaintenance: Boolean(company.enableSystemMaintenance) !== false,
+              enableSystemDiagnostics: Boolean(company.enableSystemDiagnostics) !== false,
               enableSystemOptimization:
-                company.enableSystemOptimization || true,
-              enableSystemSecurity: company.enableSystemSecurity || true,
-              enableSystemMonitoring: company.enableSystemMonitoring || true,
-              enableSystemAlerts: company.enableSystemAlerts || true,
-              enableSystemReports: company.enableSystemReports || true,
-              enableSystemAnalytics: company.enableSystemAnalytics || true,
-              enableSystemBackup: company.enableSystemBackup || true,
-              enableSystemRestore: company.enableSystemRestore || true,
+                Boolean(company.enableSystemOptimization) !== false,
+              enableSystemSecurity: Boolean(company.enableSystemSecurity) !== false,
+              enableSystemMonitoring: Boolean(company.enableSystemMonitoring) !== false,
+              enableSystemAlerts: Boolean(company.enableSystemAlerts) !== false,
+              enableSystemReports: Boolean(company.enableSystemReports) !== false,
+              enableSystemAnalytics: Boolean(company.enableSystemAnalytics) !== false,
+              enableSystemBackup: Boolean(company.enableSystemBackup) !== false,
+              enableSystemRestore: Boolean(company.enableSystemRestore) !== false,
               receiptTemplate: company.receiptTemplate || "template1",
               allowedUnits: company.allowedUnits || [],
               allowedCategories: company.allowedCategories || [],
@@ -807,6 +871,144 @@ const Settings = () => {
                             </Button>
                           </Grid>
                         </Grid>
+                      </CardContent>
+                    </StyledCard>
+                  </Slide>
+                )}
+
+                {/* Role Management Section */}
+                {canManageUsers && (
+                  <Slide direction="up" in timeout={900}>
+                    <StyledCard sx={{ mb: 4 }}>
+                      <CardContent>
+                        <Box display="flex" alignItems="center" mb={2}>
+                          <SecurityIcon sx={{ mr: 1, color: "primary.main" }} />
+                          <Typography variant="h6">
+                            Role Management
+                          </Typography>
+                        </Box>
+                        <RoleManager currentUserRole={user?.role} />
+                      </CardContent>
+                    </StyledCard>
+                  </Slide>
+                )}
+
+                {/* Network Management Section */}
+                {canManageSettings && (
+                  <Slide direction="up" in timeout={1000}>
+                    <StyledCard sx={{ mb: 4 }}>
+                      <CardContent>
+                        <Box display="flex" alignItems="center" mb={2}>
+                          <WifiIcon sx={{ mr: 1, color: "primary.main" }} />
+                          <Typography variant="h6">Network Management</Typography>
+                        </Box>
+                        
+                        {/* Network Status Display */}
+                        <Box mb={3}>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Network Status
+                          </Typography>
+                          {isLoadingNetwork ? (
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Loader size={20} />
+                              <Typography variant="body2">Loading network status...</Typography>
+                            </Box>
+                          ) : networkStatus ? (
+                            <Grid container spacing={2}>
+                              <Grid item xs={12} md={6}>
+                                <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                  <ComputerIcon color={networkStatus.isMaster ? "primary" : "secondary"} />
+                                  <Typography variant="body2">
+                                    <strong>Role:</strong> {networkStatus.isMaster ? "Master" : "Slave"}
+                                  </Typography>
+                                </Box>
+                                <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                  {networkStatus.isConnected ? (
+                                    <WifiIcon color="success" />
+                                  ) : (
+                                    <WifiOffIcon color="error" />
+                                  )}
+                                  <Typography variant="body2">
+                                    <strong>Status:</strong> {networkStatus.isConnected ? "Connected" : "Disconnected"}
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                              <Grid item xs={12} md={6}>
+                                <Typography variant="body2" mb={1}>
+                                  <strong>Peers:</strong> {networkStatus.peerCount || 0}
+                                </Typography>
+                                <Typography variant="body2">
+                                  <strong>Last Sync:</strong> {networkStatus.lastSync ? new Date(networkStatus.lastSync).toLocaleString() : "Never"}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              Network status unavailable
+                            </Typography>
+                          )}
+                        </Box>
+
+                        <Divider sx={{ my: 2 }} />
+
+                        {/* Network Controls */}
+                        <Box>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Network Controls
+                          </Typography>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} md={4}>
+                              <Button
+                                fullWidth
+                                variant="outlined"
+                                startIcon={<PlayArrowIcon />}
+                                onClick={() => handleForceRole('master')}
+                                disabled={isLoadingNetwork || (networkStatus && networkStatus.isMaster)}
+                                size="small"
+                              >
+                                Force Master
+                              </Button>
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <Button
+                                fullWidth
+                                variant="outlined"
+                                startIcon={<StopIcon />}
+                                onClick={() => handleForceRole('slave')}
+                                disabled={isLoadingNetwork || (networkStatus && !networkStatus.isMaster)}
+                                size="small"
+                              >
+                                Force Slave
+                              </Button>
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <Button
+                                fullWidth
+                                variant="outlined"
+                                startIcon={<SyncIcon />}
+                                onClick={handleSyncData}
+                                disabled={isLoadingNetwork}
+                                size="small"
+                              >
+                                Sync Data
+                              </Button>
+                            </Grid>
+                          </Grid>
+                        </Box>
+
+                        <Divider sx={{ my: 2 }} />
+
+                        {/* Link to Full Network Management */}
+                        <Box>
+                          <Button
+                            variant="contained"
+                            startIcon={<LaunchIcon />}
+                            onClick={() => navigate('/network')}
+                            size="small"
+                          >
+                            Open Network Management
+                          </Button>
+                        </Box>
                       </CardContent>
                     </StyledCard>
                   </Slide>
