@@ -2,12 +2,7 @@ import axios from "axios";
 
 // Use the appropriate API URL based on environment and role
 // Backend runs on port 3003
-const getBackendURL = () => {
-  const hostname = window.location.hostname;
-  
-  // If accessing via localhost, this is the master server
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return `http://localhost:3003`;
+// Backend runs on port 3003
   }
   
   // If accessing via network IP, this is a slave device

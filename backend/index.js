@@ -34,8 +34,8 @@ const syncRoutes = require('./routes/syncRoutes');
 
 // Import networking services
 const NetworkManager = require('./services/networkManager');
-const http = require('http');
 const db = require('./data/db/db');
+const networkConfig = require('./config/network.config');
 const networkConfig = require('./config/network.config');
 
 const app = express();
@@ -48,8 +48,6 @@ console.log('process.env.PORT:', process.env.PORT);
 // Middleware
 app.use(cors({
   origin: true, // Allow all origins for network access
-  credentials: true,
-  methods: ['GET', 'POST','PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
@@ -81,24 +79,14 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/network', networkRoutes);
 app.use('/api/sync', syncRoutes);
-
-// Default route
-app.get('/', (req, res) => {
+app.use('/api/network', networkRoutes);
+app.use('/api/sync', syncRoutes);
   res.send('POS API is running');
 });
 
 // Initialize database and start server
 (async () => {
   const initialized = await dbUtils.initialize();
-  if (initialized) {
-    console.log('Database initialized successfully');
-    
-    // Run migrations
-    try {
-      await migrationUtils.runMigrations();
-      
-      // Run networking migrations
-      await migrationUtils.runNetworkingMigrations();
       
       // Initialize networking system
       const networkManager = new NetworkManager();
@@ -109,8 +97,20 @@ app.get('/', (req, res) => {
         const server = http.createServer(app);
         
         server.listen(port, networkConfig.server.host || '0.0.0.0', async () => {
-          console.log(`Server running on http://localhost:${port}`);
-          
+      // Run networking migrations
+      await migrationUtils.runNetworkingMigrations();
+          // Initialize networking after server starts
+      // Initialize networking system
+      const networkManager = new NetworkManager();
+      app.set('networkManager', networkManager);
+            if (companyInfo) {
+              const success = await networkManager.initialize(
+                server, 
+                port, 
+                companyInfo.id, 
+        server.listen(port, networkConfig.server.host || '0.0.0.0', async () => {
+              );
+              
           // Initialize networking after server starts
           try {
             // Get company info for networking
@@ -134,17 +134,6 @@ app.get('/', (req, res) => {
           } catch (networkError) {
             console.error('Networking initialization error:', networkError);
           }
-          
-          // This is the ready signal for the main process
-          console.log(`Backend ready on port ${port}`);
-        });
-
-        server.on('error', (err) => {
-          if (err.code === 'EADDRINUSE') {
-            const nextPort = parseInt(port) + 1;
-            console.log(`Port ${port} is busy, trying port ${nextPort}`);
-            startServer(nextPort); // Recursively try the next port
-          } else {
             console.error('Server error:', err);
             process.exit(1);
           }
@@ -167,7 +156,6 @@ app.get('/', (req, res) => {
           if (networkManager) {
             await networkManager.shutdown();
           }
-          server.close(() => {
             console.log('Server closed');
             process.exit(0);
           });
@@ -176,10 +164,9 @@ app.get('/', (req, res) => {
 
       startServer(PORT);
     } catch (error) {
-      console.error('Migration failed:', error);
-      process.exit(1);
-    }
-  } else {
+          if (networkManager) {
+            await networkManager.shutdown();
+          }
     console.log('Failed to initialize database');
     process.exit(1);
   }

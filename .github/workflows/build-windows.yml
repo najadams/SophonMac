@@ -37,7 +37,7 @@ jobs:
     - name: Install backend dependencies
       run: |
         cd backend
-        pnpm install --production
+        pnpm install
       shell: cmd
         
     - name: Build frontend
@@ -51,7 +51,7 @@ jobs:
         if (Test-Path "node_modules") {
           Remove-Item -Recurse -Force "node_modules"
         }
-        pnpm install --production
+        pnpm install
         
     - name: Build/release Electron app
       run: |

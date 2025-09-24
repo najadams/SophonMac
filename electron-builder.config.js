@@ -10,6 +10,10 @@ module.exports = {
     'backend/**/*',
     'frontend-dist/**/*'
   ],
+  // Ensure backend node_modules are included and accessible
+  asarUnpack: [
+    'backend/node_modules/**/*'
+  ],
   win: {
     target: {
       target: 'portable',
