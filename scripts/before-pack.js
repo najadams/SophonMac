@@ -47,7 +47,7 @@ module.exports = async function(context) {
     console.log('Backend dependencies installed successfully');
     
     // Verify critical modules are installed
-    const criticalModules = ['cors', 'express', 'sqlite3', 'socket.io', 'bcrypt'];
+    const criticalModules = ['cors', 'express', 'sqlite3', 'socket.io', 'bcrypt', 'uuid'];
     for (const module of criticalModules) {
       const modulePath = path.join(nodeModulesDir, module);
       if (fs.existsSync(modulePath)) {
