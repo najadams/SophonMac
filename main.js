@@ -113,6 +113,7 @@ let frontendServer;
 let backendReady = false;
 let frontendReady = false;
 let frontendPort = 3002; // Track the actual frontend port
+let isCleaningUp = false; // Flag to prevent recursive cleanup
 
 function createWindow() {
   try {
@@ -744,11 +745,19 @@ app.on('will-quit', (event) => {
 // Clean up backend process when app is quitting
 app.on("before-quit", (event) => {
   logToFile('INFO', 'App before-quit event triggered');
-  cleanupAndQuit();
+  if (!isCleaningUp) {
+    cleanupAndQuit();
+  }
 });
 
 // Cleanup function
 function cleanupAndQuit() {
+  if (isCleaningUp) {
+    logToFile('INFO', 'Cleanup already in progress, skipping...');
+    return;
+  }
+  
+  isCleaningUp = true;
   logToFile('INFO', 'Starting cleanup process...');
   
   // Kill the backend process when the app is quitting
@@ -787,6 +796,8 @@ function cleanupAndQuit() {
   logToFile('INFO', 'Cleanup completed - app will quit');
   
   if (process.platform !== "darwin") {
-    app.quit();
+    setTimeout(() => {
+      app.quit();
+    }, 100); // Small delay to prevent recursive calls
   }
 }
