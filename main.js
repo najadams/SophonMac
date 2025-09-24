@@ -113,7 +113,6 @@ let frontendServer;
 let backendReady = false;
 let frontendReady = false;
 let frontendPort = 3002; // Track the actual frontend port
-let isCleaningUp = false; // Flag to prevent recursive cleanup
 
 function createWindow() {
   try {
@@ -745,76 +744,49 @@ app.on('will-quit', (event) => {
 // Clean up backend process when app is quitting
 app.on("before-quit", (event) => {
   logToFile('INFO', 'App before-quit event triggered');
-  
-  // Prevent recursive cleanup
-  if (isCleaningUp) {
-    logToFile('INFO', 'Cleanup already in progress, allowing quit');
-    return;
-  }
-  
-  // Prevent default quit behavior to handle cleanup
-  event.preventDefault();
   cleanupAndQuit();
 });
 
 // Cleanup function
 function cleanupAndQuit() {
-  // Set cleanup flag to prevent recursive calls
-  if (isCleaningUp) {
-    logToFile('INFO', 'Cleanup already in progress, skipping');
-    return;
-  }
-  
-  isCleaningUp = true;
   logToFile('INFO', 'Starting cleanup process...');
   
-  const cleanup = async () => {
+  // Kill the backend process when the app is quitting
+  if (backendProcess && !backendProcess.killed) {
+    logToFile('INFO', 'Terminating backend process...');
     try {
-      // Terminate backend process
-      if (backendProcess && !backendProcess.killed) {
-        logToFile('INFO', 'Terminating backend process...');
-        backendProcess.kill('SIGTERM');
-        
-        // Wait a bit for graceful shutdown
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        if (!backendProcess.killed) {
-          logToFile('WARNING', 'Backend process did not terminate gracefully, forcing kill');
+      backendProcess.kill('SIGTERM');
+      // Force kill after 5 seconds if still running
+      setTimeout(() => {
+        if (backendProcess && !backendProcess.killed) {
+          logToFile('WARNING', 'Force killing backend process');
           backendProcess.kill('SIGKILL');
         }
-      }
-
-      // Close frontend server
-      if (frontendServer) {
-        logToFile('INFO', 'Closing frontend server...');
-        await new Promise((resolve) => {
-          frontendServer.close((error) => {
-            if (error) {
-              logToFile('ERROR', 'Error closing frontend server', error);
-            } else {
-              logToFile('INFO', 'Frontend server closed successfully');
-            }
-            resolve();
-          });
-        });
-      }
-
-      logToFile('INFO', 'Cleanup completed - app will quit');
-      
-      // Reset cleanup flag and quit
-      isCleaningUp = false;
-      if (process.platform !== "darwin") {
-        app.quit();
-      }
-      
+      }, 5000);
     } catch (error) {
-      logToFile('ERROR', 'Error during cleanup', error);
-      isCleaningUp = false;
-      if (process.platform !== "darwin") {
-        app.quit();
-      }
+      logToFile('ERROR', 'Error killing backend process', error);
     }
-  };
-
-  cleanup();
+  }
+  
+  // Close the frontend server when the app is quitting
+  if (frontendServer) {
+    logToFile('INFO', 'Closing frontend server...');
+    try {
+      frontendServer.close((error) => {
+        if (error) {
+          logToFile('ERROR', 'Error closing frontend server', error);
+        } else {
+          logToFile('INFO', 'Frontend server closed successfully');
+        }
+      });
+    } catch (error) {
+      logToFile('ERROR', 'Error closing frontend server', error);
+    }
+  }
+  
+  logToFile('INFO', 'Cleanup completed - app will quit');
+  
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
 }
