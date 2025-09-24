@@ -29,17 +29,17 @@ const transactionRoutes = require('./routes/transactionRoutes');
 const vendorPaymentRoutes = require('./routes/vendorPaymentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
-const networkRoutes = require('./routes/networkRoutes');
-const syncRoutes = require('./routes/syncRoutes');
 
-// Import networking services
-const NetworkManager = require('./services/networkManager');
+// Disable networking features for web deployment
+// const networkRoutes = require('./routes/networkRoutes');
+// const syncRoutes = require('./routes/syncRoutes');
+// const NetworkManager = require('./services/networkManager');
+
 const http = require('http');
 const db = require('./data/db/db');
-const networkConfig = require('./config/network.config');
 
 const app = express();
-const PORT = networkConfig.server.port || parseInt(process.env.PORT) || 3003; 
+const PORT = parseInt(process.env.PORT) || 3003; 
 
 // Debug: Log the PORT value
 console.log('Backend starting with PORT:', PORT);
@@ -47,7 +47,9 @@ console.log('process.env.PORT:', process.env.PORT);
 
 // Middleware
 app.use(cors({
-  origin: true, // Allow all origins for network access
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.FRONTEND_URL, 'https://your-frontend-domain.vercel.app', 'https://your-frontend-domain.netlify.app']
+    : true, // Allow all origins in development
   credentials: true,
   methods: ['GET', 'POST','PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -79,12 +81,22 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/vendor-payments', vendorPaymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/network', networkRoutes);
-app.use('/api/sync', syncRoutes);
+// Networking routes disabled for web deployment
+// app.use('/api/network', networkRoutes);
+// app.use('/api/sync', syncRoutes);
 
 // Default route
 app.get('/', (req, res) => {
   res.send('POS API is running');
+});
+
+// Health check endpoint for deployment platforms
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Initialize database and start server
@@ -97,43 +109,42 @@ app.get('/', (req, res) => {
     try {
       await migrationUtils.runMigrations();
       
-      // Run networking migrations
-      await migrationUtils.runNetworkingMigrations();
+      // Skip networking migrations for web deployment
+      // await migrationUtils.runNetworkingMigrations();
       
-      // Initialize networking system
-      const networkManager = new NetworkManager();
-      app.set('networkManager', networkManager);
+      // Skip networking system initialization for web deployment
+      // const networkManager = new NetworkManager();
+      // app.set('networkManager', networkManager);
       
       // Start server after successful initialization
       const startServer = async (port) => {
         const server = http.createServer(app);
         
-        server.listen(port, networkConfig.server.host || '0.0.0.0', async () => {
+        server.listen(port, '0.0.0.0', async () => {
           console.log(`Server running on http://localhost:${port}`);
           
-          // Initialize networking after server starts
-          try {
-            // Get company info for networking
-            const companyInfo = await getFirstCompanyInfo();
-            if (companyInfo) {
-              const success = await networkManager.initialize(
-                server, 
-                port, 
-                companyInfo.id, 
-                companyInfo.companyName
-              );
-              
-              if (success) {
-                console.log('Networking system initialized successfully');
-              } else {
-                console.warn('Failed to initialize networking system');
-              }
-            } else {
-              console.log('No company found, networking will be initialized after company registration');
-            }
-          } catch (networkError) {
-            console.error('Networking initialization error:', networkError);
-          }
+          // Skip networking initialization for web deployment
+          // try {
+          //   const companyInfo = await getFirstCompanyInfo();
+          //   if (companyInfo) {
+          //     const success = await networkManager.initialize(
+          //       server, 
+          //       port, 
+          //       companyInfo.id, 
+          //       companyInfo.companyName
+          //     );
+          //     
+          //     if (success) {
+          //       console.log('Networking system initialized successfully');
+          //     } else {
+          //       console.warn('Failed to initialize networking system');
+          //     }
+          //   } else {
+          //     console.log('No company found, networking will be initialized after company registration');
+          //   }
+          // } catch (networkError) {
+          //   console.error('Networking initialization error:', networkError);
+          // }
           
           // This is the ready signal for the main process
           console.log(`Backend ready on port ${port}`);
@@ -153,9 +164,10 @@ app.get('/', (req, res) => {
         // Graceful shutdown
         process.on('SIGTERM', async () => {
           console.log('SIGTERM received, shutting down gracefully');
-          if (networkManager) {
-            await networkManager.shutdown();
-          }
+          // Skip networking cleanup for web deployment
+          // if (networkManager) {
+          //   await networkManager.shutdown();
+          // }
           server.close(() => {
             console.log('Server closed');
             process.exit(0);
@@ -164,9 +176,10 @@ app.get('/', (req, res) => {
         
         process.on('SIGINT', async () => {
           console.log('SIGINT received, shutting down gracefully');
-          if (networkManager) {
-            await networkManager.shutdown();
-          }
+          // Skip networking cleanup for web deployment
+          // if (networkManager) {
+          //   await networkManager.shutdown();
+          // }
           server.close(() => {
             console.log('Server closed');
             process.exit(0);

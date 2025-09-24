@@ -1,6 +1,11 @@
 import { io } from 'socket.io-client';
 import axios from '../config/index.js';
 
+// Check if we're in web deployment mode (not Electron)
+const isWebDeployment = typeof window !== 'undefined' && 
+                       !window.require && 
+                       !window.process?.versions?.electron;
+
 class NetworkService {
   constructor() {
     this.socket = null;
@@ -10,18 +15,27 @@ class NetworkService {
     this.eventListeners = new Map();
     this.token = null;
     this.networkStatus = {
-      isOnline: false,
+      isOnline: true, // Always online for web deployment
       isMaster: false,
       connectedPeers: [],
       lastSync: null
     };
     
-    // Monitor network interface connectivity
-    this.setupNetworkMonitoring();
+    // Skip networking setup for web deployment
+    if (!isWebDeployment) {
+      this.setupNetworkMonitoring();
+    }
   }
 
   // Initialize WebSocket connection
   async initialize(token, companyId) {
+    // Skip networking initialization for web deployment
+    if (isWebDeployment) {
+      console.log('Networking disabled for web deployment');
+      this.isConnected = false;
+      return false;
+    }
+    
     try {
       this.token = token; // Store token for API requests
       
@@ -180,6 +194,16 @@ class NetworkService {
 
   // Check actual network connectivity
   async checkNetworkConnectivity() {
+    // For web deployment, always return true (online)
+    if (isWebDeployment) {
+      this.networkStatus = {
+        ...this.networkStatus,
+        isOnline: true
+      };
+      this.emit('networkStatusChanged', this.networkStatus);
+      return true;
+    }
+    
     const isOnline = navigator.onLine;
     
     if (!isOnline) {

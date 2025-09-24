@@ -4,10 +4,26 @@ import axios from '../config/index';
 class SyncService {
   constructor() {
     this.baseURL = '/api/sync';
+    
+    // Check if we're in web deployment mode (not Electron)
+    this.isWebDeployment = typeof window !== 'undefined' && 
+                          !window.require && 
+                          !window.process?.versions?.electron;
   }
 
   // Get sync status
   async getSyncStatus() {
+    // Disable sync functionality for web deployment
+    if (this.isWebDeployment) {
+      return {
+        success: true,
+        data: {
+          status: 'disabled',
+          message: 'Sync functionality disabled for web deployment'
+        }
+      };
+    }
+    
     try {
       const response = await axios.get(`${this.baseURL}/status`);
       return response.data;
@@ -19,6 +35,17 @@ class SyncService {
 
   // Check Supabase connectivity
   async checkConnectivity() {
+    // Disable connectivity check for web deployment
+    if (this.isWebDeployment) {
+      return {
+        success: true,
+        data: {
+          connected: false,
+          message: 'Connectivity check disabled for web deployment'
+        }
+      };
+    }
+    
     try {
       const response = await axios.get(`${this.baseURL}/supabase/connectivity`);
       return response.data;
@@ -30,6 +57,14 @@ class SyncService {
 
   // Trigger manual Supabase sync
   async triggerManualSync(companyId) {
+    // Disable manual sync for web deployment
+    if (this.isWebDeployment) {
+      return {
+        success: false,
+        message: 'Manual sync disabled for web deployment'
+      };
+    }
+    
     try {
       const response = await axios.post(`${this.baseURL}/supabase/sync`, {
         companyId
@@ -43,6 +78,14 @@ class SyncService {
 
   // Start automatic Supabase sync
   async startAutoSync() {
+    // Disable auto sync for web deployment
+    if (this.isWebDeployment) {
+      return {
+        success: false,
+        message: 'Auto sync disabled for web deployment'
+      };
+    }
+    
     try {
       const response = await axios.post(`${this.baseURL}/supabase/auto-sync/start`);
       return response.data;
@@ -54,6 +97,14 @@ class SyncService {
 
   // Stop automatic Supabase sync
   async stopAutoSync() {
+    // Disable auto sync for web deployment
+    if (this.isWebDeployment) {
+      return {
+        success: false,
+        message: 'Auto sync disabled for web deployment'
+      };
+    }
+    
     try {
       const response = await axios.post(`${this.baseURL}/supabase/auto-sync/stop`);
       return response.data;

@@ -1,8 +1,13 @@
 import axios from "axios";
 
-// Use the appropriate API URL based on environment and role
-// Backend runs on port 3003
+// Use the appropriate API URL based on environment
 const getBackendURL = () => {
+  // In production (web deployment), use environment variable
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.REACT_APP_API_URL || 'https://your-backend-domain.onrender.com';
+  }
+  
+  // In development, check if we're in Electron or web browser
   const hostname = window.location.hostname;
   
   // If accessing via localhost, this is the master server
