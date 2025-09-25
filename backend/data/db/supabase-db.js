@@ -7,10 +7,12 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false
   },
-  // Connection pool settings - reduced for better stability
-  max: 5, // Maximum number of clients in the pool (reduced from 20)
+  // Connection pool settings - increased timeouts for better stability
+  max: 5, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 5000, // Return an error after 5 seconds if connection could not be established
+  connectionTimeoutMillis: 20000, // Increased timeout to 20 seconds
+  acquireTimeoutMillis: 20000, // Time to wait for a connection from the pool
+  createTimeoutMillis: 20000, // Time to wait for a new connection to be created
 });
 
 // Test the connection - only log once per actual connection

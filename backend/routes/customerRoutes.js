@@ -56,7 +56,7 @@ router.post('/', (req, res) => {
           db.run('ROLLBACK');
           
           // Check if it's a unique constraint violation for customer already exists
-          if (err.code === 'SQLITE_CONSTRAINT' && err.message.includes('UNIQUE constraint failed: Customer.belongsTo, Customer.name, Customer.company')) {
+          if (err.code === '23505' && err.message.includes('duplicate key value violates unique constraint')) {
             return res.status(409).json({ message: 'Customer already exists' });
           }
           
@@ -345,7 +345,7 @@ router.get('/:id', (req, res) => {
   db.all(query, [req.params.id], (err, rows) => {
     if (err) {
       // Check if the error is due to missing 'deleted' column
-      if (err.code === 'SQLITE_ERROR' && err.message.includes('no such column: deleted')) {
+      if (err.code === '42703' && err.message.includes('column') && err.message.includes('does not exist')) {
         // Query without the deleted condition
         const fallbackQuery = `
           SELECT 

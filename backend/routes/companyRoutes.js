@@ -7,7 +7,7 @@ const countData = async (req, res) => {
   try {
     const companyId = req.params.companyId;
 
-    // Helper function to get count from SQLite table
+    // Helper function to get count from PostgreSQL table
     const getCount = (tableName, whereClause = "companyId = ?") => {
       return new Promise((resolve, reject) => {
         db.get(

@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 const { v4: uuidv4 } = require('uuid');
-const db = require('../data/db/db');
+const db = require('../data/db/supabase-db');
 const { createSupabaseServiceClient, supabaseConfig } = require('../config/supabase.config');
 
 class SyncEngine extends EventEmitter {

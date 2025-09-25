@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/authMiddleware');
-const db = require('../data/db/db');
+const db = require('../data/db/supabase-db');
 
 // Get machine IP address
 router.get('/machine-ip', verifyToken, (req, res) => {

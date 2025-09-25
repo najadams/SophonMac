@@ -11,9 +11,9 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-// Use Supabase database utilities instead of SQLite
-const dbUtils = require('./utils/supabase-dbUtils');
-const migrationUtils = require('./utils/migrationUtils');
+// Use Supabase database connection directly
+const db = require('./data/db/supabase-db');
+const SchemaInit = require('./utils/schemaInit');
 
 // Import routes
 const companyRoutes = require('./routes/companyRoutes');
@@ -37,8 +37,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 // const NetworkManager = require('./services/networkManager');
 
 const http = require('http');
-// Use Supabase database connection instead of SQLite
-const db = require('./data/db/supabase-db');
+// Database connection is imported above
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003; 
@@ -103,99 +102,57 @@ app.get('/api/health', (req, res) => {
 
 // Initialize database and start server
 (async () => {
-  const initialized = await dbUtils.initialize();
-  if (initialized) {
-    console.log('Database initialized successfully');
+  try {
+    // Test Supabase connection
+    console.log('Testing Supabase connection...');
+    await db.query('SELECT 1');
+    console.log('Connected to Supabase PostgreSQL database successfully');
     
-    // Run migrations
-    try {
-      await migrationUtils.runMigrations();
+    // Initialize schema (create missing tables)
+    console.log('Initializing database schema...');
+    await SchemaInit.initializeSchema();
+    
+    // Start server after successful connection and schema initialization
+    const startServer = async (port) => {
+      const server = http.createServer(app);
       
-      // Skip networking migrations for web deployment
-      // await migrationUtils.runNetworkingMigrations();
-      
-      // Skip networking system initialization for web deployment
-      // const networkManager = new NetworkManager();
-      // app.set('networkManager', networkManager);
-      
-      // Start server after successful initialization
-      const startServer = async (port) => {
-        const server = http.createServer(app);
-        
-        server.listen(port, '0.0.0.0', async () => {
-          console.log(`Server running on http://localhost:${port}`);
-          
-          // Skip networking initialization for web deployment
-          // try {
-          //   const companyInfo = await getFirstCompanyInfo();
-          //   if (companyInfo) {
-          //     const success = await networkManager.initialize(
-          //       server, 
-          //       port, 
-          //       companyInfo.id, 
-          //       companyInfo.companyName
-          //     );
-          //     
-          //     if (success) {
-          //       console.log('Networking system initialized successfully');
-          //     } else {
-          //       console.warn('Failed to initialize networking system');
-          //     }
-          //   } else {
-          //     console.log('No company found, networking will be initialized after company registration');
-          //   }
-          // } catch (networkError) {
-          //   console.error('Networking initialization error:', networkError);
-          // }
-          
-          // This is the ready signal for the main process
-          console.log(`Backend ready on port ${port}`);
-        });
+      server.listen(port, '0.0.0.0', async () => {
+        console.log(`Server running on http://localhost:${port}`);
+        console.log(`Backend ready on port ${port}`);
+      });
 
-        server.on('error', (err) => {
-          if (err.code === 'EADDRINUSE') {
-            const nextPort = parseInt(port) + 1;
-            console.log(`Port ${port} is busy, trying port ${nextPort}`);
-            startServer(nextPort); // Recursively try the next port
-          } else {
-            console.error('Server error:', err);
-            process.exit(1);
-          }
+      server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          const nextPort = parseInt(port) + 1;
+          console.log(`Port ${port} is busy, trying port ${nextPort}`);
+          startServer(nextPort); // Recursively try the next port
+        } else {
+          console.error('Server error:', err);
+          process.exit(1);
+        }
+      });
+      
+      // Graceful shutdown
+      process.on('SIGTERM', async () => {
+        console.log('SIGTERM received, shutting down gracefully');
+        server.close(() => {
+          console.log('Server closed');
+          process.exit(0);
         });
-        
-        // Graceful shutdown
-        process.on('SIGTERM', async () => {
-          console.log('SIGTERM received, shutting down gracefully');
-          // Skip networking cleanup for web deployment
-          // if (networkManager) {
-          //   await networkManager.shutdown();
-          // }
-          server.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-          });
+      });
+      
+      process.on('SIGINT', async () => {
+        console.log('SIGINT received, shutting down gracefully');
+        server.close(() => {
+          console.log('Server closed');
+          process.exit(0);
         });
-        
-        process.on('SIGINT', async () => {
-          console.log('SIGINT received, shutting down gracefully');
-          // Skip networking cleanup for web deployment
-          // if (networkManager) {
-          //   await networkManager.shutdown();
-          // }
-          server.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-          });
-        });
-      };
+      });
+    };
 
-      startServer(PORT);
-    } catch (error) {
-      console.error('Migration failed:', error);
-      process.exit(1);
-    }
-  } else {
-    console.log('Failed to initialize database');
+    startServer(PORT);
+  } catch (error) {
+    console.error('Failed to connect to Supabase database:', error);
     process.exit(1);
   }
 })();

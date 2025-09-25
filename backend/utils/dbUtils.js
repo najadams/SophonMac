@@ -1,7 +1,8 @@
 // utils/dbUtils.js
-const fs = require("fs");
-const path = require("path");
-const db = require("../data/db/db"); // Updated path to correctly point to db.js
+const fs = require('fs');
+const path = require('path');
+const { Pool } = require('pg');
+const db = require("../data/db/supabase-db"); // Updated path to correctly point to supabase-db.js
 
 const DBUtils = {
   // Initialize database (run migrations)
@@ -27,22 +28,18 @@ const DBUtils = {
     }
   },
 
-  // Check if a specific table exists
-  checkTableExists(tableName) {
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
-        [tableName],
-        (err, row) => {
-          if (err) {
-            console.error("Error checking table existence:", err);
-            reject(err);
-          } else {
-            resolve(!!row); // Convert to boolean
-          }
-        }
+  // Check if a specific table exists in PostgreSQL
+  async checkTableExists(tableName) {
+    try {
+      const result = await db.query(
+        `SELECT table_name FROM information_schema.tables WHERE table_name = $1`,
+        [tableName.toLowerCase()]
       );
-    });
+      return result.rows.length > 0;
+    } catch (error) {
+      console.error('Error checking table existence:', error);
+      return false;
+    }
   },
 
   // Create all tables from schema file

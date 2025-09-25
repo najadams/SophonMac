@@ -2,7 +2,7 @@ const NetworkDiscoveryService = require('./networkDiscovery');
 const WebSocketServer = require('./websocketServer');
 const SyncEngine = require('./syncEngine');
 const EventEmitter = require('events');
-const db = require('../data/db/db');
+const db = require('../data/db/supabase-db');
 const networkConfig = require('../config/network.config');
 
 class NetworkManager extends EventEmitter {

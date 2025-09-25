@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../data/db/db");
+const db = require("../data/db/supabase-db");
 
-// Helper function to format date for SQLite
+// Helper function to format date for PostgreSQL
 const formatDateForSql = (date) => {
   return date.toISOString().slice(0, 19).replace("T", " ");
 };
@@ -52,11 +52,11 @@ router.get("/overall/:companyId", (req, res) => {
       endDate.setHours(23, 59, 59, 999); // Set to end of day
     }
 
-    // Format dates for SQLite
+    // Format dates for PostgreSQL
     const formattedStartDate = formatDateForSql(startDate);
     const formattedEndDate = formatDateForSql(endDate);
 
-    // Get receipts from SQLite database
+    // Get receipts from PostgreSQL database
     const sql = `
       SELECT r.*, 
              c.name as customerName, 
