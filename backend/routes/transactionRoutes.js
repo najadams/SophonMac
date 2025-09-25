@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../data/db/db');
+const db = require('../data/db/supabase-db');
 const { verifyToken } = require('../middleware/authMiddleware');
 
 // Get all transactions for a company

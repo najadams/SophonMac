@@ -50,8 +50,8 @@ const db = {
           reject(err);
         } else {
           resolve({
-            changes: result.rowCount,
-            lastID: result.rows[0]?.id || null
+            changes: result.rowCount || 0,
+            lastID: result.rows && result.rows.length > 0 ? result.rows[0]?.id || null : null
           });
         }
       });

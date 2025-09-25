@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../data/db/db');
+const db = require('../data/db/supabase-db');
 
 // Create a new vendor payment
 router.post('/', (req, res) => {

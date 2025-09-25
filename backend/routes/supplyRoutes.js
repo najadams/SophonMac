@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../data/db/db');
+const db = require('../data/db/supabase-db');
 
 // Get all supplies for a company
 router.get('/:companyId', (req, res) => {

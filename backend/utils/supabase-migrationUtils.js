@@ -123,31 +123,31 @@ const runCustomRolesMigration = async () => {
     console.log('Running custom roles migration...');
     
     // Check if CustomRole table exists
-    const tableExists = await db.query(`
+    const tableExists = await db.all(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_name = 'customrole'
     `);
     
-    if (tableExists.rows.length === 0) {
+    if (tableExists.length === 0) {
       console.log('Creating CustomRole table...');
       
       const createTableSQL = `
         CREATE TABLE CustomRole (
           id SERIAL PRIMARY KEY,
-          company_id INTEGER NOT NULL,
+          companyid INTEGER NOT NULL,
           name VARCHAR(255) NOT NULL,
           permissions TEXT NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (company_id) REFERENCES Company(id) ON DELETE CASCADE,
-          UNIQUE(company_id, name)
+          FOREIGN KEY (companyid) REFERENCES Company(id) ON DELETE CASCADE,
+          UNIQUE(companyid, name)
         );
         
-        CREATE INDEX idx_custom_role_company ON CustomRole(company_id);
+        CREATE INDEX idx_custom_role_company ON CustomRole(companyid);
       `;
       
-      await db.query(createTableSQL);
+      await db.run(createTableSQL);
       
       console.log('Custom roles migration completed successfully!');
     } else {
