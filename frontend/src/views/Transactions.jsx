@@ -300,6 +300,7 @@ const Transactions = () => {
                 <TableCell sx={{ backgroundColor: '#fff', fontWeight: 600 }}>Date</TableCell>
                 <TableCell sx={{ backgroundColor: '#fff', fontWeight: 600 }}>Type</TableCell>
                 <TableCell sx={{ backgroundColor: '#fff', fontWeight: 600 }}>Reference</TableCell>
+                <TableCell sx={{ backgroundColor: '#fff', fontWeight: 600 }}>Receiver</TableCell>
                 <TableCell sx={{ backgroundColor: '#fff', fontWeight: 600 }}>Amount</TableCell>
                 <TableCell sx={{ backgroundColor: '#fff', fontWeight: 600 }}>Payment Method</TableCell>
                 <TableCell sx={{ backgroundColor: '#fff', fontWeight: 600 }}>Status</TableCell>
@@ -328,6 +329,9 @@ const Transactions = () => {
                       />
                     </TableCell>
                     <TableCell>{transaction.reference}</TableCell>
+                    <TableCell>
+                      {transaction.customerName || transaction.vendorName || transaction.supplierName || 'N/A'}
+                    </TableCell>
                     <TableCell>₵{formatNumber(transaction.amount)}</TableCell>
                     <TableCell>{transaction.paymentMethod}</TableCell>
                     <TableCell>
