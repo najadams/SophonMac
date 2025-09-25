@@ -636,7 +636,7 @@ const MyAccount = () => {
                               variant="contained"
                               color="primary"
                               startIcon={<PersonAdd />}
-                              onClick={() => navigate("/employee/new")}
+                              onClick={() => navigate("/create-user")}
                               fullWidth
                               sx={{ mb: 2 }}>
                               Add New Employee
