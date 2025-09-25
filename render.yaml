@@ -14,5 +14,5 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        value: https://glowing-scone-b83e4c.netlify.app
+        value: https://tradehub.pos.netlify.app
     healthCheckPath: /api/health
