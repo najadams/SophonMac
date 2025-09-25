@@ -50,7 +50,7 @@ console.log('process.env.PORT:', process.env.PORT);
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://your-frontend-domain.vercel.app', 'https://your-frontend-domain.netlify.app']
+    ? [process.env.FRONTEND_URL, 'https://tradehubpos.netlify.app', 'https://your-frontend-domain.netlify.app']
     : true, // Allow all origins in development
   credentials: true,
   methods: ['GET', 'POST','PATCH', 'PUT', 'DELETE', 'OPTIONS'],
