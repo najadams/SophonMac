@@ -855,7 +855,7 @@ const Settings = () => {
                               variant="contained"
                               color="primary"
                               startIcon={<PersonAdd />}
-                              onClick={() => navigate("/employee/new")}
+                              onClick={() => navigate("/create-user")}
                               fullWidth>
                               Add New Employee
                             </Button>
