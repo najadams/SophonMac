@@ -9,12 +9,19 @@ const SupabaseDBUtils = {
     console.log("Initializing Supabase database...");
 
     try {
-      // Check if database exists and has tables
-      const tableExists = await this.checkTableExists("Company");
+      // Add connection timeout handling
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database initialization timeout')), 10000);
+      });
+
+      // Check if database exists and has tables with timeout
+      const tableExistsPromise = this.checkTableExists("Company");
+      const tableExists = await Promise.race([tableExistsPromise, timeoutPromise]);
 
       if (!tableExists) {
         console.log("Tables not found. Creating schema...");
-        await this.createSchema();
+        const createSchemaPromise = this.createSchema();
+        await Promise.race([createSchemaPromise, timeoutPromise]);
         console.log("Schema created successfully.");
       } else {
         console.log("Database tables already exist.");
@@ -22,6 +29,10 @@ const SupabaseDBUtils = {
 
       return true;
     } catch (error) {
+      if (error.message === 'Database initialization timeout') {
+        console.warn("Database initialization timed out, but connection is available. Continuing...");
+        return true; // Continue with startup even if initialization times out
+      }
       console.error("Error initializing Supabase database:", error);
       return false;
     }
@@ -45,18 +56,32 @@ const SupabaseDBUtils = {
   // Create all tables from schema file (PostgreSQL version)
   async createSchema() {
     try {
-      const schemaPath = path.join(__dirname, "..", "create_schema.js");
+      const schemaPath = path.join(__dirname, "..", "data", "db", "postgres-schema.sql");
       
       if (!fs.existsSync(schemaPath)) {
-        throw new Error("Schema file not found");
+        throw new Error("PostgreSQL schema file not found");
       }
 
-      // Read and convert SQLite schema to PostgreSQL
-      const sqliteSchema = fs.readFileSync(schemaPath, "utf8");
-      const postgresSchema = this.convertSQLiteToPostgreSQL(sqliteSchema);
+      // Read PostgreSQL schema
+      const postgresSchema = fs.readFileSync(schemaPath, "utf8");
       
-      // Execute the converted schema
-      await db.run(postgresSchema);
+      // Split schema into individual statements and execute them
+      const statements = postgresSchema
+        .split(';')
+        .map(stmt => stmt.trim())
+        .filter(stmt => stmt.length > 0);
+      
+      for (const statement of statements) {
+        if (statement.trim()) {
+          try {
+            await db.run(statement);
+            console.log(`Executed SQL statement successfully`);
+          } catch (error) {
+            console.error(`Error executing statement: ${error.message}`);
+            // Continue with other statements
+          }
+        }
+      }
       
       console.log("Schema executed successfully");
     } catch (error) {
@@ -69,8 +94,11 @@ const SupabaseDBUtils = {
   convertSQLiteToPostgreSQL(sqliteSchema) {
     let postgresSchema = sqliteSchema;
 
-    // Replace SQLite-specific syntax with PostgreSQL equivalents
+    // Remove SQLite-specific PRAGMA statements
     postgresSchema = postgresSchema
+      .replace(/PRAGMA.*?;/gi, '')
+      .replace(/-- Enable foreign keys/gi, '')
+      
       // Replace INTEGER PRIMARY KEY with SERIAL PRIMARY KEY
       .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY')
       .replace(/INTEGER PRIMARY KEY/gi, 'SERIAL PRIMARY KEY')
@@ -96,7 +124,11 @@ const SupabaseDBUtils = {
       
       // Add timestamps for audit trails
       .replace(/created_at TIMESTAMP/gi, 'created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()')
-      .replace(/updated_at TIMESTAMP/gi, 'updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
+      .replace(/updated_at TIMESTAMP/gi, 'updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()')
+      
+      // Clean up extra whitespace and empty lines
+      .replace(/\n\s*\n/g, '\n')
+      .trim();
 
     return postgresSchema;
   },

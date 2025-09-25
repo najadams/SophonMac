@@ -11,9 +11,9 @@ const columnExists = (tableName, columnName) => {
       WHERE table_name = $1 AND column_name = $2
     `;
     
-    db.query(query, [tableName.toLowerCase(), columnName.toLowerCase()])
+    db.all(query, [tableName.toLowerCase(), columnName.toLowerCase()])
       .then(result => {
-        const exists = result.rows.length > 0;
+        const exists = result.length > 0;
         resolve(exists);
       })
       .catch(err => {

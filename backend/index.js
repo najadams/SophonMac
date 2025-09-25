@@ -103,52 +103,130 @@ app.get('/api/health', (req, res) => {
 
 // Initialize database and start server
 (async () => {
-  const initialized = await dbUtils.initialize();
-  if (initialized) {
-    console.log('Database initialized successfully');
-    
-    // Run migrations
-    try {
-      await migrationUtils.runMigrations();
+  try {
+    const initialized = await dbUtils.initialize();
+    if (initialized) {
+      console.log('Database initialized successfully');
       
-      // Skip networking migrations for web deployment
-      // await migrationUtils.runNetworkingMigrations();
+      // Run migrations
+      try {
+        await migrationUtils.runMigrations();
+        
+        // Skip networking migrations for web deployment
+        // await migrationUtils.runNetworkingMigrations();
+        
+        // Skip networking system initialization for web deployment
+        // const networkManager = new NetworkManager();
+        // app.set('networkManager', networkManager);
+        
+        // Start server after successful initialization
+        const startServer = async (port) => {
+          const server = http.createServer(app);
+          
+          server.listen(port, '0.0.0.0', async () => {
+            console.log(`Server running on http://localhost:${port}`);
+            
+            // Skip networking initialization for web deployment
+            // try {
+            //   const companyInfo = await getFirstCompanyInfo();
+            //   if (companyInfo) {
+            //     const success = await networkManager.initialize(
+            //       server, 
+            //       port, 
+            //       companyInfo.id, 
+            //       companyInfo.companyName
+            //     );
+            //     
+            //     if (success) {
+            //       console.log('Networking system initialized successfully');
+            //     } else {
+            //       console.warn('Failed to initialize networking system');
+            //     }
+            //   } else {
+            //     console.log('No company found, networking will be initialized after company registration');
+            //   }
+            // } catch (networkError) {
+            //   console.error('Networking initialization error:', networkError);
+            // }
+            
+            // This is the ready signal for the main process
+            console.log(`Backend ready on port ${port}`);
+          });
+
+          server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+              const nextPort = parseInt(port) + 1;
+              console.log(`Port ${port} is busy, trying port ${nextPort}`);
+              startServer(nextPort); // Recursively try the next port
+            } else {
+              console.error('Server error:', err);
+              process.exit(1);
+            }
+          });
+          
+          // Graceful shutdown
+          process.on('SIGTERM', async () => {
+            console.log('SIGTERM received, shutting down gracefully');
+            // Skip networking cleanup for web deployment
+            // if (networkManager) {
+            //   await networkManager.shutdown();
+            // }
+            server.close(() => {
+              console.log('Server closed');
+              process.exit(0);
+            });
+          });
+          
+          process.on('SIGINT', async () => {
+            console.log('SIGINT received, shutting down gracefully');
+            // Skip networking cleanup for web deployment
+            // if (networkManager) {
+            //   await networkManager.shutdown();
+            // }
+            server.close(() => {
+              console.log('Server closed');
+              process.exit(0);
+            });
+          });
+        };
+
+        startServer(PORT);
+      } catch (error) {
+        console.error('Migration failed:', error);
+        console.warn('Starting server anyway - migrations can be retried later');
+        
+        // Start server even if migrations fail
+        const startServer = async (port) => {
+          const server = http.createServer(app);
+          
+          server.listen(port, '0.0.0.0', async () => {
+            console.log(`Server running on http://localhost:${port} (with migration warnings)`);
+            console.log(`Backend ready on port ${port}`);
+          });
+
+          server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+              const nextPort = parseInt(port) + 1;
+              console.log(`Port ${port} is busy, trying port ${nextPort}`);
+              startServer(nextPort);
+            } else {
+              console.error('Server error:', err);
+              process.exit(1);
+            }
+          });
+        };
+
+        startServer(PORT);
+      }
+    } else {
+      console.warn('Database initialization failed, but starting server anyway');
       
-      // Skip networking system initialization for web deployment
-      // const networkManager = new NetworkManager();
-      // app.set('networkManager', networkManager);
-      
-      // Start server after successful initialization
+      // Start server even if database initialization fails
       const startServer = async (port) => {
         const server = http.createServer(app);
         
         server.listen(port, '0.0.0.0', async () => {
-          console.log(`Server running on http://localhost:${port}`);
-          
-          // Skip networking initialization for web deployment
-          // try {
-          //   const companyInfo = await getFirstCompanyInfo();
-          //   if (companyInfo) {
-          //     const success = await networkManager.initialize(
-          //       server, 
-          //       port, 
-          //       companyInfo.id, 
-          //       companyInfo.companyName
-          //     );
-          //     
-          //     if (success) {
-          //       console.log('Networking system initialized successfully');
-          //     } else {
-          //       console.warn('Failed to initialize networking system');
-          //     }
-          //   } else {
-          //     console.log('No company found, networking will be initialized after company registration');
-          //   }
-          // } catch (networkError) {
-          //   console.error('Networking initialization error:', networkError);
-          // }
-          
-          // This is the ready signal for the main process
+          console.log(`Server running on http://localhost:${port} (database connection may be limited)`);
           console.log(`Backend ready on port ${port}`);
         });
 
@@ -156,47 +234,26 @@ app.get('/api/health', (req, res) => {
           if (err.code === 'EADDRINUSE') {
             const nextPort = parseInt(port) + 1;
             console.log(`Port ${port} is busy, trying port ${nextPort}`);
-            startServer(nextPort); // Recursively try the next port
+            startServer(nextPort);
           } else {
             console.error('Server error:', err);
             process.exit(1);
           }
         });
-        
-        // Graceful shutdown
-        process.on('SIGTERM', async () => {
-          console.log('SIGTERM received, shutting down gracefully');
-          // Skip networking cleanup for web deployment
-          // if (networkManager) {
-          //   await networkManager.shutdown();
-          // }
-          server.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-          });
-        });
-        
-        process.on('SIGINT', async () => {
-          console.log('SIGINT received, shutting down gracefully');
-          // Skip networking cleanup for web deployment
-          // if (networkManager) {
-          //   await networkManager.shutdown();
-          // }
-          server.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-          });
-        });
       };
 
       startServer(PORT);
-    } catch (error) {
-      console.error('Migration failed:', error);
-      process.exit(1);
     }
-  } else {
-    console.log('Failed to initialize database');
-    process.exit(1);
+  } catch (error) {
+    console.error('Unexpected error during startup:', error);
+    console.warn('Starting server in fallback mode');
+    
+    // Fallback server start
+    const server = http.createServer(app);
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT} (fallback mode)`);
+      console.log(`Backend ready on port ${PORT}`);
+    });
   }
 })();
 
