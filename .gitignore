@@ -65,3 +65,4 @@ backend/supabase_schema_setup.sql.bak
 backend/verify_table_names.js
 backend/check_supabase_data.js
 backend/reset_sync_flags.js
+.DS_Store
