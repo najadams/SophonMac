@@ -33,7 +33,6 @@ import {
 import { useSidebar } from "../../context/context";
 import bcrypt from "bcryptjs";
 import axios from "../../config/index";
-import SyncStatus from "../SyncStatus";
 
 export default function Header() {
   const dispatch = useDispatch();
@@ -167,11 +166,6 @@ export default function Header() {
               <h3 className="title">Sophon</h3>
             </span>
           </Typography>
-          
-          {/* Sync Status Component */}
-          <Box sx={{ flexGrow: 0, mr: 2 }}>
-            <SyncStatus companyId={user?.companyId || user?.company?.id} />
-          </Box>
           
           <div>
             <Tooltip title="Profile">
