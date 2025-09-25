@@ -4,7 +4,7 @@ import axios from "axios";
 const getBackendURL = () => {
   // In production (web deployment), use environment variable
   if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || 'https://sophonesqlite-backend-domain.onrender.com';
+    return process.env.REACT_APP_API_URL || "https://sophonmac.onrender.com";
   }
   
   // In development, check if we're in Electron or web browser
