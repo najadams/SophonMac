@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // Get all customers
-router.get('/', (req, res) => {
+router.get('/', verifyToken, (req, res) => {
+  const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+  
   const query = `
     SELECT 
       c.*,
@@ -12,10 +15,11 @@ router.get('/', (req, res) => {
     FROM Customer c
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
     LEFT JOIN CustomerEmail ce ON c.id = ce.customerId
+    WHERE c.belongsTo = ?
     GROUP BY c.id
   `;
   
-  db.all(query, [], (err, rows) => {
+  db.all(query, [userCompanyId], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -381,9 +385,17 @@ router.get('/:id', (req, res) => {
     }
   });
 });
-router.get('/company/:companyId', (req, res) => {
+router.get('/company/:companyId', verifyToken, (req, res) => {
+  const requestedCompanyId = parseInt(req.params.companyId);
+  const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+  
+  // Security check: Users can only access customers from their own company
+  if (requestedCompanyId !== userCompanyId) {
+    return res.status(403).json({ error: 'Access denied. You can only view customers from your own company.' });
+  }
+  
   console.log(req.params.companyId)
-  db.all('SELECT * FROM Customer WHERE belongsTo = ?', [req.params.companyId], (err, rows) => {
+  db.all('SELECT * FROM Customer WHERE belongsTo = ?', [requestedCompanyId], (err, rows) => {
     if (err) {
       return res.status(500).json({ message: err.message });
     }

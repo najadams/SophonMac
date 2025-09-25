@@ -21,12 +21,18 @@ router.get('/', verifyToken, (req, res) => {
 });
 
 // Get all workers for a company (protected)
-router.get('/:id', (req, res) => {
+router.get('/:id', verifyToken, (req, res) => {
   try {
-    const companyId = req.params.id;
+    const requestedCompanyId = parseInt(req.params.id);
+    const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+    
+    // Security check: Users can only access workers from their own company
+    if (requestedCompanyId !== userCompanyId) {
+      return res.status(403).json({ error: 'Access denied. You can only view workers from your own company.' });
+    }
     
     db.all('SELECT id, name, contact, email, role, companyId FROM Worker WHERE companyId = ?', 
-      [companyId], 
+      [requestedCompanyId], 
       (err, rows) => {
         if (err) {
           return res.status(500).json({ error: err.message });
@@ -204,14 +210,20 @@ router.delete('/:id', verifyToken, (req, res) => {
 // Get all custom roles for a company
 router.get('/custom-roles/:companyId', verifyToken, (req, res) => {
   try {
-    const companyId = req.params.companyId;
+    const requestedCompanyId = parseInt(req.params.companyId);
+    const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+    
+    // Security check: Users can only access custom roles from their own company
+    if (requestedCompanyId !== userCompanyId) {
+      return res.status(403).json({ error: 'Access denied. You can only view custom roles from your own company.' });
+    }
     
     // Check if user has permission to view custom roles
     if (req.user.role !== 'company' && req.user.worker_role !== 'super_admin' && req.user.worker_role !== 'admin') {
       return res.status(403).json({ error: 'Access denied. Admin access required.' });
     }
     
-    db.all('SELECT * FROM CustomRoles WHERE companyId = ?', [companyId], (err, rows) => {
+    db.all('SELECT * FROM CustomRoles WHERE companyId = ?', [requestedCompanyId], (err, rows) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }

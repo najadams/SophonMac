@@ -1,15 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // Get all transactions for a company
-router.get('/:companyId', (req, res) => {
-  const { companyId } = req.params;
+router.get('/:companyId', verifyToken, (req, res) => {
+  const requestedCompanyId = parseInt(req.params.companyId);
+  const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+  
+  // Security check: Users can only access transactions from their own company
+  if (requestedCompanyId !== userCompanyId) {
+    return res.status(403).json({ error: 'Access denied. You can only view transactions from your own company.' });
+  }
+  
   const { search, type, startDate, endDate } = req.query;
 
   // Build the WHERE clause for filtering
   let whereConditions = ['t.companyId = ?'];
-  let params = [companyId];
+  let params = [requestedCompanyId];
 
   if (search) {
     whereConditions.push('(t.reference LIKE ? OR t.customerName LIKE ? OR t.vendorName LIKE ?)');
@@ -150,8 +158,8 @@ router.get('/:companyId', (req, res) => {
       date: row.date,
       type: row.type,
       reference: row.reference,
-      customer: row.customerName,
-      vendor: row.vendorName,
+      customerName: row.customerName,
+      vendorName: row.vendorName,
       amount: parseFloat(row.amount || 0),
       amountPaid: parseFloat(row.amountPaid || 0),
       balance: parseFloat(row.balance || 0),
@@ -165,8 +173,15 @@ router.get('/:companyId', (req, res) => {
 });
 
 // Get transaction summary/statistics
-router.get('/:companyId/summary', (req, res) => {
-  const { companyId } = req.params;
+router.get('/:companyId/summary', verifyToken, (req, res) => {
+  const requestedCompanyId = parseInt(req.params.companyId);
+  const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+  
+  // Security check: Users can only access transaction summaries from their own company
+  if (requestedCompanyId !== userCompanyId) {
+    return res.status(403).json({ error: 'Access denied. You can only view transaction summaries from your own company.' });
+  }
+  
   const { period = 'today' } = req.query;
 
   let salesDateFilter = '';
@@ -211,7 +226,7 @@ router.get('/:companyId/summary', (req, res) => {
       (SELECT COUNT(*) FROM Supplies WHERE companyId = ? ${restockDateFilter}) as restockCount
   `;
 
-  db.get(summaryQuery, [companyId, companyId, companyId, companyId, companyId, companyId, companyId, companyId, companyId], (err, row) => {
+  db.get(summaryQuery, [requestedCompanyId, requestedCompanyId, requestedCompanyId, requestedCompanyId, requestedCompanyId, requestedCompanyId, requestedCompanyId, requestedCompanyId, requestedCompanyId], (err, row) => {
     if (err) {
       console.error('Error fetching transaction summary:', err);
       return res.status(500).json({ error: err.message });

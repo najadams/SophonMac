@@ -1,10 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const { verifyToken } = require('../middleware/authMiddleware');
 
 // Get all debts
-router.get('/', (req, res) => {
-  db.all('SELECT * FROM Debt', [], (err, rows) => {
+router.get('/', verifyToken, (req, res) => {
+  const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+  
+  db.all('SELECT * FROM Debt WHERE companyId = ?', [userCompanyId], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -13,8 +16,15 @@ router.get('/', (req, res) => {
 });
 
 // Get debts by company ID with optional date filtering
-router.get('/:companyId', (req, res) => {
-  const { companyId } = req.params;
+router.get('/:companyId', verifyToken, (req, res) => {
+  const requestedCompanyId = parseInt(req.params.companyId);
+  const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+  
+  // Security check: Users can only access debts from their own company
+  if (requestedCompanyId !== userCompanyId) {
+    return res.status(403).json({ error: 'Access denied. You can only view debts from your own company.' });
+  }
+  
   const { date } = req.query;
   
   let query = `
@@ -30,7 +40,7 @@ router.get('/:companyId', (req, res) => {
     WHERE d.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND d.amount > 0
   `;
   
-  const params = [companyId];
+  const params = [requestedCompanyId];
   
   if (date) {
     query += ` AND DATE(r.createdAt) >= DATE(?)`;
@@ -48,8 +58,14 @@ router.get('/:companyId', (req, res) => {
 });
 
 // Get all debts for a company (no date filtering)
-router.get('/:companyId/all', (req, res) => {
-  const { companyId } = req.params;
+router.get('/:companyId/all', verifyToken, (req, res) => {
+  const requestedCompanyId = parseInt(req.params.companyId);
+  const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+  
+  // Security check: Users can only access debts from their own company
+  if (requestedCompanyId !== userCompanyId) {
+    return res.status(403).json({ error: 'Access denied. You can only view debts from your own company.' });
+  }
   
   const query = `
     SELECT d.*, 
@@ -65,7 +81,7 @@ router.get('/:companyId/all', (req, res) => {
     ORDER BY r.createdAt DESC
   `;
   
-  db.all(query, [companyId], (err, rows) => {
+  db.all(query, [requestedCompanyId], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }

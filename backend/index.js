@@ -11,8 +11,9 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const dbUtils = require('./utils/dbUtils');
-const migrationUtils = require('./utils/migrationUtils');
+// Use Supabase database utilities instead of SQLite
+const dbUtils = require('./utils/supabase-dbUtils');
+const migrationUtils = require('./utils/supabase-migrationUtils');
 
 // Import routes
 const companyRoutes = require('./routes/companyRoutes');
@@ -36,7 +37,8 @@ const notificationRoutes = require('./routes/notificationRoutes');
 // const NetworkManager = require('./services/networkManager');
 
 const http = require('http');
-const db = require('./data/db/db');
+// Use Supabase database connection instead of SQLite
+const db = require('./data/db/supabase-db');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3003; 
