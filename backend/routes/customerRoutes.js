@@ -10,12 +10,12 @@ router.get('/', verifyToken, (req, res) => {
   const query = `
     SELECT 
       c.*,
-      GROUP_CONCAT(cp.phone) as phone,
-      GROUP_CONCAT(ce.email) as email
+      STRING_AGG(cp.phone, ',') as phone,
+      STRING_AGG(ce.email, ',') as email
     FROM Customer c
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
     LEFT JOIN CustomerEmail ce ON c.id = ce.customerId
-    WHERE c.belongsTo = ?
+    WHERE c.belongsTo = $1
     GROUP BY c.id
   `;
   
@@ -333,12 +333,12 @@ router.get('/:id', (req, res) => {
   const query = `
     SELECT 
       c.*,
-      GROUP_CONCAT(cp.phone) as phone,
-      GROUP_CONCAT(ce.email) as email
+      STRING_AGG(cp.phone, ',') as phone,
+      STRING_AGG(ce.email, ',') as email
     FROM Customer c
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
     LEFT JOIN CustomerEmail ce ON c.id = ce.customerId
-    WHERE c.belongsTo = ? AND c.deleted = 0
+    WHERE c.belongsTo = $1 AND c.deleted = 0
     GROUP BY c.id
   `;
   
@@ -350,12 +350,12 @@ router.get('/:id', (req, res) => {
         const fallbackQuery = `
           SELECT 
             c.*,
-            GROUP_CONCAT(cp.phone) as phone,
-            GROUP_CONCAT(ce.email) as email
+            STRING_AGG(cp.phone, ',') as phone,
+            STRING_AGG(ce.email, ',') as email
           FROM Customer c
           LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
           LEFT JOIN CustomerEmail ce ON c.id = ce.customerId
-          WHERE c.belongsTo = ?
+          WHERE c.belongsTo = $1
           GROUP BY c.id
         `;
         db.all(fallbackQuery, [req.params.id], (fallbackErr, fallbackRows) => {
@@ -595,8 +595,8 @@ router.get('/:customerId/summary', (req, res) => {
   const summaryQuery = `
     SELECT 
       c.*,
-      GROUP_CONCAT(cp.phone) as phone,
-      GROUP_CONCAT(ce.email) as email,
+      STRING_AGG(cp.phone, ',') as phone,
+      STRING_AGG(ce.email, ',') as email,
       COALESCE(SUM(CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.total ELSE 0 END), 0) as totalPurchases,
       COALESCE(SUM(CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.amountPaid ELSE 0 END), 0) + 
       COALESCE(
@@ -628,7 +628,7 @@ router.get('/:customerId/summary', (req, res) => {
     LEFT JOIN Receipt r ON c.id = r.customerId
     LEFT JOIN Debt d ON c.id = d.customerId
     LEFT JOIN Receipt r2 ON d.receiptId = r2.id
-    WHERE c.id = ?
+    WHERE c.id = $1
     GROUP BY c.id
   `;
   

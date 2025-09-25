@@ -258,12 +258,12 @@ const getProducts = async (req, res) => {
       db.all(
         `SELECT 
           i.*,
-          GROUP_CONCAT(DISTINCT iu.unit) as units,
-          GROUP_CONCAT(DISTINCT iv.vendorId) as vendorIds
+          STRING_AGG(DISTINCT iu.unit, ',') as units,
+          STRING_AGG(DISTINCT iv.vendorId::text, ',') as vendorIds
         FROM Inventory i
         LEFT JOIN InventoryUnits iu ON i.id = iu.inventoryId
         LEFT JOIN InventoryVendor iv ON i.id = iv.inventoryId
-        WHERE i.companyId = ? AND i.deleted = 0
+        WHERE i.companyId = $1 AND i.deleted = 0
         GROUP BY i.id`,
         [companyId],
         (err, rows) => {

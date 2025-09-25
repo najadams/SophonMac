@@ -87,7 +87,21 @@ const db = {
   },
 
   // Execute query with callback (for backward compatibility)
-  query: (sql, params, callback) => {
+  // Promise-based query method for PostgreSQL
+  query: (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+      pool.query(sql, params, (err, result) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+  },
+
+  // Legacy callback-based query method
+  queryCallback: (sql, params, callback) => {
     if (typeof params === 'function') {
       callback = params;
       params = [];

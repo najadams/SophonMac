@@ -14,59 +14,45 @@ router.post('/register', async (req, res) => {
   
   try {
     // Check if company with this email already exists
-    db.get('SELECT * FROM Company WHERE email = ? OR companyName = ?', [email, companyName], async (err, company) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
+    const existingCompany = await db.query('SELECT * FROM Company WHERE email = $1 OR companyName = $2', [email, companyName]);
+    
+    if (existingCompany.rows.length > 0) {
+      return res.status(400).json({ message: 'Company with this email already exists' });
+    }
+    
+    // Hash the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    // Create the company
+    const companyResult = await db.query(
+      'INSERT INTO Company (companyName, email, password) VALUES ($1, $2, $3) RETURNING id',
+      [companyName, email, hashedPassword]
+    );
+    
+    const companyId = companyResult.rows[0].id;
+    
+    // Create a default super_admin worker account
+    await db.query(
+      'INSERT INTO Worker (name, password, role, adminstatus, companyId) VALUES ($1, $2, $3, $4, $5)',
+      [`admin`, hashedPassword, 'super_admin', 1, companyId]
+    );
+    
+    // Generate JWT token for the company
+    const token = jwt.sign(
+      { id: companyId, role: 'company' },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    res.status(201).json({
+      message: 'Company registered successfully',
+      token,
+      company: {
+        id: companyId,
+        name: companyName,
+        email
       }
-      
-      if (company) {
-        return res.status(400).json({ message: 'Company with this email already exists' });
-      }
-      
-      // Hash the password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-      
-      // Create the company
-      db.run(
-        'INSERT INTO Company (companyName, email, password) VALUES (?, ?, ?)',
-        [companyName, email, hashedPassword],
-        function(err) {
-          if (err) {
-            return res.status(500).json({ error: err.message });
-          }
-          
-          const companyId = this.lastID;
-          
-          // Create a default super_admin worker account
-          db.run(
-            'INSERT INTO Worker (name, password, role,adminstatus, companyId) VALUES (?,?, ?, ?, ?)',
-            [`admin`, hashedPassword, 'super_admin', 1, companyId],
-            function(err) {
-              if (err) {
-                return res.status(500).json({ error: err.message });
-              }
-              
-              // Generate JWT token for the company
-              const token = jwt.sign(
-                { id: companyId, role: 'company' },
-                JWT_SECRET,
-                { expiresIn: '24h' }
-              );
-              
-              res.status(201).json({
-                message: 'Company registered successfully',
-                token,
-                company: {
-                  id: companyId,
-                  name: companyName, // Also change this from name to companyName
-                  email
-                }
-              });
-            }
-          );
-        }
-      );
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -74,20 +60,20 @@ router.post('/register', async (req, res) => {
 });
 
 // Company Login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { companyName, password } = req.body;
   if (!companyName || !password) {
     return res.status(400).json({ error: 'Company name and password are required' });
   }
   
-  db.get('SELECT * FROM Company WHERE companyName = ?', [companyName], async (err, company) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+  try {
+    const companyResult = await db.query('SELECT * FROM Company WHERE companyName = $1', [companyName]);
     
-    if (!company) {
+    if (companyResult.rows.length === 0) {
       return res.status(401).json({message: "company not found"});
     }
+    
+    const company = companyResult.rows[0];
     
     // Compare passwords
     const validPassword = await bcrypt.compare(password, company.password);
@@ -96,34 +82,32 @@ router.post('/login', (req, res) => {
     }
     
     // Fetch allowed categories for the company
-    db.all('SELECT category FROM CompanyAllowedCategories WHERE companyId = ?', [company.id], (err, categories) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
+    const categoriesResult = await db.query('SELECT category FROM CompanyAllowedCategories WHERE companyId = $1', [company.id]);
+    
+    // Extract category names from the result
+    const allowedCategories = categoriesResult.rows.map(row => row.category);
+    
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: company.id, role: 'company' },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    res.json({
+      message: 'Login successful',
+      token,
+      company: {
+        id: company.id,
+        name: company.name,
+        email: company.email,
+        allowedCategories: allowedCategories,
+        ...company
       }
-      
-      // Extract category names from the result
-      const allowedCategories = categories.map(row => row.category);
-      
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: company.id, role: 'company' },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-      
-      res.json({
-        message: 'Login successful',
-        token,
-        company: {
-          id: company.id,
-          name: company.name,
-          email: company.email,
-          allowedCategories: allowedCategories,
-          ...company
-        }
-      });
     });
-  });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Worker Login

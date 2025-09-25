@@ -49,7 +49,7 @@ console.log('process.env.PORT:', process.env.PORT);
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://tradehubpos.netlify.app', 'https://posx.netlify.app', 'https://sophonmac.onrender.com']
+    ? [process.env.FRONTEND_URL, 'https://tradehubpos.netlify.app', 'https://posx.netlify.app', 'http://localhost:3003']
     : true, // Allow all origins in development
   credentials: true,
   methods: ['GET', 'POST','PATCH', 'PUT', 'DELETE', 'OPTIONS'],
