@@ -9,7 +9,7 @@ router.get('/', verifyToken, (req, res) => {
   try {
     const companyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
     
-    db.all('SELECT id, name, contact, email, role, companyId FROM Worker WHERE companyId = ?', [companyId], (err, rows) => {
+    db.all('SELECT id, name, contact, email, role, companyId FROM Worker WHERE companyId = $1', [companyId], (err, rows) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
@@ -31,7 +31,7 @@ router.get('/:id', verifyToken, (req, res) => {
       return res.status(403).json({ error: 'Access denied. You can only view workers from your own company.' });
     }
     
-    db.all('SELECT id, name, contact, email, role, companyId FROM Worker WHERE companyId = ?', 
+    db.all('SELECT id, name, contact, email, role, companyId FROM Worker WHERE companyId = $1', 
       [requestedCompanyId], 
       (err, rows) => {
         if (err) {
@@ -63,7 +63,7 @@ router.post('/', verifyToken, async (req, res) => {
     
     // Check if username already exists
     const existingWorker = await new Promise((resolve, reject) => {
-      db.get('SELECT id FROM Worker WHERE username = ? AND companyId = ?', [username, companyId], (err, row) => {
+      db.get('SELECT id FROM Worker WHERE username = $1 AND companyId = $2', [username, companyId], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
@@ -86,7 +86,7 @@ router.post('/', verifyToken, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
     
     db.run(
-      'INSERT INTO Worker (name, username, contact, email, password, role, companyId) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO Worker (name, username, contact, email, password, role, companyId) VALUES ($1, $2, $3, $4, $5, $6, $7)',
       [name, username, contact, email, hashedPassword, workerRole, companyId],
       function(err) {
         if (err) {
@@ -124,7 +124,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     }
     
     // Get current worker data
-    db.get('SELECT * FROM Worker WHERE id = ? AND companyId = ?', [workerId, companyId], async (err, worker) => {
+    db.get('SELECT * FROM Worker WHERE id = $1 AND companyId = $2', [workerId, companyId], async (err, worker) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
@@ -154,7 +154,7 @@ router.put('/:id', verifyToken, async (req, res) => {
       }
       
       db.run(
-        'UPDATE Worker SET name = ?, contact = ?, email = ?, password = ?, role = ? WHERE id = ? AND companyId = ?',
+        'UPDATE Worker SET name = $1, contact = $2, email = $3, password = $4, role = $5 WHERE id = $6 AND companyId = $7',
         [updateData.name, updateData.contact, updateData.email, updateData.password, updateData.role, workerId, companyId],
         function(err) {
           if (err) {
@@ -194,7 +194,7 @@ router.delete('/:id', verifyToken, (req, res) => {
     return res.status(400).json({ error: 'You cannot delete your own account' });
   }
   
-  db.run('DELETE FROM Worker WHERE id = ? AND companyId = ?', [workerId, companyId], function(err) {
+  db.run('DELETE FROM Worker WHERE id = $1 AND companyId = $2', [workerId, companyId], function(err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -223,7 +223,7 @@ router.get('/custom-roles/:companyId', verifyToken, (req, res) => {
       return res.status(403).json({ error: 'Access denied. Admin access required.' });
     }
     
-    db.all('SELECT * FROM CustomRoles WHERE companyId = ?', [requestedCompanyId], (err, rows) => {
+    db.all('SELECT * FROM CustomRoles WHERE companyId = $1', [requestedCompanyId], (err, rows) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
@@ -259,7 +259,7 @@ router.post('/custom-roles', verifyToken, async (req, res) => {
     
     // Check if role name already exists for this company
     const existingRole = await new Promise((resolve, reject) => {
-      db.get('SELECT id FROM CustomRoles WHERE name = ? AND companyId = ?', [name, companyId], (err, row) => {
+      db.get('SELECT id FROM CustomRoles WHERE name = $1 AND companyId = $2', [name, companyId], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
@@ -271,7 +271,7 @@ router.post('/custom-roles', verifyToken, async (req, res) => {
     
     // Create the custom role
     db.run(
-      'INSERT INTO CustomRoles (name, displayName, permissions, companyId, createdAt) VALUES (?, ?, ?, ?, datetime("now"))',
+      'INSERT INTO CustomRoles (name, displayName, permissions, companyId, createdAt) VALUES ($1, $2, $3, $4, datetime("now"))',
       [name, displayName, JSON.stringify(permissions), companyId],
       function(err) {
         if (err) {
@@ -311,7 +311,7 @@ router.put('/custom-roles/:id', verifyToken, async (req, res) => {
     
     // Check if role exists and belongs to the company
     const existingRole = await new Promise((resolve, reject) => {
-      db.get('SELECT * FROM CustomRoles WHERE id = ? AND companyId = ?', [roleId, companyId], (err, row) => {
+      db.get('SELECT * FROM CustomRoles WHERE id = $1 AND companyId = $2', [roleId, companyId], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });

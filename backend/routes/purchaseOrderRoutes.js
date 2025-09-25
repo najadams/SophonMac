@@ -14,7 +14,7 @@ router.get('/', (req, res) => {
 
 // Get a single purchase order
 router.get('/:companyId', (req, res) => {
-  db.get('SELECT * FROM PurchaseOrder WHERE id = ?', [req.params.id], (err, row) => {
+  db.get('SELECT * FROM PurchaseOrder WHERE id = $1', [req.params.id], (err, row) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -79,7 +79,7 @@ router.post('/:companyId', (req, res) => {
       `INSERT INTO PurchaseOrder (
         companyId, vendorId, orderNumber, status, totalAmount, 
         paymentStatus, amountPaid, dueDate, notes, orderedBy
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         companyId, vendorId, orderNumber, status, finalTotal,
         paymentStatus, amountPaid, dueDate, notes, orderedBy
@@ -101,7 +101,7 @@ router.post('/:companyId', (req, res) => {
           db.run(
             `INSERT INTO PurchaseOrderItem (
               purchaseOrderId, productId, quantity, unit, costPrice, totalCost
-            ) VALUES (?, ?, ?, ?, ?, ?)`,
+            ) VALUES ($1, $2, $3, $4, $5, $6)`,
             [
               purchaseOrderId, item.productId, item.quantity, 
               item.unit, item.costPrice, totalCost
@@ -148,7 +148,7 @@ router.put('/:id', (req, res) => {
   }
   
   db.run(
-    'UPDATE PurchaseOrder SET order_date = ?, total_amount = ?, status = ?, vendor_id = ?, company_id = ? WHERE id = ?',
+    'UPDATE PurchaseOrder SET order_date = $1, total_amount = $2, status = $3, vendor_id = $4, company_id = $5 WHERE id = $6',
     [order_date, total_amount, status, vendor_id, company_id, req.params.id],
     function(err) {
       if (err) {
@@ -164,7 +164,7 @@ router.put('/:id', (req, res) => {
 
 // Delete a purchase order
 router.delete('/:id', (req, res) => {
-  db.run('DELETE FROM PurchaseOrder WHERE id = ?', [req.params.id], function(err) {
+  db.run('DELETE FROM PurchaseOrder WHERE id = $1', [req.params.id], function(err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -184,7 +184,7 @@ router.get('/:companyId/:orderId', (req, res) => {
      FROM PurchaseOrder po
      LEFT JOIN Vendor v ON po.vendorId = v.id
      LEFT JOIN Worker w ON po.orderedBy = w.id
-     WHERE po.id = ?`,
+     WHERE po.id = $1`,
     [orderId],
     (err, order) => {
       if (err) {
@@ -199,7 +199,7 @@ router.get('/:companyId/:orderId', (req, res) => {
         `SELECT poi.*, i.name as productName
          FROM PurchaseOrderItem poi
          LEFT JOIN Inventory i ON poi.productId = i.id
-         WHERE poi.purchaseOrderId = ?`,
+         WHERE poi.purchaseOrderId = $1`,
         [orderId],
         (itemsErr, items) => {
           if (itemsErr) {
@@ -228,8 +228,8 @@ router.put('/:companyId/:orderId/receive', (req, res) => {
     // Update purchase order status
     db.run(
       `UPDATE PurchaseOrder 
-       SET status = 'received', receivedBy = ?, receivedAt = CURRENT_TIMESTAMP, notes = ?
-       WHERE id = ?`,
+       SET status = 'received', receivedBy = $1, receivedAt = CURRENT_TIMESTAMP, notes = $2
+       WHERE id = $3`,
       [receivedBy, notes, orderId],
       function(err) {
         if (err) {
@@ -239,7 +239,7 @@ router.put('/:companyId/:orderId/receive', (req, res) => {
         
         // Get order items to update inventory
         db.all(
-          'SELECT * FROM PurchaseOrderItem WHERE purchaseOrderId = ?',
+          'SELECT * FROM PurchaseOrderItem WHERE purchaseOrderId = $1',
           [orderId],
           (itemsErr, items) => {
             if (itemsErr) {
@@ -253,7 +253,7 @@ router.put('/:companyId/:orderId/receive', (req, res) => {
             items.forEach((item) => {
               // Update inventory quantity
               db.run(
-                'UPDATE Inventory SET onhand = onhand + ? WHERE id = ?',
+                'UPDATE Inventory SET onhand = onhand + $1 WHERE id = $2',
                 [item.quantity, item.productId],
                 (updateErr) => {
                   if (updateErr && !hasError) {

@@ -19,8 +19,8 @@ router.post('/', (req, res) => {
   db.run(
     `INSERT INTO VendorPayment (
       companyId, vendorId, purchaseOrderId, amount, paymentDate,
-      paymentMethod, reference, notes, processedBy
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      payment_method, reference, notes, processedBy
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
     [
       companyId, vendorId, purchaseOrderId, amount, paymentDate,
       paymentMethod || 'cash', reference, notes, processedBy
@@ -58,7 +58,7 @@ router.get('/vendor/:vendorId', (req, res) => {
   
   db.all(
     `SELECT * FROM VendorPayment 
-     WHERE vendorId = ? AND companyId = ? 
+     WHERE vendorId = $1 AND companyId = $2 
      ORDER BY paymentDate DESC`,
     [vendorId, companyId],
     (err, rows) => {
@@ -80,7 +80,7 @@ router.get('/company/:companyId', (req, res) => {
     `SELECT vp.*, v.name as vendorName 
      FROM VendorPayment vp
      LEFT JOIN Vendor v ON vp.vendorId = v.id
-     WHERE vp.companyId = ? 
+     WHERE vp.companyId = $1 
      ORDER BY vp.paymentDate DESC`,
     [companyId],
     (err, rows) => {

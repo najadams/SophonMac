@@ -55,7 +55,7 @@ router.get('/:companyId', verifyToken, (req, res) => {
         r.amountPaid as amount, -- Show amount paid instead of total
         r.amountPaid,
         r.balance,
-        r.paymentMethod,
+        r.payment_method,
         CASE 
           WHEN r.balance <= 0 THEN 'Completed'
           WHEN r.amountPaid > 0 THEN 'Partial'
@@ -66,7 +66,7 @@ router.get('/:companyId', verifyToken, (req, res) => {
       FROM Receipt r
       LEFT JOIN Customer c ON r.customerId = c.id
       LEFT JOIN Worker w ON r.workerId = w.id
-      WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL)
+      WHERE r.companyId = ?
       
       UNION ALL
       
@@ -81,7 +81,7 @@ router.get('/:companyId', verifyToken, (req, res) => {
         dp.amountPaid as amount,
         dp.amountPaid,
         d.amount as balance,
-        dp.paymentMethod,
+        dp.payment_method,
         'Completed' as status,
         w.name as processedBy,
         d.companyId
@@ -104,7 +104,7 @@ router.get('/:companyId', verifyToken, (req, res) => {
         vp.amount,
         vp.amount as amountPaid,
         0 as balance,
-        vp.paymentMethod,
+        vp.payment_method,
         'Completed' as status,
         w.name as processedBy,
         vp.companyId
@@ -163,7 +163,7 @@ router.get('/:companyId', verifyToken, (req, res) => {
       amount: parseFloat(row.amount || 0),
       amountPaid: parseFloat(row.amountPaid || 0),
       balance: parseFloat(row.balance || 0),
-      paymentMethod: row.paymentMethod || 'Cash',
+      paymentMethod: row.payment_method || 'Cash',
       status: row.status,
       processedBy: row.processedBy || 'Unknown'
     }));
@@ -209,9 +209,9 @@ router.get('/:companyId/summary', verifyToken, (req, res) => {
   const summaryQuery = `
     SELECT 
       -- Sales summary
-      (SELECT COALESCE(SUM(total), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) ${salesDateFilter}) as totalSales,
-      (SELECT COALESCE(SUM(amountPaid), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) ${salesDateFilter}) as totalSalesReceived,
-      (SELECT COUNT(*) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) ${salesDateFilter}) as salesCount,
+      (SELECT COALESCE(SUM(total), 0) FROM Receipt WHERE companyId = ? ${salesDateFilter}) as totalSales,
+      (SELECT COALESCE(SUM(amountPaid), 0) FROM Receipt WHERE companyId = ? ${salesDateFilter}) as totalSalesReceived,
+      (SELECT COUNT(*) FROM Receipt WHERE companyId = ? ${salesDateFilter}) as salesCount,
       
       -- Debt payments summary
         (SELECT COALESCE(SUM(dp.amountPaid), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? ${debtDateFilter}) as totalDebtPayments,

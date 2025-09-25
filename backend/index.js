@@ -123,9 +123,9 @@ app.get('/api/health', (req, res) => {
 
       server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-          const nextPort = parseInt(port) + 1;
-          console.log(`Port ${port} is busy, trying port ${nextPort}`);
-          startServer(nextPort); // Recursively try the next port
+          console.error(`Port ${port} is busy. Please stop any process using port ${port} and try again.`);
+          console.error('You can find and kill the process using: lsof -ti:' + port + ' | xargs kill -9');
+          process.exit(1);
         } else {
           console.error('Server error:', err);
           process.exit(1);

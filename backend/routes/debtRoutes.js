@@ -7,7 +7,7 @@ const { verifyToken } = require('../middleware/authMiddleware');
 router.get('/', verifyToken, (req, res) => {
   const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
   
-  db.all('SELECT * FROM Debt WHERE companyId = ?', [userCompanyId], (err, rows) => {
+  db.all('SELECT * FROM Debt WHERE companyId = $1', [userCompanyId], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -37,13 +37,13 @@ router.get('/:companyId', verifyToken, (req, res) => {
     LEFT JOIN Customer c ON d.customerId = c.id
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
     LEFT JOIN Receipt r ON d.receiptId = r.id
-    WHERE d.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND d.amount > 0
+    WHERE d.companyId = $1 AND d.amount > 0
   `;
   
   const params = [requestedCompanyId];
   
   if (date) {
-    query += ` AND DATE(r.createdAt) >= DATE(?)`;
+    query += ` AND DATE(r.createdAt) >= DATE($2)`;
     params.push(date);
   }
   
@@ -77,7 +77,7 @@ router.get('/:companyId/all', verifyToken, (req, res) => {
     LEFT JOIN Customer c ON d.customerId = c.id
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
     LEFT JOIN Receipt r ON d.receiptId = r.id
-    WHERE d.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND d.amount > 0
+    WHERE d.companyId = $1 AND d.amount > 0
     ORDER BY r.createdAt DESC
   `;
   
@@ -108,7 +108,7 @@ router.post('/:debtId/pay', (req, res) => {
     db.run('BEGIN TRANSACTION');
     
     // Get current debt amount and status
-    db.get('SELECT amount, status FROM Debt WHERE id = ?', [debtId], (err, debt) => {
+    db.get('SELECT amount, status FROM Debt WHERE id = $1', [debtId], (err, debt) => {
       if (err) {
         db.run('ROLLBACK');
         return res.status(500).json({ error: err.message });
@@ -134,7 +134,7 @@ router.post('/:debtId/pay', (req, res) => {
       
       // Update debt amount and status
       db.run(
-        'UPDATE Debt SET amount = ?, status = ?, updatedAt = datetime("now") WHERE id = ?',
+        'UPDATE Debt SET amount = $1, status = $2, updatedAt = datetime("now") WHERE id = $3',
         [newAmount, newStatus, debtId],
         function(err) {
           if (err) {
@@ -144,7 +144,7 @@ router.post('/:debtId/pay', (req, res) => {
           
           // Insert payment record
           db.run(
-            'INSERT INTO DebtPayment (debtId, amountPaid, workerId, paymentMethod, date) VALUES (?, ?, ?, ?, datetime("now"))',
+            'INSERT INTO DebtPayment (debtId, amountPaid, workerId, payment_method, date) VALUES ($1, $2, $3, $4, datetime("now"))',
             [debtId, paymentAmount, workerId, paymentMethod],
             function(err) {
               if (err) {
@@ -170,7 +170,7 @@ router.post('/:debtId/pay', (req, res) => {
 
 // Get a single debt by ID
 router.get('/debt/:id', (req, res) => {
-  db.get('SELECT * FROM Debt WHERE id = ?', [req.params.id], (err, row) => {
+  db.get('SELECT * FROM Debt WHERE id = $1', [req.params.id], (err, row) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -196,7 +196,7 @@ router.get('/debt/:id/payments', (req, res) => {
     JOIN Debt d ON dp.debtId = d.id
     LEFT JOIN Worker w ON dp.workerId = w.id
     LEFT JOIN Receipt r ON d.receiptId = r.id
-    WHERE dp.debtId = ? AND (r.flagged = 0 OR r.flagged IS NULL)
+    WHERE dp.debtId = $1
     ORDER BY dp.date DESC
   `;
   
@@ -217,7 +217,7 @@ router.post('/', (req, res) => {
   }
   
   db.run(
-    'INSERT INTO Debt (amount, due_date, description, status, customer_id, company_id) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO Debt (amount, due_date, description, status, customer_id, company_id) VALUES ($1, $2, $3, $4, $5, $6)',
     [amount, due_date, description, status || 'pending', customer_id, company_id],
     function(err) {
       if (err) {
@@ -237,7 +237,7 @@ router.put('/debt/:id', (req, res) => {
   }
   
   db.run(
-    'UPDATE Debt SET amount = ?, due_date = ?, description = ?, status = ?, customer_id = ?, company_id = ? WHERE id = ?',
+    'UPDATE Debt SET amount = $1, due_date = $2, description = $3, status = $4, customer_id = $5, company_id = $6 WHERE id = $7',
     [amount, due_date, description, status, customer_id, company_id, req.params.id],
     function(err) {
       if (err) {
@@ -253,7 +253,7 @@ router.put('/debt/:id', (req, res) => {
 
 // Delete a debt
 router.delete('/debt/:id', (req, res) => {
-  db.run('DELETE FROM Debt WHERE id = ?', [req.params.id], function(err) {
+  db.run('DELETE FROM Debt WHERE id = $1', [req.params.id], function(err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }

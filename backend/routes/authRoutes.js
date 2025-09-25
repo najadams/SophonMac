@@ -111,20 +111,20 @@ router.post('/login', async (req, res) => {
 });
 
 // Worker Login
-router.post('/account', (req, res) => {
+router.post('/account', async (req, res) => {
   const { name, password } = req.body;
   if (!name || !password) {
     return res.status(400).json({ error: 'Worker name and password are required' });
   }
   
-  db.get('SELECT w.* FROM Worker w JOIN Company c ON w.companyId = c.id WHERE w.name = ?', [name], async (err, worker) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+  try {
+    const workerResult = await db.query('SELECT w.*, c.companyName as company_name FROM Worker w JOIN Company c ON w.companyId = c.id WHERE w.name = $1', [name]);
     
-    if (!worker) {
+    if (workerResult.rows.length === 0) {
       return res.status(401).json({ message: 'Invalid worker name or password' });
     }
+    
+    const worker = workerResult.rows[0];
 
     // Compare passwords
     const validPassword = await bcrypt.compare(password, worker.password);
@@ -138,7 +138,7 @@ router.post('/account', (req, res) => {
         id: worker.id,
         role: 'worker',
         worker_role: worker.role,
-        companyId: worker.companyId
+        companyId: worker.companyid
       },
       JWT_SECRET,
       { expiresIn: '24h' }
@@ -151,12 +151,14 @@ router.post('/account', (req, res) => {
         id: worker.id,
         name: worker.name,
         role: worker.role,
-        companyId: worker.companyId,
+        companyId: worker.companyid,
         company_name: worker.company_name,
         password: worker.password // Include hashed password for frontend validation
       }
     });
-  });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

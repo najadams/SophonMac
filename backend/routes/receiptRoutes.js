@@ -65,10 +65,9 @@ router.get("/overall/:companyId", (req, res) => {
       FROM Receipt r
       LEFT JOIN Customer c ON r.customerId = c.id
       LEFT JOIN Worker w ON r.workerId = w.id
-      WHERE r.companyId = ?
-      AND r.createdAt >= ?
-      AND r.createdAt <= ?
-      AND (r.flagged = 0 OR r.flagged IS NULL)
+      WHERE r.companyId = $1
+      AND r.createdAt >= $2
+      AND r.createdAt <= $3
       ORDER BY r.createdAt DESC
     `;
 
@@ -102,13 +101,12 @@ router.get("/overall/:companyId", (req, res) => {
               profit: receipt.profit,
               createdAt: receipt.createdAt,
               balance: receipt.balance,
-              flagged: receipt.flagged,
-              paymentMethod: receipt.paymentMethod || "cash",
+              paymentMethod: receipt.payment_method || "cash",
             }))
           );
         }
 
-        const placeholders = receiptIds.map(() => "?").join(",");
+        const placeholders = receiptIds.map((_, index) => `$${index + 1}`).join(",");
         db.all(
           `SELECT * FROM ReceiptDetail WHERE receiptId IN (${placeholders})`,
           receiptIds,
@@ -161,8 +159,7 @@ router.get("/overall/:companyId", (req, res) => {
               profit: receipt.profit,
               createdAt: receipt.createdAt,
               balance: receipt.balance,
-              flagged: receipt.flagged,
-              paymentMethod: receipt.paymentMethod || "cash",
+              paymentMethod: receipt.payment_method || "cash",
             }));
 
             res.status(200).json(result);
@@ -219,13 +216,12 @@ const getReceipts = async (companyId, date) => {
               profit: receipt.profit,
               date: receipt.createdAt,
               balance: receipt.balance,
-              flagged: receipt.flagged,
-              paymentMethod: receipt.paymentMethod,
+              paymentMethod: receipt.payment_method,
             }))
           );
         }
 
-        const placeholders = receiptIds.map(() => "?").join(",");
+        const placeholders = receiptIds.map((_, index) => `$${index + 1}`).join(",");
         db.all(
           `
           SELECT * FROM ReceiptDetail
@@ -270,8 +266,7 @@ const getReceipts = async (companyId, date) => {
               profit: receipt.profit,
               date: receipt.createdAt,
               balance: receipt.balance,
-              flagged: receipt.flagged,
-              paymentMethod: receipt.paymentMethod,
+              paymentMethod: receipt.payment_method,
             }));
 
             resolve(result);
@@ -341,7 +336,7 @@ const newReceipts = async (req, res) => {
     const customer = await new Promise((resolve, reject) => {
       const customerQuery = `
         SELECT * FROM Customer 
-        WHERE LOWER(name) = ? AND belongsTo = ? AND LOWER(company) = ?
+        WHERE LOWER(name) = $1 AND belongsTo = $2 AND LOWER(company) = $3
       `;
       db.get(customerQuery, [name, companyId, company], (err, row) => {
         if (err) reject(err);
@@ -358,7 +353,7 @@ const newReceipts = async (req, res) => {
     let worker = null;
     if (workerId) {
       worker = await new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM Worker WHERE id = ?`, [workerId], (err, row) => {
+        db.get(`SELECT * FROM Worker WHERE id = $1`, [workerId], (err, row) => {
           if (err) reject(err);
           else resolve(row);
         });
@@ -371,10 +366,10 @@ const newReceipts = async (req, res) => {
 
     // Fetch inventory items
     const productNames = products.map((p) => p.name.trim().toLowerCase());
-    const placeholders = productNames.map(() => "?").join(", ");
+    const placeholders = productNames.map((_, index) => `$${index + 1}`).join(", ");
     const inventoryQuery = `
       SELECT * FROM Inventory 
-      WHERE LOWER(name) IN (${placeholders}) AND companyId = ? AND deleted = 0
+      WHERE LOWER(name) IN (${placeholders}) AND companyId = $${productNames.length + 1}
     `;
 
     const inventoryItems = await new Promise((resolve, reject) => {
@@ -428,7 +423,7 @@ const newReceipts = async (req, res) => {
         const conversion = await new Promise((resolve, reject) => {
           const conversionQuery = `
             SELECT * FROM UnitConversion 
-            WHERE inventoryId = ? AND toUnit = ?
+            WHERE inventoryId = $1 AND toUnit = $2
           `;
           db.get(
             conversionQuery,
@@ -471,7 +466,7 @@ const newReceipts = async (req, res) => {
           const breakdownQuery = `
             INSERT INTO BreakdownHistory (
               inventoryId, date, fromUnit, toUnit, quantity, loss, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
           `;
           db.run(
             breakdownQuery,
@@ -494,7 +489,7 @@ const newReceipts = async (req, res) => {
         // Update breakdown date
         await new Promise((resolve, reject) => {
           const updateBreakdownDate = `
-            UPDATE Inventory SET lastBreakdownDate = ? WHERE id = ?
+            UPDATE Inventory SET lastBreakdownDate = $1 WHERE id = $2
           `;
           db.run(
             updateBreakdownDate,
@@ -536,8 +531,8 @@ const newReceipts = async (req, res) => {
       const insertReceipt = `
         INSERT INTO Receipt (
           companyId, customerId, workerId, total, discount, 
-          amountPaid, balance, profit, paymentMethod
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          amountPaid, balance, profit, payment_method
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       `;
       db.run(
         insertReceipt,
@@ -566,7 +561,7 @@ const newReceipts = async (req, res) => {
           INSERT INTO ReceiptDetail (
             receiptId, name, quantity, costPrice, salesPrice, salesUnit, 
             originalQuantity, baseUnitQuantity, conversionRate, atomicQuantity, totalPrice
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         `;
         db.run(
           insertDetail,
@@ -603,7 +598,7 @@ const newReceipts = async (req, res) => {
         const conversion = await new Promise((resolve, reject) => {
           const conversionQuery = `
             SELECT * FROM UnitConversion 
-            WHERE inventoryId = ? AND toUnit = ?
+            WHERE inventoryId = $1 AND toUnit = $2
           `;
           db.get(
             conversionQuery,
@@ -633,11 +628,11 @@ const newReceipts = async (req, res) => {
         // Update the inventory update logic around line 537
         const updateInventory = `
           UPDATE Inventory 
-          SET onhand = ROUND(onhand - ?, 10), 
-              atomicUnitQuantity = ROUND(COALESCE(atomicUnitQuantity, 0) - ?, 10), 
-              lastBreakdownDate = ?, 
+          SET onhand = ROUND(onhand - $1, 10), 
+              atomicUnitQuantity = ROUND(COALESCE(atomicUnitQuantity, 0) - $2, 10), 
+              lastBreakdownDate = $3, 
               updatedAt = datetime('now') 
-          WHERE id = ?
+          WHERE id = $4
         `;
         db.run(
           updateInventory,
@@ -660,7 +655,7 @@ const newReceipts = async (req, res) => {
       // Check if debt already exists for this receipt to prevent duplicates
       const existingDebt = await new Promise((resolve, reject) => {
         db.get(
-          `SELECT id FROM Debt WHERE receiptId = ?`,
+          `SELECT id FROM Debt WHERE receiptId = $1`,
           [receiptId],
           (err, row) => (err ? reject(err) : resolve(row))
         );
@@ -671,7 +666,7 @@ const newReceipts = async (req, res) => {
         // Update existing debt
         await new Promise((resolve, reject) => {
           db.run(
-            `UPDATE Debt SET customerId = ?, amount = ?, status = 'pending' WHERE receiptId = ?`,
+            `UPDATE Debt SET customerId = $1, amount = $2, status = 'pending' WHERE receiptId = $3`,
             [customer.id, finalBalance, receiptId],
             (err) => (err ? reject(err) : resolve())
           );
@@ -683,7 +678,7 @@ const newReceipts = async (req, res) => {
           const insertDebt = `
             INSERT INTO Debt (
               companyId, workerId, customerId, receiptId, amount, status
-            ) VALUES (?, ?, ?, ?, ?, 'pending')
+            ) VALUES ($1, $2, $3, $4, $5, 'pending')
           `;
           db.run(
             insertDebt,
@@ -699,7 +694,7 @@ const newReceipts = async (req, res) => {
       // Update receipt with debt ID
       await new Promise((resolve, reject) => {
         db.run(
-          `UPDATE Receipt SET debtId = ? WHERE id = ?`,
+          `UPDATE Receipt SET debtId = $1 WHERE id = $2`,
           [debtId, receiptId],
           (err) => {
             if (err) reject(err);
@@ -719,7 +714,6 @@ const newReceipts = async (req, res) => {
           SELECT d.* FROM Debt d
           LEFT JOIN Receipt r ON d.receiptId = r.id
           WHERE d.customerId = ? AND d.companyId = ? AND d.status = ? AND d.createdAt < ?
-          AND (r.flagged = 0 OR r.flagged IS NULL OR r.id IS NULL)
         `;
         db.get(
           debtQuery,
@@ -932,7 +926,7 @@ const updateReceipt = async (req, res) => {
     for (const product of products) {
       const inventoryItem = await new Promise((resolve, reject) => {
         db.get(
-          `SELECT * FROM Inventory WHERE LOWER(name) = ? AND companyId = ? AND deleted = 0`,
+          `SELECT * FROM Inventory WHERE LOWER(name) = ? AND companyId = ?`,
           [product.name.toLowerCase().trim(), companyId],
           (err, row) => {
             if (err) return reject(err);
@@ -1116,7 +1110,7 @@ const updateReceipt = async (req, res) => {
     // Update receipt
     await new Promise((resolve, reject) => {
       db.run(
-        `UPDATE Receipt SET customerId = ?, total = ?, amountPaid = ?, discount = ?, balance = ?, profit = ?, paymentMethod = ? WHERE id = ?`,
+        `UPDATE Receipt SET customerId = ?, total = ?, amountPaid = ?, discount = ?, balance = ?, profit = ?, payment_method = ? WHERE id = ?`,
         [
           customerId,
           calculatedTotal,
@@ -1252,119 +1246,7 @@ const updateReceipt = async (req, res) => {
 router.patch("/:receiptId", updateReceipt);
 
 // Flag/Unflag a receipt
-router.patch("/:receiptId/flag", async (req, res) => {
-  const { receiptId } = req.params;
-  const { flagged, companyId } = req.body;
-
-  try {
-    // Validate input
-    if (typeof flagged !== 'boolean') {
-      return res.status(400).json({ error: "Flagged status must be a boolean" });
-    }
-
-    if (!companyId) {
-      return res.status(400).json({ error: "Company ID is required" });
-    }
-
-    // Check if receipt exists and belongs to the company
-    const receipt = await new Promise((resolve, reject) => {
-      db.get(
-        `SELECT * FROM Receipt WHERE id = ? AND companyId = ?`,
-        [receiptId, companyId],
-        (err, row) => {
-          if (err) return reject(err);
-          resolve(row);
-        }
-      );
-    });
-
-    if (!receipt) {
-      return res.status(404).json({ error: "Receipt not found or access denied" });
-    }
-
-    // Get receipt details for inventory adjustment
-    const receiptDetails = await new Promise((resolve, reject) => {
-      db.all(
-        `SELECT * FROM ReceiptDetail WHERE receiptId = ?`,
-        [receiptId],
-        (err, rows) => {
-          if (err) return reject(err);
-          resolve(rows);
-        }
-      );
-    });
-
-    // Handle inventory adjustment when flagging/unflagging
-    if (flagged) {
-      // When flagging: add back the sold quantities to inventory
-      for (const detail of receiptDetails) {
-        await new Promise((resolve, reject) => {
-          db.run(
-            `UPDATE Inventory 
-             SET onhand = onhand + ? 
-             WHERE name = ? AND companyId = ?`,
-            [detail.baseUnitQuantity || detail.quantity, detail.name, companyId],
-            function(err) {
-              if (err) return reject(err);
-              resolve();
-            }
-          );
-        });
-      }
-    } else {
-      // When unflagging: subtract the quantities from inventory (reverse the refill)
-      for (const detail of receiptDetails) {
-        await new Promise((resolve, reject) => {
-          db.run(
-            `UPDATE Inventory 
-             SET onhand = onhand - ? 
-             WHERE name = ? AND companyId = ?`,
-            [detail.baseUnitQuantity || detail.quantity, detail.name, companyId],
-            function(err) {
-              if (err) return reject(err);
-              resolve();
-            }
-          );
-        });
-      }
-    }
-
-    // Update the flagged status
-    await new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE Receipt SET flagged = ? WHERE id = ?`,
-        [flagged ? 1 : 0, receiptId],
-        function(err) {
-          if (err) return reject(err);
-          if (this.changes === 0) {
-            return reject(new Error("No changes made to receipt"));
-          }
-          resolve();
-        }
-      );
-    });
-
-    // Log the flag change for audit purposes
-    const action = flagged ? 'flagged' : 'unflagged';
-    const inventoryAction = flagged ? 'refilled' : 'deducted from';
-    console.log(`Receipt ${receiptId} has been ${action} for company ${companyId}`);
-    console.log(`Inventory has been ${inventoryAction} for ${receiptDetails.length} items`);
-
-    res.json({
-      message: `Receipt ${action} successfully`,
-      receiptId: receiptId,
-      flagged: flagged,
-      inventoryUpdated: receiptDetails.length
-    });
-
-  } catch (error) {
-    console.error("Error updating receipt flag status:", error);
-    res.status(500).json({ 
-      error: "Failed to update flag status", 
-      message: error.message 
-    });
-  }
-});
+// Flag functionality removed - flagged column no longer exists in database
 
 // Delete a receipt
 router.delete("/:id", (req, res) => {

@@ -5,12 +5,12 @@ const SchemaInit = {
   // Check if a table exists
   async tableExists(tableName) {
     try {
-      const result = await db.get(
+      const result = await db.query(
         `SELECT table_name FROM information_schema.tables 
          WHERE table_schema = 'public' AND table_name = $1`,
         [tableName]
       );
-      return !!result;
+      return result.rows.length > 0;
     } catch (error) {
       console.error(`Error checking if table ${tableName} exists:`, error);
       return false;
@@ -311,7 +311,7 @@ const SchemaInit = {
         
         if (!exists) {
           console.log(`📋 Creating table: ${table.name}`);
-          await db.run(table.sql);
+          await db.query(table.sql);
           createdCount++;
         } else {
           console.log(`✅ Table already exists: ${table.name}`);
@@ -355,7 +355,7 @@ const SchemaInit = {
 
     for (const indexSQL of indexes) {
       try {
-        await db.run(indexSQL);
+        await db.query(indexSQL);
       } catch (error) {
         // Indexes might already exist, so we can ignore errors
         console.log(`Index creation skipped: ${error.message}`);

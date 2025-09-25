@@ -44,30 +44,19 @@ const newProduct = async (req, res) => {
     }
 
     // Check if company exists
-    const company = await new Promise((resolve, reject) => {
-      db.get("SELECT * FROM Company WHERE id = ?", [companyId], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const company = await db.query("SELECT * FROM \"Company\" WHERE id = $1", [companyId]);
 
-    if (!company) {
+    if (company.rows.length === 0) {
       return res.status(404).json({ message: "Company not found" });
     }
 
     // Check for existing product
-    const existingProduct = await new Promise((resolve, reject) => {
-      db.get(
-        "SELECT * FROM Inventory WHERE companyId = ? AND name = ? AND deleted = 0",
-        [companyId, name],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
+    const existingProduct = await db.query(
+      "SELECT * FROM \"Inventory\" WHERE companyId = $1 AND name = $2",
+      [companyId, name]
+    );
 
-    if (existingProduct) {
+    if (existingProduct.rows.length > 0) {
       return res.status(400).json({ message: "Product already exists" });
     }
 
@@ -107,7 +96,6 @@ const newProduct = async (req, res) => {
       description: description || "",
       sku: sku || "",
       barcode: barcode || "",
-      deleted: 0,
       allowsUnitBreakdown:
         unitConversions && unitConversions.length > 0 ? 1 : 0,
       atomicUnit: baseUnit || "none",
@@ -120,8 +108,8 @@ const newProduct = async (req, res) => {
         `INSERT INTO Inventory (
           companyId, name, category, baseUnit, costPrice, salesPrice, 
           onhand, reorderPoint, minimumStock, description, sku, barcode, 
-          deleted, allowsUnitBreakdown, atomicUnit, lossFactor
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          allowsUnitBreakdown, atomicUnit, lossFactor
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
         [
           productData.companyId,
           productData.name,
@@ -135,7 +123,6 @@ const newProduct = async (req, res) => {
           productData.description,
           productData.sku,
           productData.barcode,
-          productData.deleted,
           productData.allowsUnitBreakdown,
           productData.atomicUnit,
           productData.lossFactor,
@@ -144,7 +131,7 @@ const newProduct = async (req, res) => {
           if (err) reject(err);
           else {
             db.get(
-              "SELECT * FROM Inventory WHERE id = ?",
+              "SELECT * FROM Inventory WHERE id = $1",
               [this.lastID],
               (err, row) => {
                 if (err) reject(err);
@@ -164,7 +151,7 @@ const newProduct = async (req, res) => {
         // Add to InventoryUnits table
         await new Promise((resolve, reject) => {
           db.run(
-            "INSERT INTO InventoryUnits (inventoryId, unit) VALUES (?, ?)",
+            "INSERT INTO InventoryUnits (inventoryId, unit) VALUES ($1, $2)",
             [product.id, fromUnit],
             (err) => {
               if (err) reject(err);
@@ -178,7 +165,7 @@ const newProduct = async (req, res) => {
           db.run(
             `INSERT INTO UnitConversion (
               inventoryId, fromUnit, toUnit, conversionRate, unitPrice
-            ) VALUES (?, ?, ?, ?, ?)`,
+            ) VALUES ($1, $2, $3, $4, $5)`,
             [
               product.id,
               fromUnit,
@@ -206,7 +193,7 @@ const newProduct = async (req, res) => {
           uc.unitPrice
         FROM Inventory p
         LEFT JOIN UnitConversion uc ON p.id = uc.inventoryId
-        WHERE p.id = ?`,
+        WHERE p.id = $1`,
         [product.id],
         (err, rows) => {
           if (err) reject(err);
@@ -254,48 +241,40 @@ const getProducts = async (req, res) => {
     const { companyId } = req.params;
 
     // Get all products with their related data
-    const products = await new Promise((resolve, reject) => {
-      db.all(
-        `SELECT 
-          i.*,
-          STRING_AGG(DISTINCT iu.unit, ',') as units,
-          STRING_AGG(DISTINCT iv.vendorId::text, ',') as vendorIds
-        FROM Inventory i
-        LEFT JOIN InventoryUnits iu ON i.id = iu.inventoryId
-        LEFT JOIN InventoryVendor iv ON i.id = iv.inventoryId
-        WHERE i.companyId = $1 AND i.deleted = 0
-        GROUP BY i.id`,
-        [companyId],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
-      );
-    });
+    const productsResult = await db.query(
+      `SELECT 
+        i.*,
+        STRING_AGG(DISTINCT iu.unit, ',') as units,
+        STRING_AGG(DISTINCT iv.vendorId::text, ',') as vendorIds
+      FROM "Inventory" i
+      LEFT JOIN "InventoryUnits" iu ON i.id = iu.inventoryId
+      LEFT JOIN "InventoryVendor" iv ON i.id = iv.inventoryId
+      WHERE i.companyId = $1
+      GROUP BY i.id`,
+      [companyId]
+    );
+
+    const products = productsResult.rows;
 
     // For each product, get additional related data
     const enrichedProducts = await Promise.all(
       products.map(async (product) => {
         // Get unit conversions
-        const unitConversions = await new Promise((resolve, reject) => {
-          db.all(
-            `SELECT fromUnit, toUnit, conversionRate, unitPrice as salesPrice
-             FROM UnitConversion 
-             WHERE inventoryId = ?`,
-            [product.id],
-            (err, rows) => {
-              if (err) reject(err);
-              else resolve(rows);
-            }
-          );
-        });
+        const unitConversionsResult = await db.query(
+          `SELECT fromUnit, toUnit, conversionRate, unitPrice as salesPrice
+           FROM "UnitConversion" 
+           WHERE inventoryId = $1`,
+          [product.id]
+        );
+
+        const unitConversions = unitConversionsResult.rows;
 
         // Get price history
         const priceHistory = await new Promise((resolve, reject) => {
           db.all(
             `SELECT date, costPrice, salesPrice
              FROM PriceChange 
-             WHERE inventoryId = ?
+             WHERE inventoryId = $1
              ORDER BY date DESC`,
             [product.id],
             (err, rows) => {
@@ -310,7 +289,7 @@ const getProducts = async (req, res) => {
           db.all(
             `SELECT type, quantity, costPrice, salesPrice, expirationDate, transactionDate
              FROM StockTransaction 
-             WHERE inventoryId = ?
+             WHERE inventoryId = $1
              ORDER BY transactionDate DESC`,
             [product.id],
             (err, rows) => {
@@ -325,7 +304,7 @@ const getProducts = async (req, res) => {
           db.all(
             `SELECT date, fromUnit, toUnit, quantity, loss, notes
              FROM BreakdownHistory 
-             WHERE inventoryId = ?
+             WHERE inventoryId = $1
              ORDER BY date DESC`,
             [product.id],
             (err, rows) => {
@@ -349,7 +328,6 @@ const getProducts = async (req, res) => {
           onhand: product.onhand,
           priceHistory: priceHistory,
           stockEntries: stockEntries,
-          deleted: Boolean(product.deleted),
           vendorIds: product.vendorIds ? product.vendorIds.split(',').map(id => parseInt(id)).filter(Boolean) : [],
           reorderPoint: product.reorderPoint,
           minimumStock: product.minimumStock,
@@ -399,7 +377,7 @@ const updateProduct = async (req, res) => {
     // Check if product exists
     const existingProduct = await new Promise((resolve, reject) => {
       db.get(
-        "SELECT * FROM Inventory WHERE id = ?",
+        "SELECT * FROM Inventory WHERE id = $1",
         [productId],
         (err, row) => {
           if (err) reject(err);
@@ -415,7 +393,7 @@ const updateProduct = async (req, res) => {
     // If companyId is being updated, check if company exists
     if (companyId && companyId !== existingProduct.companyId) {
       const company = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM Company WHERE id = ?", [companyId], (err, row) => {
+        db.get("SELECT * FROM Company WHERE id = $1", [companyId], (err, row) => {
           if (err) reject(err);
           else resolve(row);
         });
@@ -430,7 +408,7 @@ const updateProduct = async (req, res) => {
     if (name && name !== existingProduct.name) {
       const duplicateProduct = await new Promise((resolve, reject) => {
         db.get(
-          "SELECT * FROM Inventory WHERE companyId = ? AND name = ? AND deleted = 0 AND id != ?",
+          "SELECT * FROM Inventory WHERE companyId = $1 AND name = $2 AND id != $3",
           [companyId || existingProduct.companyId, name, productId],
           (err, row) => {
             if (err) reject(err);
@@ -493,7 +471,7 @@ const updateProduct = async (req, res) => {
     // Build dynamic update query for Inventory table
     const fields = Object.keys(updateData);
     const values = fields.map((field) => updateData[field]);
-    const setClause = fields.map((field) => `${field} = ?`).join(", ");
+    const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(", ");
 
     if (fields.length === 0 && !unitConversions) {
       return res.status(400).json({ message: "No fields to update" });
@@ -503,7 +481,7 @@ const updateProduct = async (req, res) => {
     if (fields.length > 0) {
       await new Promise((resolve, reject) => {
         db.run(
-          `UPDATE Inventory SET ${setClause}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
+          `UPDATE Inventory SET ${setClause}, updatedAt = CURRENT_TIMESTAMP WHERE id = $${fields.length + 1}`,
           [...values, productId],
           function (err) {
             if (err) {
@@ -521,7 +499,7 @@ const updateProduct = async (req, res) => {
       // Remove existing unit conversions and units
       await new Promise((resolve, reject) => {
         db.run(
-          "DELETE FROM UnitConversion WHERE inventoryId = ?",
+          "DELETE FROM UnitConversion WHERE inventoryId = $1",
           [productId],
           (err) => {
             if (err) reject(err);
@@ -532,7 +510,7 @@ const updateProduct = async (req, res) => {
 
       await new Promise((resolve, reject) => {
         db.run(
-          "DELETE FROM InventoryUnits WHERE inventoryId = ?",
+          "DELETE FROM InventoryUnits WHERE inventoryId = $1",
           [productId],
           (err) => {
             if (err) reject(err);
@@ -549,7 +527,7 @@ const updateProduct = async (req, res) => {
           // Add to InventoryUnits table
           await new Promise((resolve, reject) => {
             db.run(
-              "INSERT INTO InventoryUnits (inventoryId, unit) VALUES (?, ?)",
+              "INSERT INTO InventoryUnits (inventoryId, unit) VALUES ($1, $2)",
               [productId, fromUnit],
               (err) => {
                 if (err) reject(err);
@@ -563,7 +541,7 @@ const updateProduct = async (req, res) => {
             db.run(
               `INSERT INTO UnitConversion (
                 inventoryId, fromUnit, toUnit, conversionRate, unitPrice
-              ) VALUES (?, ?, ?, ?, ?)`,
+              ) VALUES ($1, $2, $3, $4, $5)`,
               [
                 productId,
                 fromUnit,
@@ -592,7 +570,7 @@ const updateProduct = async (req, res) => {
           uc.unitPrice
         FROM Inventory p
         LEFT JOIN UnitConversion uc ON p.id = uc.inventoryId
-        WHERE p.id = ?`,
+        WHERE p.id = $1`,
         [productId],
         (err, rows) => {
           if (err) reject(err);
@@ -642,10 +620,10 @@ const delProduct = async (req, res) => {
       return res.status(400).json({ message: "Product ID is required" });
     }
 
-    // Check if product exists and is not already deleted
+    // Check if product exists
     const product = await new Promise((resolve, reject) => {
       db.get(
-        "SELECT * FROM Inventory WHERE id = ? AND deleted = 0",
+        "SELECT * FROM Inventory WHERE id = $1",
         [productId],
         (err, row) => {
           if (err) reject(err);
@@ -655,19 +633,19 @@ const delProduct = async (req, res) => {
     });
 
     if (!product) {
-      return res.status(404).json({ message: "Product not found or already deleted" });
+      return res.status(404).json({ message: "Product not found" });
     }
 
-    // Soft delete by setting deleted flag to 1
+    // Hard delete the product
     await new Promise((resolve, reject) => {
       db.run(
-        "UPDATE Inventory SET deleted = 1, updatedAt = CURRENT_TIMESTAMP WHERE id = ?",
+        "DELETE FROM Inventory WHERE id = $1",
         [productId],
         function (err) {
           if (err) {
             reject(err);
           } else if (this.changes === 0) {
-            reject(new Error("No rows were updated"));
+            reject(new Error("No rows were deleted"));
           } else {
             resolve();
           }
@@ -679,7 +657,7 @@ const delProduct = async (req, res) => {
     // Remove unit conversions
     await new Promise((resolve, reject) => {
       db.run(
-        "DELETE FROM UnitConversion WHERE inventoryId = ?",
+        "DELETE FROM UnitConversion WHERE inventoryId = $1",
         [productId],
         (err) => {
           if (err) reject(err);
@@ -691,7 +669,7 @@ const delProduct = async (req, res) => {
     // Remove inventory units
     await new Promise((resolve, reject) => {
       db.run(
-        "DELETE FROM InventoryUnits WHERE inventoryId = ?",
+        "DELETE FROM InventoryUnits WHERE inventoryId = $1",
         [productId],
         (err) => {
           if (err) reject(err);
@@ -748,11 +726,11 @@ const updateProductUnitSettings = async (req, res) => {
 
     const fields = Object.keys(updates);
     const values = fields.map((field) => updates[field]);
-    const setClause = fields.map((field) => `${field} = ?`).join(", ");
+    const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(", ");
 
     const updatedProduct = await new Promise((resolve, reject) => {
       db.run(
-        `UPDATE Inventory SET ${setClause}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
+        `UPDATE Inventory SET ${setClause}, updatedAt = CURRENT_TIMESTAMP WHERE id = $${fields.length + 1}`,
         [...values, productId],
         function (err) {
           if (err) {
@@ -760,7 +738,7 @@ const updateProductUnitSettings = async (req, res) => {
           } else {
             // Get updated product
             db.get(
-              "SELECT * FROM Inventory WHERE id = ?",
+              "SELECT * FROM Inventory WHERE id = $1",
               [productId],
               (err, row) => {
                 if (err) reject(err);
@@ -794,7 +772,7 @@ router.put("/:productId/unit-settings", updateProductUnitSettings);
 
 // Keep existing routes for backward compatibility
 router.get("/", (req, res) => {
-  db.all("SELECT * FROM Inventory WHERE deleted = 0", [], (err, rows) => {
+  db.all("SELECT * FROM Inventory", [], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -802,20 +780,21 @@ router.get("/", (req, res) => {
   });
 });
 
-router.get("/item/:id", (req, res) => {
-  db.get(
-    "SELECT * FROM Inventory WHERE companyId = ?",
-    [req.params.id],
-    (err, row) => {
-      if (err) {
-        return res.status(500).json({ message: err.message });
-      }
-      if (!row) {
-        return res.status(404).json({ message: "Inventory item not found" });
-      }
-      res.json(row);
+router.get("/item/:id", async (req, res) => {
+  try {
+    const result = await db.query(
+      "SELECT * FROM \"Inventory\" WHERE companyId = $1",
+      [req.params.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Inventory item not found" });
     }
-  );
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 });
 
 // Get detailed product information including restock history
@@ -824,20 +803,16 @@ router.get("/product/:companyId/:productId", async (req, res) => {
     const { companyId, productId } = req.params;
 
     // Get basic product information
-    const product = await new Promise((resolve, reject) => {
-      db.get(
-        `SELECT * FROM Inventory WHERE id = ? AND companyId = ? AND deleted = 0`,
-        [productId, companyId],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row);
-        }
-      );
-    });
+    const productResult = await db.query(
+      `SELECT * FROM "Inventory" WHERE id = $1 AND companyId = $2`,
+      [productId, companyId]
+    );
 
-    if (!product) {
+    if (productResult.rows.length === 0) {
       return res.status(404).json({ message: "Product not found" });
     }
+
+    const product = productResult.rows[0];
 
     // Get restock history from Supplies and SuppliesDetail
     const restockHistory = await new Promise((resolve, reject) => {
@@ -856,7 +831,7 @@ router.get("/product/:companyId/:productId", async (req, res) => {
         JOIN SuppliesDetail sd ON s.id = sd.suppliesId
         LEFT JOIN Vendor v ON s.supplierId = v.id
         LEFT JOIN Worker w ON s.restockedBy = w.id
-        WHERE sd.name = ? AND s.companyId = ?
+        WHERE sd.name = $1 AND s.companyId = $2
         ORDER BY s.restockDate DESC`,
         [product.name, companyId],
         (err, rows) => {
@@ -877,7 +852,7 @@ router.get("/product/:companyId/:productId", async (req, res) => {
           expirationDate,
           transactionDate
         FROM StockTransaction 
-        WHERE inventoryId = ?
+        WHERE inventoryId = $1
         ORDER BY transactionDate DESC
         LIMIT 50`,
         [productId],
@@ -896,7 +871,7 @@ router.get("/product/:companyId/:productId", async (req, res) => {
           costPrice,
           salesPrice
         FROM PriceChange 
-        WHERE inventoryId = ?
+        WHERE inventoryId = $1
         ORDER BY date DESC
         LIMIT 20`,
         [productId],
@@ -916,7 +891,7 @@ router.get("/product/:companyId/:productId", async (req, res) => {
           conversionRate,
           unitPrice as salesPrice
         FROM UnitConversion 
-        WHERE inventoryId = ?`,
+        WHERE inventoryId = $1`,
         [productId],
         (err, rows) => {
           if (err) reject(err);

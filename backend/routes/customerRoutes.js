@@ -4,25 +4,24 @@ const db = require('../data/db/supabase-db');
 const { verifyToken } = require('../middleware/authMiddleware');
 
 // Get all customers
-router.get('/', verifyToken, (req, res) => {
-  const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+router.get('/', verifyToken, async (req, res) => {
+  const userCompanyId = req.user.id;
   
   const query = `
     SELECT 
       c.*,
       STRING_AGG(cp.phone, ',') as phone,
       STRING_AGG(ce.email, ',') as email
-    FROM Customer c
-    LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
-    LEFT JOIN CustomerEmail ce ON c.id = ce.customerId
+    FROM "Customer" c
+    LEFT JOIN "CustomerPhone" cp ON c.id = cp.customerId
+    LEFT JOIN "CustomerEmail" ce ON c.id = ce.customerId
     WHERE c.belongsTo = $1
     GROUP BY c.id
   `;
   
-  db.all(query, [userCompanyId], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+  try {
+    const result = await db.query(query, [userCompanyId]);
+    const rows = result.rows;
     
     // Transform the concatenated strings back to arrays
     const customers = rows.map(customer => ({
@@ -32,7 +31,9 @@ router.get('/', verifyToken, (req, res) => {
     }));
     
     res.json(customers);
-  });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Create a new customer
@@ -49,7 +50,7 @@ router.post('/', (req, res) => {
     
     // Insert the customer first
     db.run(
-      'INSERT INTO Customer (name, address, city, belongsTo, company, notes) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO Customer (name, address, city, belongsTo, company, notes) VALUES ($1, $2, $3, $4, $5, $6)',
       [name, address || null, city || null, belongsTo, company || 'nocompany', notes || null],
       function(err) {
         if (err) {
@@ -104,7 +105,7 @@ router.post('/', (req, res) => {
             let emailInsertCount = 0;
             validEmails.forEach((emailAddress) => {
               db.run(
-                'INSERT OR IGNORE INTO CustomerEmail (customerId, email) VALUES (?, ?)',
+                'INSERT OR IGNORE INTO CustomerEmail (customerId, email) VALUES ($1, $2)',
                 [customerId, emailAddress],
                 function(emailErr) {
                   if (emailErr) {
@@ -132,7 +133,7 @@ router.post('/', (req, res) => {
             let phoneInsertCount = 0;
             validPhones.forEach((phoneNumber) => {
               db.run(
-                'INSERT OR IGNORE INTO CustomerPhone (customerId, phone) VALUES (?, ?)',
+                'INSERT OR IGNORE INTO CustomerPhone (customerId, phone) VALUES ($1, $2)',
                 [customerId, phoneNumber],
                 function(phoneErr) {
                   if (phoneErr) {
@@ -164,7 +165,7 @@ router.put('/:id', (req, res) => {
   }
   
   db.run(
-    'UPDATE Customer SET name = ?, email = ?, phone = ?, address = ?, company_id = ? WHERE id = ?',
+    'UPDATE Customer SET name = $1, email = $2, phone = $3, address = $4, company_id = $5 WHERE id = $6',
     [name, email, phone, address, company_id, req.params.id],
     function(err) {
       if (err) {
@@ -193,7 +194,7 @@ router.patch('/:id', (req, res) => {
     
     // Update the main customer record
     db.run(
-      'UPDATE Customer SET name = ?, address = ?, company = ? WHERE id = ?',
+      'UPDATE Customer SET name = $1, address = $2, company = $3 WHERE id = $4',
       [name, address || null, company || 'nocompany', customerId],
       function(err) {
         if (err) {
@@ -240,7 +241,7 @@ router.patch('/:id', (req, res) => {
         // Update email addresses
         if (email !== undefined) {
           // First delete existing emails
-          db.run('DELETE FROM CustomerEmail WHERE customerId = ?', [customerId], (deleteErr) => {
+          db.run('DELETE FROM CustomerEmail WHERE customerId = $1', [customerId], (deleteErr) => {
             if (deleteErr) {
               db.run('ROLLBACK');
               return res.status(500).json({ error: deleteErr.message });
@@ -254,7 +255,7 @@ router.patch('/:id', (req, res) => {
               let emailInsertCount = 0;
               validEmails.forEach((emailAddress) => {
                 db.run(
-                  'INSERT OR IGNORE INTO CustomerEmail (customerId, email) VALUES (?, ?)',
+                  'INSERT OR IGNORE INTO CustomerEmail (customerId, email) VALUES ($1, $2)',
                   [customerId, emailAddress],
                   function(emailErr) {
                     if (emailErr) {
@@ -277,7 +278,7 @@ router.patch('/:id', (req, res) => {
         // Update phone numbers
         if (phone !== undefined) {
           // First delete existing phones
-          db.run('DELETE FROM CustomerPhone WHERE customerId = ?', [customerId], (deleteErr) => {
+          db.run('DELETE FROM CustomerPhone WHERE customerId = $1', [customerId], (deleteErr) => {
             if (deleteErr) {
               db.run('ROLLBACK');
               return res.status(500).json({ error: deleteErr.message });
@@ -291,7 +292,7 @@ router.patch('/:id', (req, res) => {
               let phoneInsertCount = 0;
               validPhones.forEach((phoneNumber) => {
                 db.run(
-                  'INSERT OR IGNORE INTO CustomerPhone (customerId, phone) VALUES (?, ?)',
+                  'INSERT OR IGNORE INTO CustomerPhone (customerId, phone) VALUES ($1, $2)',
                   [customerId, phoneNumber],
                   function(phoneErr) {
                     if (phoneErr) {
@@ -317,7 +318,7 @@ router.patch('/:id', (req, res) => {
 
 // Delete a customer
 router.delete('/:id', (req, res) => {
-  db.run('DELETE FROM Customer WHERE id = ?', [req.params.id], function(err) {
+  db.run('DELETE FROM Customer WHERE id = $1', [req.params.id], function(err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -338,7 +339,7 @@ router.get('/:id', (req, res) => {
     FROM Customer c
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
     LEFT JOIN CustomerEmail ce ON c.id = ce.customerId
-    WHERE c.belongsTo = $1 AND c.deleted = 0
+    WHERE c.belongsTo = $1
     GROUP BY c.id
   `;
   
@@ -385,23 +386,15 @@ router.get('/:id', (req, res) => {
     }
   });
 });
-router.get('/company/:companyId', verifyToken, (req, res) => {
-  const requestedCompanyId = parseInt(req.params.companyId);
-  const userCompanyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
+router.get('/company/:companyId', verifyToken, async (req, res) => {
+  const requestedCompanyId = req.params.companyId;
   
-  // Security check: Users can only access customers from their own company
-  if (requestedCompanyId !== userCompanyId) {
-    return res.status(403).json({ error: 'Access denied. You can only view customers from your own company.' });
+  try {
+    const result = await db.query('SELECT * FROM "Customer" WHERE belongsTo = $1', [requestedCompanyId]);
+    res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
-  
-  console.log(req.params.companyId)
-  db.all('SELECT * FROM Customer WHERE belongsTo = ?', [requestedCompanyId], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ message: err.message });
-    }
-    console.log(rows)
-    res.json(rows);
-  });
 });
 
 // Get customer receipts
@@ -417,7 +410,7 @@ router.get('/:customerId/receipts', (req, res) => {
     FROM Receipt r
     LEFT JOIN Worker w ON r.workerId = w.id
     LEFT JOIN ReceiptDetail rd ON r.id = rd.receiptId
-    WHERE r.customerId = ?
+    WHERE r.customerId = $1
     ORDER BY r.createdAt DESC
   `;
   
@@ -442,7 +435,6 @@ router.get('/:customerId/receipts', (req, res) => {
           discount: row.discount,
           balance: row.balance,
           profit: row.profit,
-          flagged: row.flagged,
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
           items: []
@@ -475,14 +467,14 @@ router.get('/:customerId/debts', (req, res) => {
            dp.id as paymentId,
            dp.date as paymentDate,
            dp.amountPaid as paymentAmount,
-           dp.paymentMethod,
+           dp.payment_method,
            pw.name as paymentWorkerName
     FROM Debt d
     LEFT JOIN Receipt r ON d.receiptId = r.id
     LEFT JOIN Worker w ON d.workerId = w.id
     LEFT JOIN DebtPayment dp ON d.id = dp.debtId
     LEFT JOIN Worker pw ON dp.workerId = pw.id
-    WHERE d.customerId = ? AND (r.flagged = 0 OR r.flagged IS NULL)
+    WHERE d.customerId = $1
     ORDER BY d.createdAt DESC, dp.date DESC
   `;
   
@@ -518,7 +510,7 @@ router.get('/:customerId/debts', (req, res) => {
           id: row.paymentId,
           date: row.paymentDate,
           amountPaid: row.paymentAmount,
-          paymentMethod: row.paymentMethod,
+          paymentMethod: row.payment_method,
           workerName: row.paymentWorkerName
         });
       }
@@ -543,7 +535,7 @@ router.get('/:customerId/payments', (req, res) => {
     JOIN Debt d ON dp.debtId = d.id
     LEFT JOIN Worker w ON dp.workerId = w.id
     LEFT JOIN Receipt r ON d.receiptId = r.id
-    WHERE d.customerId = ? AND (r.flagged = 0 OR r.flagged IS NULL)
+    WHERE d.customerId = $1
     ORDER BY dp.date DESC
   `;
   
@@ -566,9 +558,8 @@ router.get('/:customerId/discounts', (req, res) => {
            w.name as workerName
     FROM Receipt r
     LEFT JOIN Worker w ON r.workerId = w.id
-    WHERE r.customerId = ? 
-      AND r.discount > 0 
-      AND (r.flagged = 0 OR r.flagged IS NULL)
+    WHERE r.customerId = $1 
+      AND r.discount > 0
     ORDER BY r.createdAt DESC
   `;
   
@@ -597,8 +588,8 @@ router.get('/:customerId/summary', (req, res) => {
       c.*,
       STRING_AGG(cp.phone, ',') as phone,
       STRING_AGG(ce.email, ',') as email,
-      COALESCE(SUM(CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.total ELSE 0 END), 0) as totalPurchases,
-      COALESCE(SUM(CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.amountPaid ELSE 0 END), 0) + 
+      COALESCE(SUM(CASE WHEN r.id IS NOT NULL THEN r.total ELSE 0 END), 0) as totalPurchases,
+      COALESCE(SUM(CASE WHEN r.id IS NOT NULL THEN r.amountPaid ELSE 0 END), 0) + 
       COALESCE(
         (
           SELECT SUM(dp.amountPaid)
@@ -606,22 +597,21 @@ router.get('/:customerId/summary', (req, res) => {
           JOIN Debt d ON dp.debtId = d.id
           LEFT JOIN Receipt r_payment ON d.receiptId = r_payment.id
           WHERE d.customerId = c.id
-            AND (r_payment.flagged = 0 OR r_payment.flagged IS NULL)
+            WHERE d.customerId = c.id AND d.status = 'paid'
         ), 0
       ) as totalPaid,
-      COUNT(DISTINCT CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.id END) as totalReceipts,
+      COUNT(DISTINCT CASE WHEN r.id IS NOT NULL THEN r.id END) as totalReceipts,
       COALESCE(
         (
           SELECT SUM(d.amount)
           FROM Debt d
           LEFT JOIN Receipt r_inner ON d.receiptId = r_inner.id
           WHERE d.customerId = c.id 
-            AND d.status = 'pending' 
-            AND (r_inner.flagged = 0 OR r_inner.flagged IS NULL)
+            AND d.status = 'pending'
         ), 0
       ) as totalDebt,
-      COUNT(DISTINCT CASE WHEN d.status = 'pending' AND (r2.flagged = 0 OR r2.flagged IS NULL) THEN d.id END) as pendingDebts,
-      MAX(CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.createdAt END) as lastPurchaseDate
+      COUNT(DISTINCT CASE WHEN d.status = 'pending' AND r2.id IS NOT NULL THEN d.id END) as pendingDebts,
+      MAX(CASE WHEN r.id IS NOT NULL THEN r.createdAt END) as lastPurchaseDate
     FROM Customer c
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
     LEFT JOIN CustomerEmail ce ON c.id = ce.customerId

@@ -8,29 +8,25 @@ const countData = async (req, res) => {
     const companyId = req.params.companyId;
 
     // Helper function to get count from PostgreSQL table
-    const getCount = (tableName, whereClause = "companyId = ?") => {
-      return new Promise((resolve, reject) => {
-        db.get(
-          `SELECT COUNT(*) as count FROM ${tableName} WHERE ${whereClause}`,
-          [companyId],
-          (err, row) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(row.count);
-            }
-          }
+    const getCount = async (tableName, whereClause = "companyId = $1") => {
+      try {
+        const result = await db.query(
+          `SELECT COUNT(*) as count FROM "${tableName}" WHERE ${whereClause}`,
+          [companyId]
         );
-      });
+        return result.rows[0].count;
+      } catch (err) {
+        throw err;
+      }
     };
 
     // Get counts for all tables in parallel
     const [productCount, customerCount, salesCount, userCount] =
       await Promise.all([
-        getCount("Inventory", "companyId = ? AND deleted = 0"), // Only count non-deleted inventory
-        getCount("Customer", "belongsTo = ?"), // Customer table uses belongsTo for company reference
-        getCount("Receipt", "companyId = ? AND (flagged IS NULL OR flagged = 0)"), // Receipt count for sales (non-flagged only)
-        getCount("Worker", "companyId = ?"), // Worker count for users
+        getCount("Inventory", "companyId = $1"), // Inventory table doesn't have deleted column
+        getCount("Customer", "companyId = $1"), // Customer table uses companyId for company reference
+        getCount("Receipt", "companyId = $1"), // Receipt count for sales
+        getCount("Worker", "companyId = $1"), // Worker count for users
       ]);
 
     res.json({
@@ -62,10 +58,10 @@ const getCategoryAnalytics = async (req, res) => {
         const [year, month] = parsedDateRange.month.split("-");
         const startDate = `${year}-${month.padStart(2, "0")}-01`;
         const endDate = new Date(year, month, 0).toISOString().split("T")[0];
-        dateFilter = "AND r.createdAt >= ? AND r.createdAt <= ?";
+        dateFilter = "AND r.createdAt >= $2 AND r.createdAt <= $3";
         params.push(startDate, endDate + " 23:59:59");
       } else if (parsedDateRange.type === "custom") {
-        dateFilter = "AND r.createdAt >= ? AND r.createdAt <= ?";
+        dateFilter = "AND r.createdAt >= $2 AND r.createdAt <= $3";
         params.push(
           parsedDateRange.startDate,
           parsedDateRange.endDate + " 23:59:59"
@@ -88,7 +84,7 @@ const getCategoryAnalytics = async (req, res) => {
       FROM ReceiptDetail rd
       JOIN Receipt r ON rd.receiptId = r.id
       JOIN Inventory i ON rd.name = i.name AND i.companyId = r.companyId
-      WHERE r.companyId = ? AND (r.flagged IS NULL OR r.flagged = 0) ${dateFilter}
+      WHERE r.companyId = $1 ${dateFilter}
       GROUP BY 
         CASE 
           WHEN i.category = 'none' OR i.category IS NULL THEN 'Uncategorized'
@@ -135,10 +131,10 @@ const getPaymentAnalytics = async (req, res) => {
         const [year, month] = parsedDateRange.month.split("-");
         const startDate = `${year}-${month.padStart(2, "0")}-01`;
         const endDate = new Date(year, month, 0).toISOString().split("T")[0];
-        dateFilter = "AND createdAt >= ? AND createdAt <= ?";
+        dateFilter = "AND createdAt >= $2 AND createdAt <= $3";
         params.push(startDate, endDate + " 23:59:59");
       } else if (parsedDateRange.type === "custom") {
-        dateFilter = "AND createdAt >= ? AND createdAt <= ?";
+        dateFilter = "AND createdAt >= $2 AND createdAt <= $3";
         params.push(
           parsedDateRange.startDate,
           parsedDateRange.endDate + " 23:59:59"
@@ -148,13 +144,13 @@ const getPaymentAnalytics = async (req, res) => {
 
     const paymentQuery = `
       SELECT 
-        paymentMethod,
+        payment_method,
         COUNT(*) as transactionCount,
         SUM(total) as totalAmount,
         AVG(total) as avgTransactionValue
       FROM Receipt 
-      WHERE companyId = ? AND (flagged IS NULL OR flagged = 0) ${dateFilter}
-      GROUP BY paymentMethod
+      WHERE companyId = $1 ${dateFilter}
+      GROUP BY payment_method
       ORDER BY totalAmount DESC
     `;
 
@@ -196,10 +192,10 @@ const getHourlyAnalytics = async (req, res) => {
         const [year, month] = parsedDateRange.month.split("-");
         const startDate = `${year}-${month.padStart(2, "0")}-01`;
         const endDate = new Date(year, month, 0).toISOString().split("T")[0];
-        dateFilter = "AND createdAt >= ? AND createdAt <= ?";
+        dateFilter = "AND createdAt >= $2 AND createdAt <= $3";
         params.push(startDate, endDate + " 23:59:59");
       } else if (parsedDateRange.type === "custom") {
-        dateFilter = "AND createdAt >= ? AND createdAt <= ?";
+        dateFilter = "AND createdAt >= $2 AND createdAt <= $3";
         params.push(
           parsedDateRange.startDate,
           parsedDateRange.endDate + " 23:59:59"
@@ -214,7 +210,7 @@ const getHourlyAnalytics = async (req, res) => {
         SUM(total) as sales,
         AVG(total) as avgTicket
       FROM Receipt 
-      WHERE companyId = ? AND (flagged IS NULL OR flagged = 0) ${dateFilter}
+      WHERE companyId = $1 ${dateFilter}
       GROUP BY hour
       ORDER BY hour
     `;
@@ -263,7 +259,7 @@ const getInventoryAlerts = async (req, res) => {
         costPrice,
         (onhand * costPrice) as inventoryValue
       FROM Inventory 
-      WHERE companyId = ? AND deleted = 0
+      WHERE companyId = $1
       ORDER BY 
         CASE 
           WHEN onhand <= 0 THEN 1
@@ -328,10 +324,10 @@ const getWeekdayAnalytics = async (req, res) => {
         const [year, month] = parsedDateRange.month.split("-");
         const startDate = `${year}-${month.padStart(2, "0")}-01`;
         const endDate = new Date(year, month, 0).toISOString().split("T")[0];
-        dateFilter = "AND createdAt >= ? AND createdAt <= ?";
+        dateFilter = "AND createdAt >= $2 AND createdAt <= $3";
         params.push(startDate, endDate + " 23:59:59");
       } else if (parsedDateRange.type === "custom") {
-        dateFilter = "AND createdAt >= ? AND createdAt <= ?";
+        dateFilter = "AND createdAt >= $2 AND createdAt <= $3";
         params.push(
           parsedDateRange.startDate,
           parsedDateRange.endDate + " 23:59:59"
@@ -354,7 +350,7 @@ const getWeekdayAnalytics = async (req, res) => {
         SUM(total) as sales,
         AVG(total) as averageTicket
       FROM Receipt 
-      WHERE companyId = ? AND (flagged IS NULL OR flagged = 0) ${dateFilter}
+      WHERE companyId = $1 ${dateFilter}
       GROUP BY strftime('%w', createdAt)
       ORDER BY strftime('%w', createdAt)
     `;
@@ -390,7 +386,7 @@ router.get("/", (req, res) => {
 
 // Get a single company
 router.get("/:id", (req, res) => {
-  db.get("SELECT * FROM Company WHERE id = ?", [req.params.id], (err, row) => {
+  db.get("SELECT * FROM Company WHERE id = $1", [req.params.id], (err, row) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -410,7 +406,7 @@ router.post("/", (req, res) => {
   }
 
   db.run(
-    "INSERT INTO Company (name, address, phone, email) VALUES (?, ?, ?, ?)",
+    "INSERT INTO Company (name, address, phone, email) VALUES ($1, $2, $3, $4)",
     [name, address, phone, email],
     function (err) {
       if (err) {
@@ -470,14 +466,14 @@ const updateCompanyDetails = async (req, res) => {
     // Update main Company table if there are valid fields
     if (Object.keys(filteredUpdates).length > 0) {
       const setClause = Object.keys(filteredUpdates)
-        .map((key) => `${key} = ?`)
+        .map((key, index) => `${key} = $${index + 1}`)
         .join(", ");
       const values = [...Object.values(filteredUpdates), company];
 
       const sql = `
         UPDATE Company 
         SET ${setClause}, updatedAt = CURRENT_TIMESTAMP 
-        WHERE id = ?
+        WHERE id = $${values.length}
       `;
 
       await new Promise((resolve, reject) => {
@@ -493,7 +489,7 @@ const updateCompanyDetails = async (req, res) => {
       // Delete existing units
       await new Promise((resolve, reject) => {
         db.run(
-          "DELETE FROM CompanyAllowedUnits WHERE companyId = ?",
+          "DELETE FROM CompanyAllowedUnits WHERE companyId = $1",
           [company],
           (err) => {
             if (err) reject(err);
@@ -507,7 +503,7 @@ const updateCompanyDetails = async (req, res) => {
         const insertPromises = allowedUnits.map((unit) => {
           return new Promise((resolve, reject) => {
             db.run(
-              "INSERT INTO CompanyAllowedUnits (companyId, unit) VALUES (?, ?)",
+              "INSERT INTO CompanyAllowedUnits (companyId, unit) VALUES ($1, $2)",
               [company, unit],
               (err) => {
                 if (err) reject(err);
@@ -525,7 +521,7 @@ const updateCompanyDetails = async (req, res) => {
       // Delete existing categories
       await new Promise((resolve, reject) => {
         db.run(
-          "DELETE FROM CompanyAllowedCategories WHERE companyId = ?",
+          "DELETE FROM CompanyAllowedCategories WHERE companyId = $1",
           [company],
           (err) => {
             if (err) reject(err);
@@ -539,7 +535,7 @@ const updateCompanyDetails = async (req, res) => {
         const insertPromises = allowedCategories.map((category) => {
           return new Promise((resolve, reject) => {
             db.run(
-              "INSERT INTO CompanyAllowedCategories (companyId, category) VALUES (?, ?)",
+              "INSERT INTO CompanyAllowedCategories (companyId, category) VALUES ($1, $2)",
               [company, category],
               (err) => {
                 if (err) reject(err);
@@ -554,7 +550,7 @@ const updateCompanyDetails = async (req, res) => {
 
     // Fetch and return the updated company with allowedUnits and allowedCategories
     db.get(
-      "SELECT * FROM Company WHERE id = ?",
+      "SELECT * FROM Company WHERE id = $1",
       [company],
       (err, companyRow) => {
         if (err) {
@@ -570,7 +566,7 @@ const updateCompanyDetails = async (req, res) => {
 
         // Fetch allowedUnits
         db.all(
-          "SELECT unit FROM CompanyAllowedUnits WHERE companyId = ?",
+          "SELECT unit FROM CompanyAllowedUnits WHERE companyId = $1",
           [company],
           (err, units) => {
             if (err) {
@@ -581,7 +577,7 @@ const updateCompanyDetails = async (req, res) => {
 
             // Fetch allowedCategories
             db.all(
-              "SELECT category FROM CompanyAllowedCategories WHERE companyId = ?",
+              "SELECT category FROM CompanyAllowedCategories WHERE companyId = $1",
               [company],
               (err, categories) => {
                 if (err) {
@@ -620,7 +616,7 @@ router.patch("/update/:company", updateCompanyDetails);
 
 // Delete a company
 router.delete("/:id", (req, res) => {
-  db.run("DELETE FROM Company WHERE id = ?", [req.params.id], function (err) {
+  db.run("DELETE FROM Company WHERE id = $1", [req.params.id], function (err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -683,14 +679,14 @@ router.put("/update/:id", async (req, res) => {
     // Update main Company table if there are valid fields
     if (Object.keys(filteredUpdates).length > 0) {
       const setClause = Object.keys(filteredUpdates)
-        .map((key) => `${key} = ?`)
+        .map((key, index) => `${key} = $${index + 1}`)
         .join(", ");
       const values = [...Object.values(filteredUpdates), company];
 
       const sql = `
         UPDATE Company 
         SET ${setClause}, updatedAt = CURRENT_TIMESTAMP 
-        WHERE id = ?
+        WHERE id = $${values.length}
       `;
 
       await new Promise((resolve, reject) => {
@@ -706,7 +702,7 @@ router.put("/update/:id", async (req, res) => {
       // Delete existing units
       await new Promise((resolve, reject) => {
         db.run(
-          "DELETE FROM CompanyAllowedUnits WHERE companyId = ?",
+          "DELETE FROM CompanyAllowedUnits WHERE companyId = $1",
           [company],
           (err) => {
             if (err) reject(err);
@@ -720,7 +716,7 @@ router.put("/update/:id", async (req, res) => {
         const insertPromises = allowedUnits.map((unit) => {
           return new Promise((resolve, reject) => {
             db.run(
-              "INSERT INTO CompanyAllowedUnits (companyId, unit) VALUES (?, ?)",
+              "INSERT INTO CompanyAllowedUnits (companyId, unit) VALUES ($1, $2)",
               [company, unit],
               (err) => {
                 if (err) reject(err);
@@ -738,7 +734,7 @@ router.put("/update/:id", async (req, res) => {
       // Delete existing categories
       await new Promise((resolve, reject) => {
         db.run(
-          "DELETE FROM CompanyAllowedCategories WHERE companyId = ?",
+          "DELETE FROM CompanyAllowedCategories WHERE companyId = $1",
           [company],
           (err) => {
             if (err) reject(err);
@@ -752,7 +748,7 @@ router.put("/update/:id", async (req, res) => {
         const insertPromises = allowedCategories.map((category) => {
           return new Promise((resolve, reject) => {
             db.run(
-              "INSERT INTO CompanyAllowedCategories (companyId, category) VALUES (?, ?)",
+              "INSERT INTO CompanyAllowedCategories (companyId, category) VALUES ($1, $2)",
               [company, category],
               (err) => {
                 if (err) reject(err);
@@ -767,7 +763,7 @@ router.put("/update/:id", async (req, res) => {
 
     // Fetch and return the updated company with allowedUnits and allowedCategories
     db.get(
-      "SELECT * FROM Company WHERE id = ?",
+      "SELECT * FROM Company WHERE id = $1",
       [company],
       (err, companyRow) => {
         if (err) {
@@ -777,9 +773,13 @@ router.put("/update/:id", async (req, res) => {
             .json({ message: "Database error", error: err.message });
         }
 
+        if (!companyRow) {
+          return res.status(404).json({ message: "Company not found" });
+        }
+
         // Fetch allowedUnits
         db.all(
-          "SELECT unit FROM CompanyAllowedUnits WHERE companyId = ?",
+          "SELECT unit FROM CompanyAllowedUnits WHERE companyId = $1",
           [company],
           (err, units) => {
             if (err) {
@@ -790,7 +790,7 @@ router.put("/update/:id", async (req, res) => {
 
             // Fetch allowedCategories
             db.all(
-              "SELECT category FROM CompanyAllowedCategories WHERE companyId = ?",
+              "SELECT category FROM CompanyAllowedCategories WHERE companyId = $1",
               [company],
               (err, categories) => {
                 if (err) {

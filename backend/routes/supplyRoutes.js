@@ -11,7 +11,7 @@ router.get('/:companyId', (req, res) => {
     FROM Supplies s
     LEFT JOIN Vendor v ON s.supplierId = v.id
     LEFT JOIN Worker w ON s.restockedBy = w.id
-    WHERE s.companyId = ?
+    WHERE s.companyId = $1
     ORDER BY s.restockDate DESC
   `;
   
@@ -33,12 +33,12 @@ router.get('/:companyId/:supplyId', (req, res) => {
     FROM Supplies s
     LEFT JOIN Vendor v ON s.supplierId = v.id
     LEFT JOIN Worker w ON s.restockedBy = w.id
-    WHERE s.id = ? AND s.companyId = ?
+    WHERE s.id = $1 AND s.companyId = $2
   `;
   
   const detailsQuery = `
     SELECT * FROM SuppliesDetail
-    WHERE suppliesId = ?
+    WHERE suppliesId = $1
   `;
   
   db.get(supplyQuery, [supplyId, companyId], (err, supply) => {
@@ -98,7 +98,7 @@ router.post('/:companyId', (req, res) => {
           }
           
           db.get(
-            `SELECT id FROM Vendor WHERE name = ? AND companyId = ?`,
+            `SELECT id FROM Vendor WHERE name = $1 AND companyId = $2`,
             [vendorName, companyId],
             (vendorErr, vendor) => {
               if (vendorErr && !hasError) {
@@ -123,7 +123,7 @@ router.post('/:companyId', (req, res) => {
             db.run(
               `INSERT INTO Supplies (
                 companyId, supplierId, totalCost, totalQuantity, amountPaid, discount, balance, status, restockedBy
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
               [companyId, supplierId, totalCost, totalQuantity, paidAmount, discountAmount, balanceAmount, paymentStatus, workerId],
               function(supplyErr) {
                 if (supplyErr && !hasError) {
@@ -145,7 +145,7 @@ router.post('/:companyId', (req, res) => {
                   db.run(
                     `INSERT INTO SuppliesDetail (
                       suppliesId, name, quantity, costPrice, salesPrice, totalPrice
-                    ) VALUES (?, ?, ?, ?, ?, ?)`,
+                    ) VALUES ($1, $2, $3, $4, $5, $6)`,
                     [
                       suppliesId,
                       item.name,
@@ -168,8 +168,8 @@ router.post('/:companyId', (req, res) => {
                       // Update inventory
                       db.run(
                         `UPDATE Inventory 
-                         SET onhand = onhand + ?, costPrice = ?, salesPrice = ?, updatedAt = CURRENT_TIMESTAMP
-                         WHERE companyId = ? AND name = ?`,
+                         SET onhand = onhand + $1, costPrice = $2, salesPrice = $3, updatedAt = CURRENT_TIMESTAMP
+                         WHERE companyId = $4 AND name = $5`,
                         [item.quantity, item.costPrice, item.salesPrice, companyId, item.name],
                         function(updateErr) {
                           if (updateErr && !hasError) {
@@ -181,7 +181,7 @@ router.post('/:companyId', (req, res) => {
                           
                           // Get inventory ID and create stock transaction
                           db.get(
-                            `SELECT id FROM Inventory WHERE companyId = ? AND name = ?`,
+                            `SELECT id FROM Inventory WHERE companyId = $1 AND name = $2`,
                             [companyId, item.name],
                             function(getErr, inventoryRow) {
                               if (getErr && !hasError) {
@@ -196,7 +196,7 @@ router.post('/:companyId', (req, res) => {
                                 db.run(
                                   `INSERT INTO StockTransaction (
                                     inventoryId, type, quantity, costPrice, salesPrice, transactionDate
-                                  ) VALUES (?, 'inbound', ?, ?, ?, ?)`,
+                                  ) VALUES ($1, 'inbound', $2, $3, $4, $5)`,
                                   [
                                     inventoryRow.id,
                                     item.quantity,
@@ -240,10 +240,10 @@ router.post('/:companyId', (req, res) => {
                       db.run(
                         `UPDATE Vendor 
                          SET totalPurchases = totalPurchases + 1,
-                             totalAmount = totalAmount + ?,
-                             lastPurchaseDate = ?,
+                             totalAmount = totalAmount + $1,
+                             lastPurchaseDate = $2,
                              updatedAt = CURRENT_TIMESTAMP
-                         WHERE id = ?`,
+                         WHERE id = $3`,
                         [totalCost, new Date().toISOString(), supplierId],
                         function(vendorUpdateErr) {
                           if (vendorUpdateErr && !hasError) {
@@ -271,8 +271,8 @@ router.post('/:companyId', (req, res) => {
                     db.run(
                       `INSERT INTO VendorPayment (
                         companyId, vendorId, amount, paymentDate, 
-                        paymentMethod, notes, processedBy
-                      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        payment_method, notes, processedBy
+                      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
                       [
                         companyId, supplierId, paidAmount, new Date().toISOString(),
                         'cash', `Payment for supply record #${suppliesId}`, workerId
@@ -324,7 +324,7 @@ router.post('/:companyId', (req, res) => {
           // Create vendor if it doesn't exist
           if (!vendor && vendorName) {
             db.run(
-              `INSERT INTO Vendor (companyId, name, contact_person, createdAt, updatedAt) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+              `INSERT INTO Vendor (companyId, name, contact_person, createdAt, updatedAt) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
               [companyId, vendorName, contactPerson],
               function(vendorInsertErr) {
                 if (vendorInsertErr && !hasError) {
@@ -363,49 +363,50 @@ router.put('/:companyId/:supplyId', (req, res) => {
   // Build dynamic query based on provided fields
   let updateFields = [];
   let updateValues = [];
+  let paramIndex = 1;
   
   if (supplierId !== undefined) {
-    updateFields.push('supplierId = ?');
+    updateFields.push(`supplierId = $${paramIndex++}`);
     updateValues.push(supplierId);
   }
   if (totalCost !== undefined) {
-    updateFields.push('totalCost = ?');
+    updateFields.push(`totalCost = $${paramIndex++}`);
     updateValues.push(totalCost);
   }
   if (totalQuantity !== undefined) {
-    updateFields.push('totalQuantity = ?');
+    updateFields.push(`totalQuantity = $${paramIndex++}`);
     updateValues.push(totalQuantity);
   }
   if (restockDate !== undefined) {
-    updateFields.push('restockDate = ?');
+    updateFields.push(`restockDate = $${paramIndex++}`);
     updateValues.push(restockDate);
   }
   if (amountPaid !== undefined) {
-    updateFields.push('amountPaid = ?');
+    updateFields.push(`amountPaid = $${paramIndex++}`);
     updateValues.push(amountPaid);
   }
   if (discount !== undefined) {
-    updateFields.push('discount = ?');
+    updateFields.push(`discount = $${paramIndex++}`);
     updateValues.push(discount);
   }
   if (balance !== undefined) {
-    updateFields.push('balance = ?');
+    updateFields.push(`balance = $${paramIndex++}`);
     updateValues.push(balance);
     
     // Auto-update status based on balance
     if (balance <= 0) {
-      updateFields.push('status = ?');
+      updateFields.push(`status = $${paramIndex++}`);
       updateValues.push('completed');
     }
   }
   
-  updateFields.push('restockedBy = ?', 'updatedAt = CURRENT_TIMESTAMP');
+  updateFields.push(`restockedBy = $${paramIndex++}`, 'updatedAt = CURRENT_TIMESTAMP');
   updateValues.push(workerId);
   
   // Add supplyId for WHERE clause
   updateValues.push(supplyId);
   
-  const query = `UPDATE Supplies SET ${updateFields.join(', ')} WHERE id = ?`;
+  const query = `UPDATE Supplies SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`;
   
   db.run(query, updateValues, function(err) {
     if (err) {
@@ -434,7 +435,7 @@ router.delete('/:companyId/:supplyId', (req, res) => {
     
     // Delete supply details first
     db.run(
-      `DELETE FROM SuppliesDetail WHERE suppliesId = ?`,
+      `DELETE FROM SuppliesDetail WHERE suppliesId = $1`,
       [supplyId],
       function(detailErr) {
         if (detailErr) {
@@ -445,7 +446,7 @@ router.delete('/:companyId/:supplyId', (req, res) => {
         
         // Delete supply record
         db.run(
-          `DELETE FROM Supplies WHERE id = ?`,
+          `DELETE FROM Supplies WHERE id = $1`,
           [supplyId],
           function(supplyErr) {
             if (supplyErr) {
