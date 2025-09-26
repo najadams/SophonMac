@@ -49,7 +49,7 @@ class NetworkManager extends EventEmitter {
       }
       
       // Determine if this instance should be master
-      const shouldBeMaster = await this.determineMasterRole();
+      const shouldBeMaster = await this.determineMasterRole(companyId);
       
       // Initialize sync engine
       this.syncEngine.initialize(companyId, shouldBeMaster);
@@ -160,7 +160,7 @@ class NetworkManager extends EventEmitter {
     });
   }
 
-  async determineMasterRole() {
+  async determineMasterRole(companyId) {
     // Check if there are any existing masters on the network
     // For now, simple logic: first instance becomes master
     const peers = this.networkDiscovery.getPeers();
@@ -175,7 +175,7 @@ class NetworkManager extends EventEmitter {
     return new Promise((resolve) => {
       db.get(
         'SELECT isMaster FROM NetworkConfig WHERE companyId = ?',
-        [this.syncEngine.companyId],
+        [companyId],
         (err, row) => {
           if (err || !row) {
             // Default to master if no config or error

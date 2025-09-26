@@ -168,6 +168,6 @@ CREATE TRIGGER IF NOT EXISTS track_receipt_sync
 -- Insert default network configuration for existing companies
 INSERT OR IGNORE INTO NetworkConfig (companyId, config, isMaster)
 SELECT id, 
-       '{"autoDiscovery": true, "autoSync": true, "masterElection": true, "conflictResolution": "last-write-wins"}',
+       "{""autoDiscovery"": true, ""autoSync"": true, ""masterElection"": true, ""conflictResolution"": ""last-write-wins""}",
        1
 FROM Company;

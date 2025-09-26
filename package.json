@@ -46,6 +46,11 @@
     "wait-on": "^8.0.3"
   },
   "build": {
+    "appId": "com.sophon.pos",
+    "productName": "Sophon",
+    "directories": {
+      "output": "dist"
+    },
     "files": [
       "**/*",
       "frontend/dist/**/*",
@@ -68,6 +73,17 @@
     "beforePack": "scripts/before-pack.js",
     "afterPack": "scripts/after-pack.js",
     "asar": false,
+    "icon": "resources/icon.png",
+    "mac": {
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dir",
+          "arch": ["arm64", "x64"]
+        }
+      ]
+    },
     "win": {
       "target": [
         {
@@ -77,10 +93,20 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico",
+      "icon": "resources/icon.png",
       "requestedExecutionLevel": "asInvoker",
       "verifyUpdateCodeSignature": false,
       "signAndEditExecutable": false
+    },
+    "linux": {
+      "icon": "resources/icon.png",
+      "category": "Office",
+      "target": [
+        {
+          "target": "dir",
+          "arch": ["x64"]
+        }
+      ]
     }
   }
 }

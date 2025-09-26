@@ -8,9 +8,11 @@ if (process.env.NODE_ENV !== 'production') {
 } else {
   console.log('Running in production mode, skipping dotenv');
 }
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
 const dbUtils = require('./utils/dbUtils');
 const migrationUtils = require('./utils/migrationUtils');
 
@@ -35,7 +37,6 @@ const syncRoutes = require('./routes/syncRoutes');
 // Import networking services
 const NetworkManager = require('./services/networkManager');
 const db = require('./data/db/db');
-const networkConfig = require('./config/network.config');
 const networkConfig = require('./config/network.config');
 
 const app = express();
@@ -79,14 +80,22 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/network', networkRoutes);
 app.use('/api/sync', syncRoutes);
-app.use('/api/network', networkRoutes);
-app.use('/api/sync', syncRoutes);
+
+// Health check endpoint
+app.get('/', (req, res) => {
   res.send('POS API is running');
 });
 
 // Initialize database and start server
 (async () => {
-  const initialized = await dbUtils.initialize();
+  try {
+    const initialized = await dbUtils.initialize();
+    
+    if (initialized) {
+      console.log('Database initialized successfully');
+      
+      // Run networking migrations
+      await migrationUtils.runNetworkingMigrations();
       
       // Initialize networking system
       const networkManager = new NetworkManager();
@@ -97,20 +106,9 @@ app.use('/api/sync', syncRoutes);
         const server = http.createServer(app);
         
         server.listen(port, networkConfig.server.host || '0.0.0.0', async () => {
-      // Run networking migrations
-      await migrationUtils.runNetworkingMigrations();
-          // Initialize networking after server starts
-      // Initialize networking system
-      const networkManager = new NetworkManager();
-      app.set('networkManager', networkManager);
-            if (companyInfo) {
-              const success = await networkManager.initialize(
-                server, 
-                port, 
-                companyInfo.id, 
-        server.listen(port, networkConfig.server.host || '0.0.0.0', async () => {
-              );
-              
+          console.log(`Backend server running on http://${networkConfig.server.host || '0.0.0.0'}:${port}`);
+          console.log(`Backend ready on port ${port}`); // Signal to main process that backend is ready
+          
           // Initialize networking after server starts
           try {
             // Get company info for networking
@@ -134,9 +132,11 @@ app.use('/api/sync', syncRoutes);
           } catch (networkError) {
             console.error('Networking initialization error:', networkError);
           }
-            console.error('Server error:', err);
-            process.exit(1);
-          }
+        });
+        
+        server.on('error', (err) => {
+          console.error('Server error:', err);
+          process.exit(1);
         });
         
         // Graceful shutdown
@@ -156,18 +156,20 @@ app.use('/api/sync', syncRoutes);
           if (networkManager) {
             await networkManager.shutdown();
           }
+          server.close(() => {
             console.log('Server closed');
             process.exit(0);
           });
         });
       };
 
-      startServer(PORT);
-    } catch (error) {
-          if (networkManager) {
-            await networkManager.shutdown();
-          }
-    console.log('Failed to initialize database');
+      await startServer(PORT);
+    } else {
+      console.error('Failed to initialize database');
+      process.exit(1);
+    }
+  } catch (error) {
+    console.error('Startup error:', error);
     process.exit(1);
   }
 })();

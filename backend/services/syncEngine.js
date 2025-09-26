@@ -17,10 +17,15 @@ class SyncEngine extends EventEmitter {
     
     // Supabase sync properties
     this.supabase = createSupabaseServiceClient();
+    this.isSupabaseEnabled = !!this.supabase;
     this.isOnline = false;
     this.supabaseSyncInProgress = false;
     this.lastSupabaseSyncTime = null;
     this.supabaseSyncInterval = null;
+    
+    if (!this.isSupabaseEnabled) {
+      console.log('Supabase sync disabled - no configuration found');
+    }
   }
 
   initialize(companyId, isMaster = false) {
@@ -437,6 +442,11 @@ class SyncEngine extends EventEmitter {
 
   // Check internet connectivity
   async checkSupabaseConnectivity() {
+    if (!this.isSupabaseEnabled) {
+      this.isOnline = false;
+      return false;
+    }
+    
     try {
       const { data, error } = await this.supabase.from('company').select('id').limit(1);
       this.isOnline = !error;
@@ -846,6 +856,11 @@ class SyncEngine extends EventEmitter {
 
   // Full Supabase sync for a company
   async syncWithSupabase(companyId) {
+    if (!this.isSupabaseEnabled) {
+      console.log('Supabase sync skipped - not configured');
+      return { success: true, message: 'Supabase sync disabled', stats: {} };
+    }
+    
     if (this.supabaseSyncInProgress) {
       throw new Error('Supabase sync already in progress');
     }
@@ -898,6 +913,11 @@ class SyncEngine extends EventEmitter {
 
   // Start automatic Supabase sync
   startAutomaticSupabaseSync() {
+    if (!this.isSupabaseEnabled) {
+      console.log('Automatic Supabase sync skipped - not configured');
+      return;
+    }
+    
     if (this.supabaseSyncInterval) {
       clearInterval(this.supabaseSyncInterval);
     }

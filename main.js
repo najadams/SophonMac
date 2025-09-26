@@ -746,6 +746,7 @@ app.on('will-quit', (event) => {
 app.on("before-quit", (event) => {
   logToFile('INFO', 'App before-quit event triggered');
   if (!isCleaningUp) {
+    event.preventDefault(); // Prevent the quit until cleanup is done
     cleanupAndQuit();
   }
 });
@@ -760,25 +761,42 @@ function cleanupAndQuit() {
   isCleaningUp = true;
   logToFile('INFO', 'Starting cleanup process...');
   
+  let cleanupTasks = 0;
+  let completedTasks = 0;
+  
+  function checkCleanupComplete() {
+    completedTasks++;
+    if (completedTasks >= cleanupTasks) {
+      logToFile('INFO', 'All cleanup tasks completed - allowing app to quit');
+      // Remove the before-quit listener to prevent infinite loop
+      app.removeAllListeners('before-quit');
+      app.quit();
+    }
+  }
+  
   // Kill the backend process when the app is quitting
   if (backendProcess && !backendProcess.killed) {
+    cleanupTasks++;
     logToFile('INFO', 'Terminating backend process...');
     try {
       backendProcess.kill('SIGTERM');
-      // Force kill after 5 seconds if still running
+      // Force kill after 2 seconds if still running
       setTimeout(() => {
         if (backendProcess && !backendProcess.killed) {
           logToFile('WARNING', 'Force killing backend process');
           backendProcess.kill('SIGKILL');
         }
-      }, 5000);
+        checkCleanupComplete();
+      }, 2000);
     } catch (error) {
       logToFile('ERROR', 'Error killing backend process', error);
+      checkCleanupComplete();
     }
   }
   
   // Close the frontend server when the app is quitting
   if (frontendServer) {
+    cleanupTasks++;
     logToFile('INFO', 'Closing frontend server...');
     try {
       frontendServer.close((error) => {
@@ -787,17 +805,25 @@ function cleanupAndQuit() {
         } else {
           logToFile('INFO', 'Frontend server closed successfully');
         }
+        checkCleanupComplete();
       });
     } catch (error) {
       logToFile('ERROR', 'Error closing frontend server', error);
+      checkCleanupComplete();
     }
   }
   
-  logToFile('INFO', 'Cleanup completed - app will quit');
-  
-  if (process.platform !== "darwin") {
-    setTimeout(() => {
-      app.quit();
-    }, 100); // Small delay to prevent recursive calls
+  // If no cleanup tasks, quit immediately
+  if (cleanupTasks === 0) {
+    logToFile('INFO', 'No cleanup tasks needed - allowing app to quit');
+    app.removeAllListeners('before-quit');
+    app.quit();
   }
+  
+  // Fallback timeout to force quit after 10 seconds
+  setTimeout(() => {
+    logToFile('WARNING', 'Cleanup timeout reached - forcing app to quit');
+    app.removeAllListeners('before-quit');
+    app.quit();
+  }, 10000);
 }
