@@ -141,5 +141,31 @@ module.exports = async function(context) {
     }
   }
   
+  // Special handling for sqlite3 native binaries
+  console.log('Ensuring sqlite3 native binaries are properly copied...');
+  const sqlite3MainPath = path.join(appNodeModulesDir, 'sqlite3');
+  const sqlite3BackendPath = path.join(backendNodeModulesDir, 'sqlite3');
+  const sqlite3SourcePath = path.join(mainNodeModulesDir, 'sqlite3');
+  
+  // Copy the entire sqlite3 build directory to ensure native binaries are included
+  if (fs.existsSync(sqlite3SourcePath)) {
+    const buildSourcePath = path.join(sqlite3SourcePath, 'build');
+    if (fs.existsSync(buildSourcePath)) {
+      // Copy to main node_modules
+      const buildMainPath = path.join(sqlite3MainPath, 'build');
+      if (!fs.existsSync(buildMainPath)) {
+        console.log('Copying sqlite3 build directory to main node_modules...');
+        copyRecursiveSync(buildSourcePath, buildMainPath);
+      }
+      
+      // Copy to backend node_modules
+      const buildBackendPath = path.join(sqlite3BackendPath, 'build');
+      if (!fs.existsSync(buildBackendPath)) {
+        console.log('Copying sqlite3 build directory to backend node_modules...');
+        copyRecursiveSync(buildSourcePath, buildBackendPath);
+      }
+    }
+  }
+  
   console.log('After-pack script completed.');
 };

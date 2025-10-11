@@ -1,114 +1,140 @@
-const { execSync } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+const { execSync } = require("child_process");
+const path = require("path");
+const fs = require("fs");
 
 function copyRecursiveSync(src, dest) {
   const exists = fs.existsSync(src);
   const stats = exists && fs.statSync(src);
   const isDirectory = exists && stats.isDirectory();
+
   if (isDirectory) {
     if (!fs.existsSync(dest)) {
       fs.mkdirSync(dest, { recursive: true });
     }
-    fs.readdirSync(src).forEach(function(childItemName) {
-      copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
+    fs.readdirSync(src).forEach((child) => {
+      copyRecursiveSync(path.join(src, child), path.join(dest, child));
     });
   } else {
     fs.copyFileSync(src, dest);
   }
 }
 
-module.exports = async function(context) {
-  console.log('Running before-pack script...');
-  
-  // The context contains the source directory, not the output directory
-  // We need to work with the source backend directory
-  const backendDir = path.join(process.cwd(), 'backend');
-  const nodeModulesDir = path.join(backendDir, 'node_modules');
-  const mainNodeModulesDir = path.join(process.cwd(), 'node_modules');
-  
-  console.log('Backend directory:', backendDir);
-  console.log('Node modules directory:', nodeModulesDir);
-  console.log('Main node modules directory:', mainNodeModulesDir);
-  
-  // Remove existing node_modules to avoid symlink issues
+module.exports = async function (context) {
+  console.log("📦 Running before-pack script...");
+
+  const backendDir = path.join(process.cwd(), "backend");
+  const nodeModulesDir = path.join(backendDir, "node_modules");
+  const mainNodeModulesDir = path.join(process.cwd(), "node_modules");
+
+  console.log("➡ Backend directory:", backendDir);
+  console.log("➡ Backend node_modules:", nodeModulesDir);
+  console.log("➡ Main node_modules:", mainNodeModulesDir);
+
+  // Remove existing backend node_modules to avoid symlink issues
   if (fs.existsSync(nodeModulesDir)) {
-    console.log('Removing existing backend node_modules...');
+    console.log("🧹 Removing existing backend node_modules...");
     fs.rmSync(nodeModulesDir, { recursive: true, force: true });
   }
-  
-  // Install dependencies with npm to avoid pnpm symlinks
-  console.log('Installing backend dependencies with npm...');
+
   try {
-    execSync('npm install --production --no-package-lock', {
-      cwd: backendDir,
-      stdio: 'inherit'
+    console.log("📥 Installing backend dependencies with pnpm...");
+    execSync("pnpm install --filter sophon-backend --prod --no-optional", {
+      cwd: process.cwd(),
+      stdio: "inherit",
     });
-    console.log('Backend dependencies installed successfully');
-    
-    // Verify critical modules are installed
-    const criticalModules = ['cors', 'express', 'sqlite3', 'socket.io', 'bcrypt', 'uuid'];
-    for (const module of criticalModules) {
-      const modulePath = path.join(nodeModulesDir, module);
-      if (fs.existsSync(modulePath)) {
-        console.log(`✓ ${module} installed successfully`);
+
+    console.log("✅ Backend dependencies installed successfully");
+
+    const criticalModules = [
+      "cors",
+      "express",
+      "sqlite3",
+      "socket.io",
+      "bcrypt",
+      "uuid",
+      "@supabase/supabase-js",
+      "jsonwebtoken",
+      "dotenv",
+      "object-assign",
+      "vary",
+      "bonjour",
+      "node-machine-id",
+      "ws",
+    ];
+
+    console.log("🔍 Verifying backend modules...");
+    for (const mod of criticalModules) {
+      const modPath = path.join(nodeModulesDir, mod);
+      if (fs.existsSync(modPath)) {
+        console.log(`   ✓ ${mod} installed`);
       } else {
-        console.warn(`⚠ ${module} is missing - this may cause runtime issues`);
+        console.warn(`   ⚠ ${mod} missing — may cause runtime issues`);
       }
     }
-    
-    // Copy all backend node_modules to main node_modules
-    console.log('Copying all backend node_modules to main node_modules...');
-    
+
+    console.log("📦 Preparing backend node_modules for packaging...");
+
     if (fs.existsSync(nodeModulesDir)) {
       const backendModules = fs.readdirSync(nodeModulesDir);
-      
-      for (const module of backendModules) {
-        if (module.startsWith('.')) continue; // Skip hidden files
-        
-        const srcPath = path.join(nodeModulesDir, module);
-        const destPath = path.join(mainNodeModulesDir, module);
-        
+
+      for (const mod of backendModules) {
+        if (mod.startsWith(".")) continue;
+
+        const srcPath = path.join(nodeModulesDir, mod);
+        const destPath = path.join(mainNodeModulesDir, mod);
+
         if (fs.existsSync(srcPath) && !fs.existsSync(destPath)) {
-          console.log(`Copying ${module}...`);
+          console.log(`   📁 Copying ${mod} to main node_modules...`);
           copyRecursiveSync(srcPath, destPath);
         }
       }
     }
-    
-    console.log('All backend dependencies copied to main node_modules');
-    
-    // Force copy critical modules to ensure they're included
-    const criticalModulesForce = ['cors', 'express', 'sqlite3', 'socket.io', 'bcrypt'];
-    for (const module of criticalModulesForce) {
-      const srcPath = path.join(nodeModulesDir, module);
-      const destPath = path.join(mainNodeModulesDir, module);
-      
+
+    console.log("✅ Backend dependencies copied successfully");
+
+    // Ensure critical modules are explicitly present in main node_modules
+    const ensureModules = [
+      "cors",
+      "express",
+      "sqlite3",
+      "socket.io",
+      "bcrypt",
+      "@supabase/supabase-js",
+      "object-assign",
+      "vary",
+      "bonjour",
+      "node-machine-id",
+      "ws",
+    ];
+
+    for (const mod of ensureModules) {
+      const srcPath = path.join(nodeModulesDir, mod);
+      const destPath = path.join(mainNodeModulesDir, mod);
       if (fs.existsSync(srcPath)) {
-        if (fs.existsSync(destPath)) {
-          fs.rmSync(destPath, { recursive: true, force: true });
+        if (!fs.existsSync(destPath)) {
+          console.log(`   🔁 Ensuring ${mod} exists in main node_modules...`);
+          copyRecursiveSync(srcPath, destPath);
         }
-        console.log(`Force copying ${module}...`);
-        copyRecursiveSync(srcPath, destPath);
-        console.log(`✓ ${module} force copied successfully`);
       } else {
-        console.warn(`⚠ ${module} not found in backend node_modules`);
+        console.warn(`   ⚠ ${mod} not found in backend node_modules`);
       }
     }
-    
-    // Ensure main dependencies like express are available
-    console.log('Verifying main dependencies are available...');
-    const mainDeps = ['express', 'chromium-pickle-js'];
+
+    // Verify essential main dependencies
+    console.log("🧩 Verifying essential main dependencies...");
+    const mainDeps = ["express", "chromium-pickle-js"];
     for (const dep of mainDeps) {
       const depPath = path.join(mainNodeModulesDir, dep);
       if (fs.existsSync(depPath)) {
-        console.log(`✓ ${dep} is available`);
+        console.log(`   ✓ ${dep} is available`);
       } else {
-        console.log(`✗ ${dep} is missing`);
+        console.log(`   ✗ ${dep} is missing`);
       }
     }
+
+    console.log("🎯 before-pack script completed successfully!");
   } catch (error) {
-    console.error('Failed to install backend dependencies:', error);
+    console.error("❌ Failed to prepare backend dependencies:", error);
     throw error;
   }
 };

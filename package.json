@@ -12,6 +12,7 @@
     "build:win": "pnpm run prebuild && npx electron-builder --win --publish=never --config.win.requestedExecutionLevel=asInvoker --config.win.verifyUpdateCodeSignature=false",
     "build:win-simple": "pnpm run prebuild && electron-builder --win --publish=never --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true --config.win.requestedExecutionLevel=asInvoker",
     "build:mac": "pnpm run prebuild && electron-builder --mac --publish=never",
+    "build:mac-arm64": "pnpm run prebuild && electron-builder --mac --arm64 --publish=never",
     "package:win": "pnpm run build:frontend && electron-packager . --platform=win32 --arch=x64 --out=dist/win --overwrite --ignore=node_modules --ignore=frontend/node_modules --ignore=backend/node_modules --no-prune",
     "build:frontend": "cd frontend && pnpm run build",
     "install:backend": "pnpm --filter sophon-backend install --production",
@@ -24,6 +25,7 @@
   "author": "Najm Adams",
   "license": "ISC",
   "dependencies": {
+    "bindings": "^1.5.0",
     "chromium-pickle-js": "^0.2.0",
     "express": "^4.18.2"
   },
@@ -37,12 +39,15 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.8.2",
     "@electron-forge/plugin-fuses": "^7.8.2",
     "@electron/fuses": "^2.0.0",
+    "@vitejs/plugin-react": "^5.0.4",
     "concurrently": "^8.0.1",
     "cross-env": "^7.0.3",
-    "electron": "^37.2.6",
+    "electron": "^37.5.1",
     "electron-builder": "^26.0.12",
     "electron-packager": "^17.1.2",
+    "electron-rebuild": "^3.2.9",
     "electron-squirrel-startup": "^1.0.1",
+    "vite": "^7.1.9",
     "wait-on": "^8.0.3"
   },
   "build": {
@@ -52,27 +57,32 @@
       "output": "dist"
     },
     "files": [
-      "**/*",
-      "frontend/dist/**/*",
-      "node_modules/cors/**/*",
-      "node_modules/express/**/*",
-      "node_modules/sqlite3/**/*",
-      "node_modules/socket.io/**/*",
-      "node_modules/bcrypt/**/*",
-      "!frontend/node_modules",
-      "!frontend/src",
-      "!frontend/public",
-      "!frontend/vite.config.js",
-      "!frontend/package.json",
-      "!frontend/package-lock.json",
-      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,__pycache__,thumbs.db,.gitignore,.gitmodules,.gitattributes,.flowconfig,.jshintrc,.eslintrc,.eslintrc.*,.stylelintrc,.stylelintrc.*}",
+      "dist/**/*",
+      "main.js",
+      "backend/**/*",
+      "!backend/node_modules",
+      "!backend/package-lock.json",
+      "!backend/npm-debug.log*",
+      "!backend/.DS_Store",
+      "!**/.git",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/npm-debug.log"
     ],
+    "asarUnpack": [
+      "backend/node_modules/sqlite3/**/*",
+      "**/node_modules/sqlite3/**/*",
+      "backend/**/*"
+   ],
     "beforePack": "scripts/before-pack.js",
     "afterPack": "scripts/after-pack.js",
-    "asar": false,
+    "asar": true,
+    "electronVersion": "37.5.1",
     "icon": "resources/icon.png",
     "mac": {
       "icon": "resources/icon.icns",
@@ -80,7 +90,9 @@
       "target": [
         {
           "target": "dir",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64"
+          ]
         }
       ]
     },
@@ -104,7 +116,9 @@
       "target": [
         {
           "target": "dir",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     }
