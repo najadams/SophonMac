@@ -11,7 +11,6 @@ module.exports = {
       /^\/node_modules\/.pnpm/,
       /^\/\.git/,
       /^\/logs/,
-      /^\/dist/,
     ],
     extraResource: [
       "./frontend/dist",
