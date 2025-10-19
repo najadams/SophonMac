@@ -358,12 +358,13 @@ const MakeSales = ({
       });
 
 
-      if (!data) {
+      if (!data || typeof data  === 'string') {
         const errorMessage = typeof data === 'string' ? data : (data?.message || 'Failed to add product');
         throw new Error(errorMessage);
       }
 
       const addedProduct = data;
+      console.log(addedProduct)
       const acceptedProduct = {
         id: addedProduct.id,
         name: addedProduct.name,
@@ -642,6 +643,23 @@ const MakeSales = ({
                         form.setFieldValue(field.name, newValue || "");
                       }
                     }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Tab' && event.target.value) {
+                        const matchingOption = customerOptions.find(
+                          option => option.toLowerCase().includes(event.target.value.toLowerCase())
+                        );
+                        if (matchingOption) {
+                          form.setFieldValue(field.name, matchingOption);
+                          event.preventDefault();
+                          // Move focus to the next field after a short delay
+                          setTimeout(() => {
+                            event.target.blur();
+                            const nextField = event.target.form.elements[Array.from(event.target.form.elements).indexOf(event.target) + 1];
+                            if (nextField) nextField.focus();
+                          }, 10);
+                        }
+                      }
+                    }}
                     renderInput={(params) => (
                       <TextField
                         {...params}
@@ -750,6 +768,50 @@ const MakeSales = ({
                                     }
                                   }
                                 }}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Tab' && event.target.value) {
+                                    const inputValue = event.target.value.toLowerCase();
+                                    const matchingOption = productItems.find(
+                                      option => option.toLowerCase().includes(inputValue)
+                                    );
+                                    
+                                    if (matchingOption) {
+                                      form.setFieldValue(field.name, matchingOption);
+                                      
+                                      // Find the corresponding product data
+                                      const selectedProduct = productOptions.find(
+                                        (p) => p.name === matchingOption
+                                      );
+                                      
+                                      if (selectedProduct) {
+                                        setFieldValue(
+                                          `products.${index}.unit`,
+                                          selectedProduct.baseUnit
+                                        );
+                                        const newTotalPrice =
+                                          product.quantity *
+                                          selectedProduct.salesPrice;
+                                        setFieldValue(
+                                          `products.${index}.totalPrice`,
+                                          Math.ceil(newTotalPrice)
+                                        );
+                                        setFieldValue(
+                                          `products.${index}.price`,
+                                          selectedProduct.salesPrice || 0
+                                        );
+                                      }
+                                      
+                                      event.preventDefault();
+                                      // Move focus to the next field after a short delay
+                                      setTimeout(() => {
+                                        event.target.blur();
+                                        const nextField = event.target.form.elements[Array.from(event.target.form.elements).indexOf(event.target) + 1];
+                                        if (nextField) nextField.focus();
+                                      }, 10);
+                                    }
+                                  }
+                                }}
+                                      
                                 renderInput={(params) => (
                                   <TextField
                                     {...params}

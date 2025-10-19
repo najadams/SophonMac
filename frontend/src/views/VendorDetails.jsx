@@ -701,7 +701,7 @@ const VendorDetails = () => {
 
   if (!vendorId) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
         <StyledPaper>
           <Typography variant="h6" color="error">
             Vendor not found. Please go back and try again.
@@ -722,12 +722,12 @@ const VendorDetails = () => {
     <Container
       maxWidth="xl"
       sx={{ 
-        mt: 4, 
-        mb: 4, 
-        height: "calc(100vh - 100px)", 
+        mt: 0.5, 
+        mb: 1, 
+        height: "calc(100vh - 50px)", 
         overflow: "auto",
         background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
-        borderRadius: "24px",
+        borderRadius: "14px",
         padding: 3,
         position: "relative",
         "&::before": {
@@ -970,8 +970,9 @@ const VendorDetails = () => {
       {/* Enhanced Tabs Section */}
       <StyledPaper
         sx={{ 
-          mb: 4, 
-          maxHeight: "calc(100vh - 400px)", 
+          mb: 2, 
+          // maxHeight: "calc(100vh - 400px)", 
+          height: "auto",
           overflow: "auto",
           position: "relative",
           zIndex: 1,
@@ -1101,7 +1102,6 @@ const VendorDetails = () => {
               component={Paper}
               elevation={0}
               sx={{
-                maxHeight: "calc(100vh - 500px)",
                 overflow: "auto",
                 borderRadius: "16px",
                 background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",

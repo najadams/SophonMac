@@ -7,7 +7,7 @@ const getBackendURL = () => {
   
   if (isWebDeployment) {
     // In web deployment, use environment variable or default production URL
-    return process.env.REACT_APP_API_URL || 'https://your-backend-url.com';
+    return import.meta.env.VITE_API_URL || 'http://localhost:3003';
   }
   
   // In Electron app, use localhost

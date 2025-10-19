@@ -232,6 +232,7 @@ async function startFrontendServer() {
     if (app.isPackaged) {
       // Try multiple possible locations for packaged apps
       const possiblePaths = [
+        path.join(process.resourcesPath, 'app.asar.unpacked', 'frontend', 'dist'),
         path.join(process.resourcesPath, 'app.asar.unpacked', 'dist'),
         path.join(process.resourcesPath, 'app', 'frontend', 'dist'),
         path.join(process.resourcesPath, 'app', 'frontend-dist'),

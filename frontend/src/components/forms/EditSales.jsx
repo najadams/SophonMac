@@ -601,6 +601,26 @@ const EditSales = () => {
                         form.setFieldValue(field.name, newValue || "");
                       }
                     }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Tab' && event.target.value) {
+                        const inputValue = event.target.value.toLowerCase();
+                        const matchingOption = customerOptions.find(
+                          option => option.toLowerCase().includes(inputValue)
+                        );
+                        
+                        if (matchingOption) {
+                          form.setFieldValue(field.name, matchingOption);
+                          
+                          event.preventDefault();
+                          // Move focus to the next field after a short delay
+                          setTimeout(() => {
+                            event.target.blur();
+                            const nextField = event.target.form.elements[Array.from(event.target.form.elements).indexOf(event.target) + 1];
+                            if (nextField) nextField.focus();
+                          }, 10);
+                        }
+                      }
+                    }}
                     renderInput={(params) => (
                       <TextField
                         {...params}
@@ -706,6 +726,49 @@ const EditSales = () => {
                                           selectedProduct.salesPrice || 0
                                         );
                                       }
+                                    }
+                                  }
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Tab' && event.target.value) {
+                                    const inputValue = event.target.value.toLowerCase();
+                                    const matchingOption = productItems.find(
+                                      option => option.toLowerCase().includes(inputValue)
+                                    );
+                                    
+                                    if (matchingOption) {
+                                      form.setFieldValue(field.name, matchingOption);
+                                      
+                                      // Find the corresponding product data
+                                      const selectedProduct = productOptions.find(
+                                        (p) => p.name === matchingOption
+                                      );
+                                      
+                                      if (selectedProduct) {
+                                        setFieldValue(
+                                          `products.${index}.unit`,
+                                          selectedProduct.baseUnit
+                                        );
+                                        const newTotalPrice =
+                                          product.quantity *
+                                          selectedProduct.salesPrice;
+                                        setFieldValue(
+                                          `products.${index}.totalPrice`,
+                                          Math.ceil(newTotalPrice)
+                                        );
+                                        setFieldValue(
+                                          `products.${index}.price`,
+                                          selectedProduct.salesPrice || 0
+                                        );
+                                      }
+                                      
+                                      event.preventDefault();
+                                      // Move focus to the next field after a short delay
+                                      setTimeout(() => {
+                                        event.target.blur();
+                                        const nextField = event.target.form.elements[Array.from(event.target.form.elements).indexOf(event.target) + 1];
+                                        if (nextField) nextField.focus();
+                                      }, 10);
                                     }
                                   }
                                 }}

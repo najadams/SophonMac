@@ -42,7 +42,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "concurrently": "^8.0.1",
     "cross-env": "^7.0.3",
-    "electron": "^37.5.1",
+    "electron": "^37.7.0",
     "electron-builder": "^26.0.12",
     "electron-packager": "^17.1.2",
     "electron-rebuild": "^3.2.9",
@@ -57,7 +57,7 @@
       "output": "dist"
     },
     "files": [
-      "dist/**/*",
+      "frontend/dist/**/*",
       "main.js",
       "backend/**/*",
       "!backend/node_modules",
@@ -77,8 +77,9 @@
     "asarUnpack": [
       "backend/node_modules/sqlite3/**/*",
       "**/node_modules/sqlite3/**/*",
-      "backend/**/*"
-   ],
+      "backend/**/*",
+      "dist/**/*"
+    ],
     "beforePack": "scripts/before-pack.js",
     "afterPack": "scripts/after-pack.js",
     "asar": true,

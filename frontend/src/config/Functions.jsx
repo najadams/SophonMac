@@ -678,8 +678,12 @@ export const tableActions = {
         barcode,
         unitConversions: unitConversions || [],
       });
+      console.log(response)
       if (response.status === 201) {
         return response.data.data; // Return the product data
+      } else if (response.status === 400) {
+        console.log("already there")
+        throw new Error(response.data);
       }
     } catch (error) {
       return error.response?.data?.message || "An error occurred";
