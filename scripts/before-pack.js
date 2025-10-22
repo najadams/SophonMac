@@ -72,65 +72,8 @@ module.exports = async function (context) {
       }
     }
 
-    console.log("📦 Preparing backend node_modules for packaging...");
-
-    if (fs.existsSync(nodeModulesDir)) {
-      const backendModules = fs.readdirSync(nodeModulesDir);
-
-      for (const mod of backendModules) {
-        if (mod.startsWith(".")) continue;
-
-        const srcPath = path.join(nodeModulesDir, mod);
-        const destPath = path.join(mainNodeModulesDir, mod);
-
-        if (fs.existsSync(srcPath) && !fs.existsSync(destPath)) {
-          console.log(`   📁 Copying ${mod} to main node_modules...`);
-          copyRecursiveSync(srcPath, destPath);
-        }
-      }
-    }
-
-    console.log("✅ Backend dependencies copied successfully");
-
-    // Ensure critical modules are explicitly present in main node_modules
-    const ensureModules = [
-      "cors",
-      "express",
-      "sqlite3",
-      "socket.io",
-      "bcrypt",
-      "@supabase/supabase-js",
-      "object-assign",
-      "vary",
-      "bonjour",
-      "node-machine-id",
-      "ws",
-    ];
-
-    for (const mod of ensureModules) {
-      const srcPath = path.join(nodeModulesDir, mod);
-      const destPath = path.join(mainNodeModulesDir, mod);
-      if (fs.existsSync(srcPath)) {
-        if (!fs.existsSync(destPath)) {
-          console.log(`   🔁 Ensuring ${mod} exists in main node_modules...`);
-          copyRecursiveSync(srcPath, destPath);
-        }
-      } else {
-        console.warn(`   ⚠ ${mod} not found in backend node_modules`);
-      }
-    }
-
-    // Verify essential main dependencies
-    console.log("🧩 Verifying essential main dependencies...");
-    const mainDeps = ["express", "chromium-pickle-js"];
-    for (const dep of mainDeps) {
-      const depPath = path.join(mainNodeModulesDir, dep);
-      if (fs.existsSync(depPath)) {
-        console.log(`   ✓ ${dep} is available`);
-      } else {
-        console.log(`   ✗ ${dep} is missing`);
-      }
-    }
+    console.log("📦 Backend node_modules will be included directly in package");
+    console.log("✅ Backend dependencies are ready for packaging");
 
     console.log("🎯 before-pack script completed successfully!");
   } catch (error) {

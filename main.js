@@ -445,67 +445,24 @@ function startBackend() {
         DB_PATH: app.isPackaged ? path.join(app.getPath('userData'), 'database.sqlite') : undefined
       };
       
-      // For packaged apps, set NODE_PATH to include node_modules locations
+      // For packaged apps, set NODE_PATH to backend node_modules
       if (app.isPackaged) {
-        const possibleNodeModulesPaths = [
-          path.join(backendDir, 'node_modules'),
-          path.join(process.resourcesPath, 'backend', 'node_modules'),
-          path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'node_modules'),
-          path.join(process.resourcesPath, 'app', 'backend', 'node_modules'),
-          path.join(app.getAppPath(), 'backend', 'node_modules'),
-          path.join(app.getAppPath(), '..', 'backend', 'node_modules'),
-          // Windows specific paths
-          path.join(process.resourcesPath, '..', 'backend', 'node_modules'),
-          path.join(__dirname, 'backend', 'node_modules'),
-          // Main node_modules as fallback
-          path.join(process.resourcesPath, 'node_modules'),
-          path.join(app.getAppPath(), 'node_modules')
-        ];
+        // Primary path: backend/node_modules in unpacked asar
+        const backendNodeModules = path.join(backendDir, 'node_modules');
         
-        const validNodePaths = possibleNodeModulesPaths.filter(p => {
-          const exists = fs.existsSync(p);
-          logToFile('INFO', `Checking node_modules path ${p}: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
-          if (exists) {
-            // Also check if cors module specifically exists
-            const corsPath = path.join(p, 'cors');
-            const corsExists = fs.existsSync(corsPath);
-            logToFile('INFO', `  - cors module at ${corsPath}: ${corsExists ? 'EXISTS' : 'NOT FOUND'}`);
-          }
-          return exists;
-        });
-        
-        if (backendEnv.NODE_PATH) {
-          validNodePaths.push(backendEnv.NODE_PATH);
-        }
-        
-        if (validNodePaths.length > 0) {
-          backendEnv.NODE_PATH = validNodePaths.join(path.delimiter);
-          logToFile('INFO', `Setting NODE_PATH to: ${backendEnv.NODE_PATH}`);
+        if (fs.existsSync(backendNodeModules)) {
+          backendEnv.NODE_PATH = backendNodeModules;
+          logToFile('INFO', `Setting NODE_PATH to backend node_modules: ${backendNodeModules}`);
           
-          // Additional debugging - try to resolve cors module
-          for (const nodePath of validNodePaths) {
-            const corsPath = path.join(nodePath, 'cors');
-            if (fs.existsSync(corsPath)) {
-              logToFile('INFO', `CORS module confirmed at: ${corsPath}`);
-              const packageJsonPath = path.join(corsPath, 'package.json');
-              if (fs.existsSync(packageJsonPath)) {
-                try {
-                  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-                  logToFile('INFO', `CORS version: ${packageJson.version}`);
-                } catch (e) {
-                  logToFile('WARNING', `Could not read cors package.json: ${e.message}`);
-                }
-              }
-              break;
-            }
+          // Verify critical modules exist
+          const criticalModules = ['cors', 'express', 'sqlite3'];
+          for (const mod of criticalModules) {
+            const modPath = path.join(backendNodeModules, mod);
+            const exists = fs.existsSync(modPath);
+            logToFile('INFO', `  - ${mod}: ${exists ? 'EXISTS' : 'MISSING'}`);
           }
         } else {
-          logToFile('WARNING', 'No valid node_modules paths found for backend');
-        }
-        
-        // Also set NODE_MODULES_PATH for additional resolution
-        if (validNodePaths.length > 0) {
-          backendEnv.NODE_MODULES_PATH = validNodePaths[0];
+          logToFile('WARNING', `Backend node_modules not found at: ${backendNodeModules}`);
         }
       }
       
@@ -514,7 +471,14 @@ function startBackend() {
       // Use proper Node.js executable for packaged apps
       let nodeExecutable, spawnArgs;
       if (app.isPackaged) {
-        // In packaged apps, try to find system Node.js first, fallback to Electron
+        // Use Electron's bundled Node.js for true portability
+        nodeExecutable = process.execPath;
+        spawnArgs = [backendPath];
+        logToFile('INFO', 'Using Electron bundled Node.js for backend');
+        
+        // Optional: Try system Node.js as fallback if Electron fails
+        // This is commented out to ensure portability, but can be enabled if needed
+        /*
         const possibleNodePaths = process.platform === 'win32' ? [
           'node.exe',
           'node',
@@ -527,27 +491,18 @@ function startBackend() {
           'node'
         ];
         
-        nodeExecutable = null;
+        let systemNodeExecutable = null;
         for (const nodePath of possibleNodePaths) {
           try {
-            // Test if node executable exists and works
             require('child_process').execSync(`${nodePath} --version`, { stdio: 'ignore' });
-            nodeExecutable = nodePath;
-            logToFile('INFO', `Found working Node.js at: ${nodePath}`);
+            systemNodeExecutable = nodePath;
+            logToFile('INFO', `Found system Node.js at: ${nodePath}`);
             break;
           } catch (e) {
             // Continue to next path
           }
         }
-        
-        if (!nodeExecutable) {
-          // Fallback to using Electron with node arguments
-          nodeExecutable = process.execPath;
-          spawnArgs = ['--node-integration=false', '--', backendPath];
-          logToFile('INFO', 'Using Electron executable as Node.js fallback');
-        } else {
-          spawnArgs = [backendPath];
-        }
+        */
       } else {
         nodeExecutable = process.execPath;
         spawnArgs = [backendPath];
@@ -561,12 +516,10 @@ function startBackend() {
         stdio: ['inherit', 'pipe', 'pipe'],
         cwd: backendDir,
         env: backendEnv,
+        windowsHide: true, // Hide console window on Windows
       };
 
-      // For packaged apps using system node, add shell option
-      if (app.isPackaged && nodeExecutable !== process.execPath) {
-        spawnOptions.shell = true;
-      }
+      // No need for shell option since we're using Electron's bundled Node.js
 
       backendProcess = spawn(nodeExecutable, spawnArgs, spawnOptions);
 

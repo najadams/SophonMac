@@ -4,23 +4,18 @@
   "description": "Sophon - Advanced Business Management System",
   "main": "main.js",
   "scripts": {
-    "start": "electron-forge start",
+    "start": "electron .",
     "dev": "concurrently \"pnpm run dev:frontend\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "dev:frontend": "pnpm --filter sophon-frontend run dev",
-    "prebuild": "pnpm run build:frontend && pnpm run install:backend",
-    "build": "pnpm run prebuild && electron-builder",
-    "build:win": "pnpm run prebuild && npx electron-builder --win --publish=never --config.win.requestedExecutionLevel=asInvoker --config.win.verifyUpdateCodeSignature=false",
-    "build:win-simple": "pnpm run prebuild && electron-builder --win --publish=never --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true --config.win.requestedExecutionLevel=asInvoker",
-    "build:mac": "pnpm run prebuild && electron-builder --mac --publish=never",
-    "build:mac-arm64": "pnpm run prebuild && electron-builder --mac --arm64 --publish=never",
-    "package:win": "pnpm run build:frontend && electron-packager . --platform=win32 --arch=x64 --out=dist/win --overwrite --ignore=node_modules --ignore=frontend/node_modules --ignore=backend/node_modules --no-prune",
-    "build:frontend": "cd frontend && pnpm run build",
-    "install:backend": "pnpm --filter sophon-backend install --production",
-    "install:frontend": "pnpm --filter sophon-frontend install",
-    "install:all": "pnpm install && pnpm run install:backend && pnpm run install:frontend",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
+    "prebuild": "node scripts/prepare-build.js",
+    "build": "electron-builder",
+    "postbuild": "node scripts/verify-build.js",
+    "build:win": "pnpm run build -- --win --publish=never",
+    "build:mac": "pnpm run build -- --mac --publish=never",
+    "build:mac-arm64": "pnpm run build -- --mac --arm64 --publish=never",
+    "build:linux": "pnpm run build -- --linux --publish=never",
+    "clean": "rimraf dist out backend/node_modules",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Najm Adams",
   "license": "ISC",
@@ -30,23 +25,13 @@
     "express": "^4.18.2"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.8.2",
-    "@electron-forge/maker-deb": "^7.8.2",
-    "@electron-forge/maker-dmg": "^7.8.2",
-    "@electron-forge/maker-rpm": "^7.8.2",
-    "@electron-forge/maker-squirrel": "^7.8.2",
-    "@electron-forge/maker-zip": "^7.8.2",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.8.2",
-    "@electron-forge/plugin-fuses": "^7.8.2",
-    "@electron/fuses": "^2.0.0",
     "@vitejs/plugin-react": "^5.0.4",
     "concurrently": "^8.0.1",
     "cross-env": "^7.0.3",
     "electron": "^37.7.0",
     "electron-builder": "^26.0.12",
-    "electron-packager": "^17.1.2",
-    "electron-rebuild": "^3.2.9",
-    "electron-squirrel-startup": "^1.0.1",
+    "fs-extra": "^11.1.1",
+    "rimraf": "^5.0.5",
     "vite": "^7.1.9",
     "wait-on": "^8.0.3"
   },
@@ -57,10 +42,8 @@
       "output": "dist"
     },
     "files": [
-      "frontend/dist/**/*",
       "main.js",
       "backend/**/*",
-      "!backend/node_modules",
       "!backend/package-lock.json",
       "!backend/npm-debug.log*",
       "!backend/.DS_Store",
@@ -74,16 +57,22 @@
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/npm-debug.log"
     ],
+    "extraResources": [
+      {
+        "from": "frontend/dist",
+        "to": "frontend-dist",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
     "asarUnpack": [
-      "backend/node_modules/sqlite3/**/*",
-      "**/node_modules/sqlite3/**/*",
       "backend/**/*",
-      "dist/**/*"
+      "backend/node_modules/**/*"
     ],
     "beforePack": "scripts/before-pack.js",
     "afterPack": "scripts/after-pack.js",
-    "asar": true,
-    "electronVersion": "37.5.1",
     "icon": "resources/icon.png",
     "mac": {
       "icon": "resources/icon.icns",
@@ -92,12 +81,19 @@
         {
           "target": "dir",
           "arch": [
-            "arm64"
+            "arm64",
+            "x64"
           ]
         }
-      ]
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "win": {
+      "icon": "resources/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "verifyUpdateCodeSignature": false,
+      "signAndEditExecutable": false,
       "target": [
         {
           "target": "dir",
@@ -105,11 +101,7 @@
             "x64"
           ]
         }
-      ],
-      "icon": "resources/icon.png",
-      "requestedExecutionLevel": "asInvoker",
-      "verifyUpdateCodeSignature": false,
-      "signAndEditExecutable": false
+      ]
     },
     "linux": {
       "icon": "resources/icon.png",
