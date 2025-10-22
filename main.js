@@ -656,22 +656,32 @@ app.on("ready", async () => {
       createWindow();
       
       // Start backend in parallel
-      logToFile('INFO', 'Starting backend server...');
-      const backendPort = await startBackend();
-      logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
+      try {
+        logToFile('INFO', 'Starting backend server...');
+        const backendPort = await startBackend();
+        logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
+      } catch (backendError) {
+        logToFile('ERROR', 'Backend startup failed in development mode', backendError);
+      }
     } else {
-      // In production, start servers first, then create window
+      // In production, start frontend first, then create window regardless of backend status
       logToFile('INFO', 'Starting frontend server...');
       await startFrontendServer();
       logToFile('INFO', 'Frontend server startup completed');
 
-      // Start backend and wait for it to be ready
-      logToFile('INFO', 'Starting backend server...');
-      const backendPort = await startBackend();
-      logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
-
+      // Always create the window after frontend is ready
       logToFile('INFO', 'Creating main window...');
       createWindow();
+
+      // Start backend in parallel - don't block window creation
+      try {
+        logToFile('INFO', 'Starting backend server...');
+        const backendPort = await startBackend();
+        logToFile('INFO', `Backend server started and is listening on port ${backendPort}`);
+      } catch (backendError) {
+        logToFile('ERROR', 'Backend startup failed, but window will still be shown', backendError);
+        // Don't quit the app if backend fails - user can still see the frontend
+      }
     }
     
     logToFile('INFO', 'Application startup completed successfully');
@@ -679,14 +689,22 @@ app.on("ready", async () => {
   } catch (error) {
     logToFile('FATAL', 'Failed to start application', error);
     
+    // Even if there's an error, try to create the window for debugging
+    if (!mainWindow) {
+      try {
+        logToFile('INFO', 'Attempting to create window despite startup error');
+        createWindow();
+      } catch (windowError) {
+        logToFile('FATAL', 'Failed to create window', windowError);
+      }
+    }
+    
     // Show error dialog if possible
     if (app.isReady()) {
       const { dialog } = require('electron');
       dialog.showErrorBox('Startup Error', 
         `Failed to start Sophon application:\n\n${error.message}\n\nCheck logs at: ${logFile}`);
     }
-    
-    app.quit();
   }
 });
 
