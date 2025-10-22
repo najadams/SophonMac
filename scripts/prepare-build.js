@@ -93,4 +93,13 @@ if (!fs.existsSync(frontendDist)) {
   process.exit(1);
 }
 
+// 6. Stage frontend to top-level 'frontend-dist' for electron-builder files
+const stagedFrontend = path.join(__dirname, "..", "frontend-dist");
+console.log("📦 Staging frontend to:", stagedFrontend);
+if (fs.existsSync(stagedFrontend)) {
+  fs.removeSync(stagedFrontend);
+}
+fs.copySync(frontendDist, stagedFrontend);
+console.log("✅ Frontend staged\n");
+
 console.log("✅ Build preparation complete!\n");

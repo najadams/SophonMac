@@ -75,9 +75,28 @@ module.exports = async function (context) {
     console.log("📦 Backend node_modules will be included directly in package");
     console.log("✅ Backend dependencies are ready for packaging");
 
+    // Stage frontend to top-level frontend-dist for electron-builder 'files'
+    const frontendSrc = path.join(process.cwd(), "frontend", "dist");
+    const frontendDest = path.join(process.cwd(), "frontend-dist");
+
+    console.log("🎨 Staging frontend build...");
+    if (!fs.existsSync(frontendSrc)) {
+      console.error("❌ Frontend build not found at", frontendSrc);
+      console.error("   Ensure 'pnpm --filter sophon-frontend build' ran successfully.");
+      throw new Error("Missing frontend/dist");
+    }
+
+    if (fs.existsSync(frontendDest)) {
+      console.log("🧹 Cleaning existing frontend-dist...");
+      fs.rmSync(frontendDest, { recursive: true, force: true });
+    }
+
+    copyRecursiveSync(frontendSrc, frontendDest);
+    console.log("✅ Frontend staged to:", frontendDest);
+
     console.log("🎯 before-pack script completed successfully!");
   } catch (error) {
-    console.error("❌ Failed to prepare backend dependencies:", error);
+    console.error("❌ Failed to prepare dependencies:", error);
     throw error;
   }
 };

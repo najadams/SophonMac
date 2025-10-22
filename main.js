@@ -142,9 +142,23 @@ function createWindow() {
         loadURL = `http://localhost:${frontendPort}`;
       } else {
         // Fallback to file:// protocol if frontend server isn't ready
-        const frontendPath = app.isPackaged 
-          ? path.join(process.resourcesPath, 'app', 'frontend', 'dist')
-          : path.join(__dirname, 'frontend', 'dist');
+        let frontendPath;
+        if (app.isPackaged) {
+          const possiblePaths = [
+            path.join(process.resourcesPath, 'app.asar.unpacked', 'frontend-dist'),
+            path.join(process.resourcesPath, 'frontend-dist'),
+            path.join(process.resourcesPath, 'app.asar.unpacked', 'frontend', 'dist'),
+            path.join(app.getAppPath(), 'frontend', 'dist')
+          ];
+          for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+              frontendPath = p;
+              break;
+            }
+          }
+        } else {
+          frontendPath = path.join(__dirname, 'frontend', 'dist');
+        }
         loadURL = `file://${path.join(frontendPath, 'index.html')}`;
       }
     }
@@ -230,14 +244,17 @@ async function startFrontendServer() {
     let frontendPath;
     
     if (app.isPackaged) {
-      // Try multiple possible locations for packaged apps
+      // Standard locations for packaged apps
       const possiblePaths = [
-        path.join(process.resourcesPath, 'app.asar.unpacked', 'frontend', 'dist'),
-        path.join(process.resourcesPath, 'app.asar.unpacked', 'dist'),
-        path.join(process.resourcesPath, 'app', 'frontend', 'dist'),
+        // Non-ASAR: app directory contains frontend-dist
         path.join(process.resourcesPath, 'app', 'frontend-dist'),
-        path.join(app.getAppPath(), 'frontend', 'dist'),
-        path.join(app.getAppPath(), 'frontend-dist')
+        // Preferred: extraResources mapped to resources/frontend-dist
+        path.join(process.resourcesPath, 'frontend-dist'),
+        // Also check ASAR unpacked location
+        path.join(process.resourcesPath, 'app.asar.unpacked', 'frontend-dist'),
+        path.join(process.resourcesPath, 'app.asar.unpacked', 'frontend', 'dist'),
+        // Fallback: frontend/dist inside app asar bundle
+        path.join(app.getAppPath(), 'frontend', 'dist')
       ];
       
       for (const possiblePath of possiblePaths) {

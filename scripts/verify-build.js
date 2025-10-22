@@ -3,13 +3,31 @@ const fs = require("fs-extra");
 
 console.log("\n🔍 Verifying build output...\n");
 
-// Find the output directory
-const outDir = path.join(__dirname, "..", "out");
+// Resolve output directory with fallbacks
+const envOut =
+  process.env.BUILD_OUTPUT_DIR ||
+  process.env.OUTPUT_DIR ||
+  process.env.OUT_DIR;
 
-if (!fs.existsSync(outDir)) {
+const candidates = [
+  envOut ? path.resolve(envOut) : null,
+  path.join(__dirname, "..", "dist"),
+  path.join(__dirname, "..", "out"),
+].filter(Boolean);
+
+const outDir = candidates.find((p) => fs.existsSync(p));
+
+if (!outDir) {
   console.error("❌ Output directory not found!");
+  console.error(
+    `Checked: ${candidates
+      .map((p) => path.relative(path.join(__dirname, ".."), p))
+      .join(", ")}`
+  );
   process.exit(1);
 }
+
+console.log(`📂 Using output directory: ${outDir}`);
 
 // Find the latest build
 const makers = fs.readdirSync(outDir);
@@ -23,27 +41,49 @@ for (const maker of makers) {
 
   // Find app location based on platform
   let appResourcesPath;
+  let resourcesRoot;
 
-  if (maker.includes("darwin")) {
+  if (maker.includes("darwin") || maker === "mac" || maker.includes("mac")) {
     // macOS
     const appFiles = fs.readdirSync(makerDir).filter((f) => f.endsWith(".app"));
     if (appFiles.length > 0) {
-      appResourcesPath = path.join(
-        makerDir,
-        appFiles[0],
-        "Contents",
-        "Resources",
-        "app"
-      );
+      resourcesRoot = path.join(makerDir, appFiles[0], "Contents", "Resources");
+      appResourcesPath = path.join(resourcesRoot, "app");
+    } else {
+      // directory target (unpacked)
+      resourcesRoot = path.join(makerDir, "resources");
+      appResourcesPath = path.join(resourcesRoot, "app");
     }
   } else {
     // Windows/Linux
-    appResourcesPath = path.join(makerDir, "resources", "app");
+    resourcesRoot = path.join(makerDir, "resources");
+    appResourcesPath = path.join(resourcesRoot, "app");
   }
 
-  if (appResourcesPath && fs.existsSync(appResourcesPath)) {
+  if (resourcesRoot && fs.existsSync(resourcesRoot)) {
     foundApp = true;
+
+    const appAsarPath = path.join(resourcesRoot, "app.asar");
+    const appAsarUnpacked = path.join(resourcesRoot, "app.asar.unpacked");
+
+    // If appResourcesPath doesn't exist (packaged .app), try dir fallback
+    if (!fs.existsSync(appResourcesPath)) {
+      const fallbackResourcesRoot = path.join(makerDir, "resources");
+      const fallbackAppResources = path.join(fallbackResourcesRoot, "app");
+      if (fs.existsSync(fallbackAppResources)) {
+        console.log(`  ℹ️ Using unpacked resources: ${fallbackAppResources}`);
+        resourcesRoot = fallbackResourcesRoot;
+        appResourcesPath = fallbackAppResources;
+      }
+    }
+
     console.log(`  📁 App resources: ${appResourcesPath}`);
+    if (fs.existsSync(appAsarPath)) {
+      console.log(`  📦 Found app.asar: ${appAsarPath}`);
+    }
+    if (fs.existsSync(appAsarUnpacked)) {
+      console.log(`  📂 Found app.asar.unpacked: ${appAsarUnpacked}`);
+    }
 
     // Check backend
     const backendPath = path.join(appResourcesPath, "backend");
@@ -88,12 +128,45 @@ for (const maker of makers) {
       console.error("  ❌ Backend directory NOT FOUND");
     }
 
-    // Check frontend
-    const frontendDist = path.join(appResourcesPath, "frontend", "dist");
-    if (fs.existsSync(frontendDist)) {
-      console.log("  ✅ Frontend dist found");
+    // Check frontend in multiple standard locations
+    const frontendCandidates = [
+      // Electron Forge extraResource location
+      path.join(resourcesRoot, "frontend", "dist"),
+      // If frontend was bundled into the app folder
+      path.join(appResourcesPath, "frontend", "dist"),
+      // Electron Builder custom folder included via files
+      path.join(resourcesRoot, "frontend-dist"),
+      path.join(appResourcesPath, "frontend-dist"),
+      // Additional generic locations requested
+      path.join(resourcesRoot, "dist"),
+      path.join(resourcesRoot, "app", "dist"),
+      path.join(appResourcesPath, "dist"),
+      // ASAR unpacked locations (when using asarUnpack)
+      path.join(appAsarUnpacked, "frontend", "dist"),
+      path.join(appAsarUnpacked, "frontend-dist"),
+      path.join(appAsarUnpacked, "dist"),
+    ].filter(Boolean);
+
+    const frontendPath = frontendCandidates.find((p) => p && fs.existsSync(p));
+
+    if (frontendPath) {
+      console.log(`  ✅ Frontend found at: ${frontendPath}`);
     } else {
       console.error("  ❌ Frontend dist NOT FOUND");
+      console.error(
+        `    Checked: ${frontendCandidates
+          .map((p) => (p ? p.replace(resourcesRoot + path.sep, "") : ""))
+          .filter(Boolean)
+          .join(", ")}`
+      );
+      if (fs.existsSync(appAsarPath)) {
+        console.error(
+          "    Note: app.asar is present; frontend may be inside the ASAR archive."
+        );
+        console.error(
+          "    Consider adding 'frontend-dist/**' to asarUnpack or update verifier to read ASAR."
+        );
+      }
     }
 
     console.log();

@@ -44,6 +44,7 @@
     "files": [
       "main.js",
       "backend/**/*",
+      "frontend-dist/**/*",
       "!backend/package-lock.json",
       "!backend/npm-debug.log*",
       "!backend/.DS_Store",
@@ -57,19 +58,14 @@
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/npm-debug.log"
     ],
-    "extraResources": [
-      {
-        "from": "frontend/dist",
-        "to": "frontend-dist",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
-    "asar": true,
+    "asar": false,
     "asarUnpack": [
-      "backend/**/*",
-      "backend/node_modules/**/*"
+      "**/*.node",
+      "backend/node_modules/sqlite3/**",
+      "backend/node_modules/bcrypt/**",
+      "backend/**/*.js",
+      "backend/**/*.json",
+      "frontend-dist/**"
     ],
     "beforePack": "scripts/before-pack.js",
     "afterPack": "scripts/after-pack.js",
