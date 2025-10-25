@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/authMiddleware');
-const db = require('../data/db/db');
+
+// Lazy-load DB; allow running without sqlite3
+let db = null;
+try {
+  db = require('../data/db/db');
+} catch (e) {
+  console.warn('networkRoutes: DB unavailable, running in network-only mode');
+}
 
 // Get machine IP address
 router.get('/machine-ip', verifyToken, (req, res) => {
@@ -132,8 +139,10 @@ router.post('/scan', verifyToken, (req, res) => {
 
 // Get network configuration
 router.get('/config', verifyToken, (req, res) => {
+  if (!db) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
   const { companyId } = req.user;
-  
   db.get(
     'SELECT * FROM NetworkConfig WHERE companyId = ?',
     [companyId],
@@ -142,9 +151,7 @@ router.get('/config', verifyToken, (req, res) => {
         console.error('Error getting network config:', err);
         return res.status(500).json({ error: 'Failed to get network configuration' });
       }
-      
       if (!row) {
-        // Return default configuration
         return res.json({
           success: true,
           data: {
@@ -155,7 +162,6 @@ router.get('/config', verifyToken, (req, res) => {
           }
         });
       }
-      
       res.json({
         success: true,
         data: {
@@ -169,25 +175,23 @@ router.get('/config', verifyToken, (req, res) => {
 
 // Update network configuration
 router.put('/config', verifyToken, async (req, res) => {
+  if (!db) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
   try {
     const { companyId } = req.user;
     const { autoDiscovery, autoSync, masterElection, conflictResolution } = req.body;
-    
     const networkManager = req.app.get('networkManager');
-    
     if (!networkManager) {
       return res.status(503).json({ error: 'Network manager not available' });
     }
-    
     const newConfig = {
       autoDiscovery: autoDiscovery !== undefined ? autoDiscovery : true,
       autoSync: autoSync !== undefined ? autoSync : true,
       masterElection: masterElection !== undefined ? masterElection : true,
       conflictResolution: conflictResolution || 'last-write-wins'
     };
-    
     const success = await networkManager.updateNetworkConfig(newConfig);
-    
     if (success) {
       res.json({
         success: true,

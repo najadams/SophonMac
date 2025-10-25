@@ -6,7 +6,7 @@
 module.exports = {
   // Server Configuration
   server: {
-    port: process.env.PORT || 3003,
+    port: process.env.PORT || 80,
     host: '0.0.0.0', // Listen on all interfaces for LAN access
     maxConnections: 100,
     timeout: 30000, // 30 seconds
@@ -16,7 +16,7 @@ module.exports = {
   discovery: {
     serviceName: 'sophon-pos',
     serviceType: 'http',
-    port: process.env.PORT || 3003,
+    port: process.env.PORT || 80,
     // Announce interval in milliseconds
     announceInterval: 5000,
     // Discovery timeout

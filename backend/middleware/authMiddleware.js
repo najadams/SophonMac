@@ -1,5 +1,13 @@
 const jwt = require('jsonwebtoken');
-const db = require('../data/db/db');
+
+// Lazy load db to prevent sqlite3 from loading at startup
+let db = null;
+function getDb() {
+  if (!db) {
+    db = require('../data/db/db');
+  }
+  return db;
+}
 
 // Secret key for JWT - in production, store this in environment variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-should-be-in-env-variables';

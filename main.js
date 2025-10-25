@@ -454,13 +454,20 @@ function startBackend() {
       // Environment variables for backend
       const backendEnv = {
         ...process.env,
-        PORT: '3003',
+        PORT: '3021',
         NODE_ENV: process.env.NODE_ENV,
         // Ensure backend has proper paths
         BACKEND_DIR: backendDir,
         // Pass database path for packaged apps
-        DB_PATH: app.isPackaged ? path.join(app.getPath('userData'), 'database.sqlite') : undefined
+        DB_PATH: app.isPackaged ? path.join(app.getPath('userData'), 'database.sqlite') : undefined,
+        // Mark this as a backend process to prevent single instance lock
+        IS_BACKEND_PROCESS: 'true'
       };
+      
+      // Ensure Electron executable runs in pure Node mode for backend
+      if (app.isPackaged) {
+        backendEnv.ELECTRON_RUN_AS_NODE = '1';
+      }
       
       // For packaged apps, set NODE_PATH to backend node_modules
       if (app.isPackaged) {
@@ -488,38 +495,244 @@ function startBackend() {
       // Use proper Node.js executable for packaged apps
       let nodeExecutable, spawnArgs;
       if (app.isPackaged) {
-        // Use Electron's bundled Node.js for true portability
-        nodeExecutable = process.execPath;
-        spawnArgs = [backendPath];
-        logToFile('INFO', 'Using Electron bundled Node.js for backend');
+        // For packaged apps, use Electron executable but with proper isolation
+        // This ensures native modules work correctly while still isolating the backend
         
-        // Optional: Try system Node.js as fallback if Electron fails
-        // This is commented out to ensure portability, but can be enabled if needed
-        /*
-        const possibleNodePaths = process.platform === 'win32' ? [
-          'node.exe',
-          'node',
-          path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'node.exe'),
-          path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'nodejs', 'node.exe')
-        ] : [
-          '/usr/local/bin/node',
-          '/opt/homebrew/bin/node',
-          '/usr/bin/node',
-          'node'
-        ];
-        
-        let systemNodeExecutable = null;
-        for (const nodePath of possibleNodePaths) {
-          try {
-            require('child_process').execSync(`${nodePath} --version`, { stdio: 'ignore' });
-            systemNodeExecutable = nodePath;
-            logToFile('INFO', `Found system Node.js at: ${nodePath}`);
-            break;
-          } catch (e) {
-            // Continue to next path
+        // Create a completely standalone backend script that doesn't require backend/index.js
+        const standaloneScript = `
+// Standalone backend script - completely isolated from Electron
+// This script runs the backend server independently without any Electron dependencies
+
+console.log('[STANDALONE] Starting completely isolated backend process');
+console.log('[STANDALONE] Process versions:', JSON.stringify(process.versions, null, 2));
+
+// Completely remove any Electron context and prevent access
+delete process.versions.electron;
+delete process.versions.chrome;
+delete process.resourcesPath;
+if (global.process) {
+  delete global.process.versions.electron;
+  delete global.process.versions.chrome;
+  delete global.process.resourcesPath;
+}
+
+// Override require to prevent any Electron module loading
+const Module = require('module');
+const originalRequire = Module.prototype.require;
+Module.prototype.require = function(id) {
+  if (id === 'electron') {
+    throw new Error('Electron not available in standalone backend process');
+  }
+  return originalRequire.apply(this, arguments);
+};
+
+// Set up the backend environment variables
+process.env.NODE_ENV = 'production';
+process.env.BACKEND_DIR = '${backendDir}';
+process.env.IS_BACKEND_PROCESS = 'true';
+process.env.SKIP_SINGLE_INSTANCE_LOCK = 'true';
+process.env.PORT = '3021';
+process.env.DB_PATH = require('path').join(require('os').homedir(), 'Library', 'Application Support', 'Sophon', 'database.sqlite');
+
+// Change to backend directory
+process.chdir('${backendDir}');
+
+console.log('[STANDALONE] Backend directory:', process.env.BACKEND_DIR);
+console.log('[STANDALONE] Database path:', process.env.DB_PATH);
+console.log('[STANDALONE] Port:', process.env.PORT);
+
+// Load required modules
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const http = require('http');
+
+// Load backend utilities and routes
+const dbUtils = require('./utils/dbUtils');
+const migrationUtils = require('./utils/migrationUtils');
+
+// Import all routes
+const companyRoutes = require('./routes/companyRoutes');
+const workerRoutes = require('./routes/workerRoutes');
+const inventoryRoutes = require('./routes/inventoryRoutes');
+const customerRoutes = require('./routes/customerRoutes');
+const vendorRoutes = require('./routes/vendorRoutes');
+const receiptRoutes = require('./routes/receiptRoutes');
+const debtRoutes = require('./routes/debtRoutes');
+const purchaseOrderRoutes = require('./routes/purchaseOrderRoutes');
+const authRoutes = require('./routes/authRoutes');
+const supplyRoutes = require('./routes/supplyRoutes');
+const transactionRoutes = require('./routes/transactionRoutes');
+const vendorPaymentRoutes = require('./routes/vendorPaymentRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const networkRoutes = require('./routes/networkRoutes');
+const syncRoutes = require('./routes/syncRoutes');
+
+// Import services
+const NetworkManager = require('./services/networkManager');
+const db = require('./data/db/db');
+const networkConfig = require('./config/network.config');
+
+// Create Express app
+const app = express();
+const PORT = parseInt(process.env.PORT) || 80;
+
+console.log('[STANDALONE] Configuring Express server on port:', PORT);
+
+// Configure middleware
+app.use(cors({
+  origin: true, // Allow all origins for network access
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Configure static files
+const publicPath = path.join(process.env.BACKEND_DIR, 'public');
+app.use(express.static(publicPath));
+
+console.log('[STANDALONE] Setting up API routes');
+
+// Configure all API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/workers', workerRoutes);
+app.use('/api/products', inventoryRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/vendors', vendorRoutes);
+app.use('/api/receipts', receiptRoutes);
+app.use('/api/debts', debtRoutes);
+app.use('/api/supplies', supplyRoutes);
+app.use('/api/purchase-orders', purchaseOrderRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/vendor-payments', vendorPaymentRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/network', networkRoutes);
+app.use('/api/sync', syncRoutes);
+
+// Health check route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Sophon Backend API is running', 
+    version: '1.0.0',
+    mode: 'standalone',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Start the standalone backend server
+(async () => {
+  try {
+    console.log('[STANDALONE] Initializing database...');
+    await dbUtils.initializeDatabase();
+    console.log('[STANDALONE] Database initialized successfully');
+
+    console.log('[STANDALONE] Running database migrations...');
+    await migrationUtils.runMigrations();
+    console.log('[STANDALONE] Database migrations completed');
+
+    console.log('[STANDALONE] Creating HTTP server...');
+    const server = http.createServer(app);
+    
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(\`[STANDALONE] Backend server is running on port \${PORT}\`);
+      console.log(\`[STANDALONE] Server accessible at http://localhost:\${PORT}\`);
+      console.log(\`Backend ready on port \${PORT}\`); // Signal for main process
+      
+      // Initialize network manager for discovery
+      try {
+        const networkManager = new NetworkManager();
+        networkManager.startDiscovery();
+        console.log('[STANDALONE] Network manager initialized');
+      } catch (networkError) {
+        console.warn('[STANDALONE] Network manager initialization failed:', networkError.message);
+      }
+      
+      console.log('[STANDALONE] Backend initialization complete');
+    });
+
+    server.on('error', (error) => {
+      console.error('[STANDALONE] Server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(\`[STANDALONE] Port \${PORT} is already in use. Please choose a different port.\`);
+      }
+      process.exit(1);
+    });
+
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('[STANDALONE] Received SIGTERM, shutting down gracefully');
+      server.close(() => {
+        console.log('[STANDALONE] Server closed');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', () => {
+      console.log('[STANDALONE] Received SIGINT, shutting down gracefully');
+      server.close(() => {
+        console.log('[STANDALONE] Server closed');
+        process.exit(0);
+      });
+    });
+
+  } catch (error) {
+    console.error('[STANDALONE] Failed to start backend server:', error);
+    process.exit(1);
+  }
+})();
+`;
+      
+      const standaloneScriptPath = path.join(backendDir, 'standalone-backend.js');
+      fs.writeFileSync(standaloneScriptPath, standaloneScript);
+      
+      // Load backend directly in main process using Electron's Node to avoid second instance and bindings issues
+      try {
+        // Apply backend environment to current process
+        Object.assign(process.env, backendEnv);
+        logToFile('INFO', 'Loading backend directly in main process');
+        require(backendPath);
+      } catch (e) {
+        logToFile('ERROR', 'Failed to load backend directly', e);
+        reject(e);
+        return;
+      }
+
+      // Poll backend port until it is ready
+      const expectedPort = parseInt(backendEnv.PORT, 10) || 3021;
+      const deadline = Date.now() + 30000; // 30s
+      const tryPing = () => {
+        try {
+          http.get(`http://localhost:${expectedPort}/`, (res) => {
+            if (res.statusCode === 200) {
+              backendReady = true;
+              logToFile('INFO', `Backend is ready and listening on port ${expectedPort}`);
+              resolve(expectedPort);
+            } else {
+              if (Date.now() < deadline) setTimeout(tryPing, 500); else {
+                logToFile('ERROR', 'Backend readiness check timed out');
+                reject(new Error('Backend startup timeout'));
+              }
+            }
+          }).on('error', () => {
+            if (Date.now() < deadline) setTimeout(tryPing, 500); else {
+              logToFile('ERROR', 'Backend readiness check timed out (connection refused)');
+              reject(new Error('Backend startup timeout'));
+            }
+          });
+        } catch (err) {
+          if (Date.now() < deadline) setTimeout(tryPing, 500); else {
+            logToFile('ERROR', 'Backend readiness check failed', err);
+            reject(new Error('Backend startup timeout'));
           }
         }
-        */
+      };
+      tryPing();
+      return;
       } else {
         nodeExecutable = process.execPath;
         spawnArgs = [backendPath];

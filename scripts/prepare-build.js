@@ -25,7 +25,7 @@ console.log("🔍 Verifying critical modules...");
 const criticalModules = [
   "cors",
   "express",
-  "sqlite3",
+  "better-sqlite3",
   "socket.io",
   "bcrypt",
   "jsonwebtoken",
@@ -52,25 +52,32 @@ if (!allPresent) {
   process.exit(1);
 }
 
-// 3. Rebuild native modules for current platform
-console.log("\n🔧 Rebuilding native modules...");
+// 3. Rebuild native modules for current platform (Electron ABI)
+console.log("\n🔧 Rebuilding native modules for Electron...");
 try {
-  // Rebuild sqlite3
-  execSync("pnpm rebuild sqlite3 --build-from-source", {
+  // Use electron-rebuild to align native modules with Electron's Node version
+  execSync("pnpm exec electron-rebuild -f -w better-sqlite3 bcrypt", {
     cwd: backendDir,
     stdio: "inherit",
   });
-
-  // Rebuild bcrypt
-  execSync("pnpm rebuild bcrypt --build-from-source", {
-    cwd: backendDir,
-    stdio: "inherit",
-  });
-
-  console.log("✅ Native modules rebuilt\n");
+  console.log("✅ Electron-native modules rebuilt\n");
 } catch (error) {
-  console.warn("⚠️  Warning: Failed to rebuild some native modules");
-  console.warn("   This might cause issues on the target platform");
+  console.warn("⚠️  Warning: electron-rebuild failed for some native modules");
+  console.warn("   This might cause issues on the target platform:", error.message);
+  // Fallback: attempt plain rebuild from source to at least produce binaries
+  try {
+    execSync("pnpm rebuild better-sqlite3 --build-from-source", {
+      cwd: backendDir,
+      stdio: "inherit",
+    });
+    execSync("pnpm rebuild bcrypt --build-from-source", {
+      cwd: backendDir,
+      stdio: "inherit",
+    });
+    console.log("✅ Fallback native rebuild completed\n");
+  } catch (fallbackError) {
+    console.warn("⚠️  Fallback native rebuild also failed:", fallbackError.message);
+  }
 }
 
 // 4. Build frontend

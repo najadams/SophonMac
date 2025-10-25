@@ -1,11 +1,19 @@
 const fs = require('fs');
 const path = require('path');
-const db = require('../data/db/db');
+
+// Lazy load db to prevent sqlite3 from loading at startup
+let db = null;
+function getDb() {
+  if (!db) {
+    db = require('../data/db/db');
+  }
+  return db;
+}
 
 // Check if a column exists in a table
 const columnExists = (tableName, columnName) => {
   return new Promise((resolve, reject) => {
-    db.all(`PRAGMA table_info(${tableName})`, (err, columns) => {
+    getDb().all(`PRAGMA table_info(${tableName})`, (err, columns) => {
       if (err) {
         reject(err);
       } else {
@@ -31,7 +39,7 @@ const runReceiptDetailMigration = async () => {
       
       // Execute the entire SQL file at once to handle complex statements
       await new Promise((resolve, reject) => {
-        db.exec(migrationSQL, (err) => {
+        getDb().exec(migrationSQL, (err) => {
           if (err) {
             reject(err);
           } else {
@@ -56,7 +64,7 @@ const runNetworkingMigrations = async () => {
   try {
     // Check if NetworkConfig table exists
     const tableExists = await new Promise((resolve, reject) => {
-      db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='NetworkConfig'", (err, row) => {
+      getDb().get("SELECT name FROM sqlite_master WHERE type='table' AND name='NetworkConfig'", (err, row) => {
         if (err) {
           reject(err);
         } else {
@@ -74,14 +82,14 @@ const runNetworkingMigrations = async () => {
       
       // Execute the entire SQL file at once to handle complex statements
       await new Promise((resolve, reject) => {
-        db.exec(migrationSQL, (err) => {
+        getDb().exec(migrationSQL, (err) => {
           if (err) {
             reject(err);
           } else {
             resolve();
           }
         });
-      })
+      });
       
       console.log('Networking migrations completed successfully!');
     } else {
@@ -98,7 +106,7 @@ const runCustomRolesMigration = async () => {
   try {
     // Check if CustomRoles table exists
     const tableExists = await new Promise((resolve, reject) => {
-      db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='CustomRoles'", (err, row) => {
+      getDb().get("SELECT name FROM sqlite_master WHERE type='table' AND name='CustomRoles'", (err, row) => {
         if (err) {
           reject(err);
         } else {
@@ -116,14 +124,14 @@ const runCustomRolesMigration = async () => {
       
       // Execute the entire SQL file at once to handle complex statements
       await new Promise((resolve, reject) => {
-        db.exec(migrationSQL, (err) => {
+        getDb().exec(migrationSQL, (err) => {
           if (err) {
             reject(err);
           } else {
             resolve();
           }
         });
-      })
+      });
       
       console.log('CustomRoles table migration completed successfully!');
     } else {

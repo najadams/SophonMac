@@ -27,9 +27,9 @@ function copyModuleWithDependencies(moduleName, srcNodeModules, destNodeModules,
   let srcPath = path.join(srcNodeModules, moduleName);
   const destPath = path.join(destNodeModules, moduleName);
   
-  // If not found in regular node_modules, try pnpm store
+  // If not found in provided node_modules, try pnpm store layout under srcNodeModules/.pnpm
   if (!fs.existsSync(srcPath)) {
-    const pnpmStorePath = path.join(process.cwd(), 'node_modules', '.pnpm');
+    const pnpmStorePath = path.join(srcNodeModules, '.pnpm');
     if (fs.existsSync(pnpmStorePath)) {
       try {
         const pnpmDirs = fs.readdirSync(pnpmStorePath);
@@ -49,7 +49,7 @@ function copyModuleWithDependencies(moduleName, srcNodeModules, destNodeModules,
   }
   
   if (!fs.existsSync(srcPath)) {
-    console.warn(`⚠ Module ${moduleName} not found in source`);
+    console.warn(`⚠ Module ${moduleName} not found in source at ${srcNodeModules}`);
     return;
   }
   
@@ -90,14 +90,16 @@ module.exports = async function(context) {
   const backendDir = path.join(appResourcesDir, 'backend');
   const backendNodeModulesDir = path.join(backendDir, 'node_modules');
   
-  // Source paths from the main project
+  // Source paths from the project
   const mainNodeModulesDir = path.join(process.cwd(), 'node_modules');
+  const sourceBackendNodeModulesDir = path.join(process.cwd(), 'backend', 'node_modules');
   
   console.log('App resources dir:', appResourcesDir);
   console.log('App node_modules dir:', appNodeModulesDir);
   console.log('Backend dir:', backendDir);
   console.log('Backend node_modules dir:', backendNodeModulesDir);
   console.log('Main node_modules dir:', mainNodeModulesDir);
+  console.log('Source backend node_modules dir:', sourceBackendNodeModulesDir);
   
   // Ensure the app node_modules directory exists
   if (!fs.existsSync(appNodeModulesDir)) {
@@ -109,17 +111,17 @@ module.exports = async function(context) {
     fs.mkdirSync(backendNodeModulesDir, { recursive: true });
   }
   
-  // Copy critical modules to the built app
-  const criticalModules = ['cors', 'express', 'sqlite3', 'socket.io', 'bcrypt', 'jsonwebtoken', 'bonjour', 'node-machine-id'];
+  // Copy critical modules to the built app (prefer backend node_modules as source)
+  const criticalModules = ['cors', 'express', 'better-sqlite3', 'socket.io', 'bcrypt', 'jsonwebtoken', 'bonjour', 'node-machine-id'];
   
   for (const module of criticalModules) {
     console.log(`Copying ${module} with dependencies to built app...`);
     
-    // Copy to main node_modules with dependencies
-    copyModuleWithDependencies(module, mainNodeModulesDir, appNodeModulesDir);
+    // First try from backend node_modules
+    copyModuleWithDependencies(module, sourceBackendNodeModulesDir, backendNodeModulesDir);
     
-    // Copy to backend node_modules with dependencies
-    copyModuleWithDependencies(module, mainNodeModulesDir, backendNodeModulesDir);
+    // Also mirror into main app node_modules for any shared require paths
+    copyModuleWithDependencies(module, sourceBackendNodeModulesDir, appNodeModulesDir);
   }
   
   // Verify the modules are now present
@@ -141,30 +143,82 @@ module.exports = async function(context) {
     }
   }
   
-  // Special handling for sqlite3 native binaries
-  console.log('Ensuring sqlite3 native binaries are properly copied...');
-  const sqlite3MainPath = path.join(appNodeModulesDir, 'sqlite3');
-  const sqlite3BackendPath = path.join(backendNodeModulesDir, 'sqlite3');
-  const sqlite3SourcePath = path.join(mainNodeModulesDir, 'sqlite3');
-  
-  // Copy the entire sqlite3 build directory to ensure native binaries are included
-  if (fs.existsSync(sqlite3SourcePath)) {
-    const buildSourcePath = path.join(sqlite3SourcePath, 'build');
+  // Special handling for better-sqlite3 native binaries
+  console.log('Ensuring better-sqlite3 native binaries are properly copied...');
+  const bsqlSourceCandidatePaths = [
+    path.join(sourceBackendNodeModulesDir, 'better-sqlite3'),
+    path.join(mainNodeModulesDir, 'better-sqlite3'),
+  ];
+  let bsqlSourcePath = null;
+  // Prefer a candidate that actually has a built Release binary
+  for (const candidate of bsqlSourceCandidatePaths) {
+    const releasePath = path.join(candidate, 'build', 'Release', 'better_sqlite3.node');
+    if (fs.existsSync(releasePath)) {
+      bsqlSourcePath = candidate;
+      break;
+    }
+  }
+  // If none contain a Release binary, prefer main node_modules if it exists
+  if (!bsqlSourcePath && fs.existsSync(bsqlSourceCandidatePaths[1])) {
+    bsqlSourcePath = bsqlSourceCandidatePaths[1];
+  } else if (!bsqlSourcePath && fs.existsSync(bsqlSourceCandidatePaths[0])) {
+    bsqlSourcePath = bsqlSourceCandidatePaths[0];
+  }
+
+  const bsqlMainPath = path.join(appNodeModulesDir, 'better-sqlite3');
+  const bsqlBackendPath = path.join(backendNodeModulesDir, 'better-sqlite3');
+
+  const resolveModulePath = (p) => {
+    try {
+      const stat = fs.lstatSync(p);
+      if (stat.isSymbolicLink()) {
+        const linkTarget = fs.readlinkSync(p);
+        const resolved = path.resolve(path.dirname(p), linkTarget);
+        console.log(`Resolved symlink for ${p} -> ${resolved}`);
+        return resolved;
+      }
+    } catch (_) {}
+    return p;
+  };
+
+  const bsqlMainRealPath = resolveModulePath(bsqlMainPath);
+  const bsqlBackendRealPath = resolveModulePath(bsqlBackendPath);
+
+  if (bsqlSourcePath && fs.existsSync(bsqlSourcePath)) {
+    const buildSourcePath = path.join(bsqlSourcePath, 'build');
     if (fs.existsSync(buildSourcePath)) {
-      // Copy to main node_modules
-      const buildMainPath = path.join(sqlite3MainPath, 'build');
+      // Copy to main node_modules (resolved symlink)
+      const buildMainPath = path.join(bsqlMainRealPath, 'build');
       if (!fs.existsSync(buildMainPath)) {
-        console.log('Copying sqlite3 build directory to main node_modules...');
+        console.log('Copying better-sqlite3 build directory to main node_modules (resolved)...');
         copyRecursiveSync(buildSourcePath, buildMainPath);
       }
-      
-      // Copy to backend node_modules
-      const buildBackendPath = path.join(sqlite3BackendPath, 'build');
+
+      // Copy to backend node_modules (resolved symlink)
+      const buildBackendPath = path.join(bsqlBackendRealPath, 'build');
       if (!fs.existsSync(buildBackendPath)) {
-        console.log('Copying sqlite3 build directory to backend node_modules...');
+        console.log('Copying better-sqlite3 build directory to backend node_modules (resolved)...');
         copyRecursiveSync(buildSourcePath, buildBackendPath);
       }
+
+      // Ensure Release/better_sqlite3.node is present by explicitly copying/overwriting
+      const releaseSourcePath = path.join(buildSourcePath, 'Release', 'better_sqlite3.node');
+      if (fs.existsSync(releaseSourcePath)) {
+        const releaseMainDir = path.join(buildMainPath, 'Release');
+        const releaseBackendDir = path.join(buildBackendPath, 'Release');
+        fs.mkdirSync(releaseMainDir, { recursive: true });
+        fs.mkdirSync(releaseBackendDir, { recursive: true });
+        console.log('Copying better-sqlite3 Release binary to main and backend node_modules (resolved)...');
+        fs.copyFileSync(releaseSourcePath, path.join(releaseMainDir, 'better_sqlite3.node'));
+        fs.copyFileSync(releaseSourcePath, path.join(releaseBackendDir, 'better_sqlite3.node'));
+      } else {
+        console.warn('better-sqlite3 build/Release/better_sqlite3.node not found in source');
+      }
+    } else {
+      console.warn('better-sqlite3 build directory not found in source path');
     }
+  } else {
+    console.warn('better-sqlite3 module not found in source node_modules (backend or main).');
   }
   
   console.log('After-pack script completed.');

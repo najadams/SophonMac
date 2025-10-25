@@ -1,6 +1,6 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const db = require('../data/db/db');
 
 const router = express.Router();
 const dbPath = path.join(__dirname, '..', 'database.db');
@@ -8,7 +8,6 @@ const dbPath = path.join(__dirname, '..', 'database.db');
 // Get all notifications for a company
 router.get('/:companyId', (req, res) => {
     const { companyId } = req.params;
-    const db = new sqlite3.Database(dbPath);
     
     const query = `
         SELECT id, message, status, createdAt, updatedAt 
@@ -25,8 +24,6 @@ router.get('/:companyId', (req, res) => {
         
         res.json(notifications);
     });
-    
-    db.close();
 });
 
 // Create a new notification
@@ -36,8 +33,6 @@ router.post('/', (req, res) => {
     if (!companyId || !message) {
         return res.status(400).json({ error: 'Company ID and message are required' });
     }
-    
-    const db = new sqlite3.Database(dbPath);
     
     const query = `
         INSERT INTO Notification (companyId, message, status, createdAt, updatedAt)
@@ -59,14 +54,11 @@ router.post('/', (req, res) => {
             updatedAt: new Date().toISOString()
         });
     });
-    
-    db.close();
 });
 
 // Mark notification as read
 router.patch('/:id/read', (req, res) => {
     const { id } = req.params;
-    const db = new sqlite3.Database(dbPath);
     
     const query = `
         UPDATE Notification 
@@ -86,14 +78,11 @@ router.patch('/:id/read', (req, res) => {
         
         res.json({ message: 'Notification marked as read' });
     });
-    
-    db.close();
 });
 
 // Delete a notification
 router.delete('/:id', (req, res) => {
     const { id } = req.params;
-    const db = new sqlite3.Database(dbPath);
     
     const query = 'DELETE FROM Notification WHERE id = ?';
     
@@ -109,8 +98,6 @@ router.delete('/:id', (req, res) => {
         
         res.json({ message: 'Notification deleted successfully' });
     });
-    
-    db.close();
 });
 
 module.exports = router;

@@ -1,94 +1,149 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const os = require('os');
 const fs = require('fs');
 
-// Handle database path for both development and packaged environments
-let dbPath;
+let dbInstance = null;
+let connection = null;
 
-// Use environment variable if provided (from main process)
-if (process.env.DB_PATH) {
-  dbPath = process.env.DB_PATH;
-  
-  // Ensure the directory exists
-  const dbDir = path.dirname(dbPath);
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+function initializeDatabase() {
+  if (dbInstance) {
+    return dbInstance;
   }
-  
-  // Copy initial database from resources if it doesn't exist
-  if (!fs.existsSync(dbPath) && process.resourcesPath && typeof process.resourcesPath === 'string') {
-    const sourcePath = path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'data', 'db', 'database.sqlite');
-    if (fs.existsSync(sourcePath)) {
-      fs.copyFileSync(sourcePath, dbPath);
-      console.log('Copied initial database to user data directory');
-    }
+
+  let Database;
+  try {
+    Database = require('better-sqlite3');
+  } catch (error) {
+    console.error('better-sqlite3 not available:', error.message);
+    throw new Error(`Database unavailable: ${error.message}`);
   }
-} else {
-  // Check if we're in a packaged environment by looking for specific indicators
-  const isPackaged = process.resourcesPath && process.resourcesPath.includes('app.asar');
-  
-  if (isPackaged) {
-    // In packaged app, store database in user data directory for write permissions
-    const userDataPath = (() => {
-      switch (process.platform) {
-        case 'win32':
-          return path.join(os.homedir(), 'AppData', 'Roaming', 'Sophon');
-        case 'darwin':
-          return path.join(os.homedir(), 'Library', 'Application Support', 'Sophon');
-        case 'linux':
-          return path.join(os.homedir(), '.local', 'share', 'Sophon');
-        default:
-          return path.join(os.homedir(), '.sophon');
-      }
-    })();
-    
-    // Ensure the directory exists
-    if (!fs.existsSync(userDataPath)) {
-      fs.mkdirSync(userDataPath, { recursive: true });
+
+  // Resolve database path across dev and packaged modes
+  let dbPath;
+  if (process.env.DB_PATH) {
+    dbPath = process.env.DB_PATH;
+
+    // Ensure directory exists
+    const dbDir = path.dirname(dbPath);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
     }
-    
-    dbPath = path.join(userDataPath, 'database.sqlite');
-    
-    // Copy initial database if it doesn't exist
-    if (process.resourcesPath && typeof process.resourcesPath === 'string') {
-      const sourcePath = path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'data', 'db', 'database.sqlite');
-      if (!fs.existsSync(dbPath) && fs.existsSync(sourcePath)) {
+
+    // Copy initial database if missing (from packaged resources)
+    if (!fs.existsSync(dbPath) && process.resourcesPath && typeof process.resourcesPath === 'string') {
+      const candidateSources = [
+        // Non-ASAR builds
+        path.join(process.resourcesPath, 'app', 'backend', 'data', 'db', 'database.sqlite'),
+        path.join(process.resourcesPath, 'backend', 'data', 'db', 'database.sqlite'),
+        // ASAR unpacked builds
+        path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'data', 'db', 'database.sqlite')
+      ];
+      const sourcePath = candidateSources.find((p) => fs.existsSync(p));
+      if (sourcePath) {
         fs.copyFileSync(sourcePath, dbPath);
-        console.log('Copied initial database to user data directory');
+        console.log('Copied initial database to DB_PATH');
       }
     }
   } else {
-    // In development, use the current directory
+    // Development default
     dbPath = path.join(__dirname, 'database.sqlite');
   }
+
+  console.log('Database path:', dbPath);
+  try {
+    connection = new Database(dbPath);
+    console.log('Connected to the SQLite database via better-sqlite3.');
+  } catch (err) {
+    console.error('Error opening database:', err.message);
+    throw err;
+  }
+
+  // Graceful shutdown
+  process.on('SIGINT', () => {
+    try {
+      if (connection) {
+        connection.close();
+        console.log('Database connection closed.');
+      }
+    } catch (e) {
+      console.error('Error closing database:', e.message);
+    } finally {
+      process.exit(0);
+    }
+  });
+
+  // Shim that emulates sqlite3 async callback API using better-sqlite3 sync methods
+  const shim = {
+    get(sql, paramsOrCb, cbMaybe) {
+      const hasParams = Array.isArray(paramsOrCb);
+      const params = hasParams ? paramsOrCb : [];
+      const cb = hasParams ? cbMaybe : paramsOrCb;
+      try {
+        const row = connection.prepare(sql).get(...params);
+        if (cb) cb(null, row);
+      } catch (err) {
+        if (cb) cb(err);
+      }
+    },
+    all(sql, paramsOrCb, cbMaybe) {
+      const hasParams = Array.isArray(paramsOrCb);
+      const params = hasParams ? paramsOrCb : [];
+      const cb = hasParams ? cbMaybe : paramsOrCb;
+      try {
+        const rows = connection.prepare(sql).all(...params);
+        if (cb) cb(null, rows);
+      } catch (err) {
+        if (cb) cb(err);
+      }
+    },
+    run(sql, paramsOrCb, cbMaybe) {
+      const hasParams = Array.isArray(paramsOrCb);
+      const params = hasParams ? paramsOrCb : [];
+      const cb = hasParams ? cbMaybe : paramsOrCb;
+      try {
+        const info = connection.prepare(sql).run(...params);
+        const ctx = { lastID: info.lastInsertRowid, changes: info.changes };
+        if (cb) cb.call(ctx, null);
+      } catch (err) {
+        if (cb) cb.call({}, err);
+      }
+    },
+    exec(sql, cb) {
+      try {
+        connection.exec(sql);
+        if (cb) cb(null);
+      } catch (err) {
+        if (cb) cb(err);
+      }
+    },
+    close(cb) {
+      try {
+        if (connection) {
+          connection.close();
+        }
+        if (cb) cb(null);
+      } catch (err) {
+        if (cb) cb(err);
+      }
+    },
+    on(event, handler) {
+      // better-sqlite3 does not emit events like sqlite3; provide no-op
+      // Keep API surface to avoid breaking consumers
+      // Optionally, we could store handler for manual invocation if needed
+    }
+  };
+
+  dbInstance = shim;
+  return dbInstance;
 }
 
-console.log('Database path:', dbPath);
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Could not connect to database', err);
-  } else {
-    console.log('Connected to SQLite database');
+module.exports = new Proxy({}, {
+  get(target, prop) {
+    const database = initializeDatabase();
+    return database[prop];
+  },
+  set(target, prop, value) {
+    const database = initializeDatabase();
+    database[prop] = value;
+    return true;
   }
 });
-
-// Handle database errors
-db.on('error', (err) => {
-  console.error('Database error:', err);
-});
-
-// Prevent the process from exiting
-process.on('SIGINT', () => {
-  console.log('\nReceived SIGINT. Closing database connection...');
-  db.close((err) => {
-    if (err) {
-      console.error('Error closing database:', err);
-    } else {
-      console.log('Database connection closed.');
-    }
-    process.exit(0);
-  });
-});
-
-module.exports = db;

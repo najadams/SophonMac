@@ -1,7 +1,15 @@
 // utils/dbUtils.js
 const fs = require("fs");
 const path = require("path");
-const db = require("../data/db/db"); // Updated path to correctly point to db.js
+
+// Lazy load db to prevent sqlite3 from loading at startup
+let db = null;
+function getDb() {
+  if (!db) {
+    db = require("../data/db/db");
+  }
+  return db;
+}
 
 const DBUtils = {
   // Initialize database (run migrations)
@@ -23,14 +31,15 @@ const DBUtils = {
       return true;
     } catch (error) {
       console.error("Error initializing database:", error);
-      return false;
+      // Surface the underlying error to the caller for better diagnostics
+      throw error;
     }
   },
 
   // Check if a specific table exists
   checkTableExists(tableName) {
     return new Promise((resolve, reject) => {
-      db.get(
+      getDb().get(
         `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
         [tableName],
         (err, row) => {
@@ -65,7 +74,7 @@ const DBUtils = {
           return;
         }
 
-        db.exec(stmt, (err) => {
+        getDb().exec(stmt, (err) => {
           if (err) {
             console.error(`Error executing SQL statement: ${stmt}`, err);
             reject(err);

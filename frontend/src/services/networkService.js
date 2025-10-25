@@ -26,8 +26,8 @@ class NetworkService {
       this.token = token; // Store token for API requests
       
       const baseURL = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3003' 
-        : `http://${window.location.hostname}:3003`;
+        ? 'http://localhost:80' 
+        : `http://${window.location.hostname}:80`;
 
       this.socket = io(baseURL, {
         auth: {

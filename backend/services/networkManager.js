@@ -2,7 +2,13 @@ const NetworkDiscoveryService = require('./networkDiscovery');
 const WebSocketServer = require('./websocketServer');
 const SyncEngine = require('./syncEngine');
 const EventEmitter = require('events');
-const db = require('../data/db/db');
+// Lazy-load DB to allow running without sqlite3 bindings
+let db = null;
+try {
+  db = require('../data/db/db');
+} catch (e) {
+  console.warn('NetworkManager: DB unavailable, using default config');
+}
 const networkConfig = require('../config/network.config');
 
 class NetworkManager extends EventEmitter {
@@ -120,6 +126,10 @@ class NetworkManager extends EventEmitter {
   }
 
   async loadNetworkConfig(companyId) {
+    if (!db) {
+      console.log('NetworkManager: Using default network config (DB unavailable)');
+      return Promise.resolve();
+    }
     return new Promise((resolve, reject) => {
       db.get(
         'SELECT * FROM NetworkConfig WHERE companyId = ?',
@@ -143,6 +153,10 @@ class NetworkManager extends EventEmitter {
   }
 
   async saveNetworkConfig(companyId) {
+    if (!db) {
+      // No-op when DB unavailable
+      return Promise.resolve();
+    }
     return new Promise((resolve, reject) => {
       const configJson = JSON.stringify(this.networkConfig);
       
@@ -169,6 +183,11 @@ class NetworkManager extends EventEmitter {
     if (existingMaster) {
       console.log(`Existing master found: ${existingMaster.name}`);
       return false;
+    }
+    
+    if (!db) {
+      // Default to master when DB is unavailable
+      return true;
     }
     
     // Check database for previous master preference

@@ -9,7 +9,7 @@ export default defineConfig({
     host: '0.0.0.0', // Allow access from other machines on the network
     proxy: {
       '/api': {
-        target: process.env.BACKEND_PORT ? `http://localhost:${process.env.BACKEND_PORT}` : 'http://localhost:3003',
+        target: process.env.BACKEND_PORT ? `http://localhost:${process.env.BACKEND_PORT}` : 'http://localhost:3021',
         changeOrigin: true,
         secure: false,
       },

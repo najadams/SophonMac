@@ -18,7 +18,7 @@ class WebSocketServer extends EventEmitter {
     this.server = httpServer;
     this.io = new Server(httpServer, {
       cors: networkConfig.websocket.cors || {
-        origin: ['http://localhost:5173', 'http://localhost:3002', 'http://localhost:3003'],
+        origin: ['http://localhost:5173', 'http://localhost:3002', 'http://localhost:80'],
         methods: ['GET', 'POST'],
         credentials: true
       },

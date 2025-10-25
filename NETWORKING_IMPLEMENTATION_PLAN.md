@@ -5,7 +5,7 @@ This document outlines the implementation of a comprehensive networking system f
 
 ## Current Architecture Analysis
 - **Frontend**: React with Vite (port 5173 dev, 3002 production)
-- **Backend**: Node.js/Express (port 3001/3003)
+- **Backend**: Node.js/Express (port 3001/80)
 - **Database**: SQLite with comprehensive schema
 - **Deployment**: Electron desktop application
 - **Authentication**: JWT-based with company/worker roles

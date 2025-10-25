@@ -7,21 +7,21 @@ const getBackendURL = () => {
   
   if (isWebDeployment) {
     // In web deployment, use environment variable or default production URL
-    return import.meta.env.VITE_API_URL || 'http://localhost:3003';
+    return import.meta.env.VITE_API_URL || 'http://localhost:3021';
   }
   
   // In Electron app, use localhost
-  // Backend runs on port 3003
+  // Backend runs on port 3021
   const hostname = window.location.hostname;
   
   // If accessing via localhost, this is the master device
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:3003';
+    return 'http://localhost:3021';
   }
   
   // If accessing via network IP, this is a slave device
   // Use the network IP to connect to the master server
-  return `http://${hostname}:3003`;
+  return `http://${hostname}:3021`;
 };
 
 export const API_BASE_URL = getBackendURL();
