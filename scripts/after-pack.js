@@ -211,6 +211,31 @@ module.exports = async function(context) {
         console.log('Copying better-sqlite3 Release binary to main and backend node_modules (resolved)...');
         fs.copyFileSync(releaseSourcePath, path.join(releaseMainDir, 'better_sqlite3.node'));
         fs.copyFileSync(releaseSourcePath, path.join(releaseBackendDir, 'better_sqlite3.node'));
+
+        // Also place binary under lib/binding where bindings looks for Electron ABI
+        const abiDir = 'node-v136-darwin-arm64';
+        const bindingMainDir = path.join(bsqlMainRealPath, 'lib', 'binding', abiDir);
+        const bindingBackendDir = path.join(bsqlBackendRealPath, 'lib', 'binding', abiDir);
+        fs.mkdirSync(bindingMainDir, { recursive: true });
+        fs.mkdirSync(bindingBackendDir, { recursive: true });
+        console.log('Copying better-sqlite3 binary to lib/binding directories...');
+        fs.copyFileSync(releaseSourcePath, path.join(bindingMainDir, 'better_sqlite3.node'));
+        fs.copyFileSync(releaseSourcePath, path.join(bindingBackendDir, 'better_sqlite3.node'));
+
+        // Provide fallback addon-build locations expected by bindings
+        const addonDefaultMain = path.join(bsqlMainRealPath, 'addon-build', 'default', 'install-root');
+        const addonDefaultBackend = path.join(bsqlBackendRealPath, 'addon-build', 'default', 'install-root');
+        const addonDebugMain = path.join(bsqlMainRealPath, 'addon-build', 'debug', 'install-root');
+        const addonDebugBackend = path.join(bsqlBackendRealPath, 'addon-build', 'debug', 'install-root');
+        fs.mkdirSync(addonDefaultMain, { recursive: true });
+        fs.mkdirSync(addonDefaultBackend, { recursive: true });
+        fs.mkdirSync(addonDebugMain, { recursive: true });
+        fs.mkdirSync(addonDebugBackend, { recursive: true });
+        console.log('Copying better-sqlite3 binary to addon-build fallback directories...');
+        fs.copyFileSync(releaseSourcePath, path.join(addonDefaultMain, 'better_sqlite3.node'));
+        fs.copyFileSync(releaseSourcePath, path.join(addonDefaultBackend, 'better_sqlite3.node'));
+        fs.copyFileSync(releaseSourcePath, path.join(addonDebugMain, 'better_sqlite3.node'));
+        fs.copyFileSync(releaseSourcePath, path.join(addonDebugBackend, 'better_sqlite3.node'));
       } else {
         console.warn('better-sqlite3 build/Release/better_sqlite3.node not found in source');
       }
