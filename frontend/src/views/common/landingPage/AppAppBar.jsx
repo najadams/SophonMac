@@ -204,7 +204,6 @@ function AppAppBar({ mode, toggleColorMode }) {
                       variant="contained"
                       component="a"
                       href="/login"
-                      target="_blank"
                       sx={{ width: "100%" }}>
                       Sign up
                     </Button>
@@ -215,7 +214,6 @@ function AppAppBar({ mode, toggleColorMode }) {
                       variant="outlined"
                       component="a"
                       href="/login"
-                      target="_blank"
                       sx={{ width: "100%" }}>
                       Sign in
                     </Button>

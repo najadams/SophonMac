@@ -257,7 +257,7 @@ export default function Pricing() {
                       variant={tier.buttonVariant}
                       component="a"
                       href="/login"
-                      target="_blank">
+                    >
                       {tier.buttonText}
                     </Button>
                   </CardActions>

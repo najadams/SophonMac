@@ -202,8 +202,24 @@ module.exports = async function(context) {
       }
 
       // Ensure Release/better_sqlite3.node is present by explicitly copying/overwriting
-      const releaseSourcePath = path.join(buildSourcePath, 'Release', 'better_sqlite3.node');
-      if (fs.existsSync(releaseSourcePath)) {
+      // Look for the Release binary in multiple possible locations
+      const possibleSourcePaths = [
+        path.join(buildSourcePath, 'Release', 'better_sqlite3.node'),
+        // Check in backend node_modules first since that's where it was built
+        path.join(process.cwd(), 'backend', 'node_modules', 'better-sqlite3', 'build', 'Release', 'better_sqlite3.node'),
+        path.join(mainNodeModulesDir, 'better-sqlite3', 'build', 'Release', 'better_sqlite3.node')
+      ];
+      
+      let releaseSourcePath = null;
+      for (const sourcePath of possibleSourcePaths) {
+        if (fs.existsSync(sourcePath)) {
+          releaseSourcePath = sourcePath;
+          console.log(`Found better-sqlite3 binary at: ${sourcePath}`);
+          break;
+        }
+      }
+      
+      if (releaseSourcePath) {
         const releaseMainDir = path.join(buildMainPath, 'Release');
         const releaseBackendDir = path.join(buildBackendPath, 'Release');
         fs.mkdirSync(releaseMainDir, { recursive: true });
@@ -237,7 +253,8 @@ module.exports = async function(context) {
         fs.copyFileSync(releaseSourcePath, path.join(addonDebugMain, 'better_sqlite3.node'));
         fs.copyFileSync(releaseSourcePath, path.join(addonDebugBackend, 'better_sqlite3.node'));
       } else {
-        console.warn('better-sqlite3 build/Release/better_sqlite3.node not found in source');
+        console.warn('better-sqlite3 build/Release/better_sqlite3.node not found in any expected location');
+        console.warn('Checked paths:', possibleSourcePaths);
       }
     } else {
       console.warn('better-sqlite3 build directory not found in source path');

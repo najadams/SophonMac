@@ -380,6 +380,7 @@ router.get("/analytics/inventory/:companyId", getInventoryAlerts);
 router.get("/analytics/weekday/:companyId", getWeekdayAnalytics);
 // Get all companies
 router.get("/", (req, res) => {
+  console.log("Fetching all companies");
   db.all("SELECT * FROM Company", [], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });

@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^9.4.0",
     "bonjour": "^3.5.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
@@ -19,12 +20,13 @@
     "node-machine-id": "^1.1.12",
     "object-assign": "^4.1.1",
     "socket.io": "^4.7.5",
-    "better-sqlite3": "^9.4.0",
     "uuid": "^13.0.0",
     "vary": "^1.1.2",
     "ws": "^8.16.0"
   },
   "devDependencies": {
+    "electron-rebuild": "^3.2.9",
+    "node-gyp": "10.2.0",
     "nodemon": "^2.0.22"
   }
 }

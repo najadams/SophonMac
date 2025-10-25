@@ -99,7 +99,6 @@ for (const maker of makers) {
         const criticalModules = [
           "cors",
           "express",
-          "sqlite3",
           "socket.io",
           "bcrypt",
         ];
