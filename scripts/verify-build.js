@@ -1,5 +1,5 @@
 const path = require("path");
-const fs = require("fs-extra");
+const fs = require("fs");
 
 console.log("\n🔍 Verifying build output...\n");
 

@@ -37,18 +37,17 @@ module.exports = async function (context) {
   }
 
   try {
-    console.log("📥 Installing backend dependencies with pnpm...");
-    execSync("pnpm install --filter sophon-backend --prod --no-optional", {
-      cwd: process.cwd(),
+    console.log("📥 Installing backend dependencies with npm...");
+    execSync("npm install --production --no-audit --no-fund", {
+      cwd: backendDir,
       stdio: "inherit",
     });
-
     console.log("✅ Backend dependencies installed successfully");
 
     const criticalModules = [
       "cors",
       "express",
-      "sqlite3",
+      "better-sqlite3",
       "socket.io",
       "bcrypt",
       "uuid",
@@ -82,7 +81,7 @@ module.exports = async function (context) {
     console.log("🎨 Staging frontend build...");
     if (!fs.existsSync(frontendSrc)) {
       console.error("❌ Frontend build not found at", frontendSrc);
-      console.error("   Ensure 'pnpm --filter sophon-frontend build' ran successfully.");
+      console.error("   Ensure 'pnpm --dir frontend build' ran successfully.");
       throw new Error("Missing frontend/dist");
     }
 

@@ -1,6 +1,22 @@
 const { execSync } = require("child_process");
 const path = require("path");
-const fs = require("fs-extra");
+const fs = require("fs");
+
+function copyRecursiveSync(src, dest) {
+  const exists = fs.existsSync(src);
+  const stats = exists && fs.statSync(src);
+  const isDirectory = exists && stats.isDirectory();
+  if (isDirectory) {
+    if (!fs.existsSync(dest)) {
+      fs.mkdirSync(dest, { recursive: true });
+    }
+    fs.readdirSync(src).forEach((child) => {
+      copyRecursiveSync(path.join(src, child), path.join(dest, child));
+    });
+  } else {
+    fs.copyFileSync(src, dest);
+  }
+}
 
 console.log("\n🚀 Preparing build...\n");
 
@@ -10,8 +26,8 @@ const backendNodeModules = path.join(backendDir, "node_modules");
 // 1. Install backend dependencies
 console.log("📦 Installing backend dependencies...");
 try {
-  execSync("pnpm install --filter sophon-backend --prod --no-optional", {
-    cwd: path.join(__dirname, ".."),
+  execSync("npm install --production --no-audit --no-fund", {
+    cwd: backendDir,
     stdio: "inherit",
   });
   console.log("✅ Backend dependencies installed\n");
@@ -48,42 +64,51 @@ for (const mod of criticalModules) {
 
 if (!allPresent) {
   console.error("\n❌ Some critical modules are missing!");
-  console.error("Run: pnpm install --filter sophon-backend");
+  console.error("Run: npm install --production in backend directory");
   process.exit(1);
 }
 
-// 3. Rebuild native modules for current platform (Electron ABI)
-console.log("\n🔧 Rebuilding native modules for Electron...");
+// 3. Skip Electron ABI rebuild for native modules; backend runs under external Node.
+console.log("\n🔧 Checking native modules (no Electron rebuild)...");
 try {
-  // Use electron-rebuild to align native modules with Electron's Node version
-  execSync("pnpm exec electron-rebuild -f -w better-sqlite3 bcrypt", {
-    cwd: backendDir,
-    stdio: "inherit",
-  });
-  console.log("✅ Electron-native modules rebuilt\n");
-} catch (error) {
-  console.warn("⚠️  Warning: electron-rebuild failed for some native modules");
-  console.warn("   This might cause issues on the target platform:", error.message);
-  // Fallback: attempt plain rebuild from source to at least produce binaries
-  try {
-    execSync("pnpm rebuild better-sqlite3 --build-from-source", {
-      cwd: backendDir,
-      stdio: "inherit",
-    });
-    execSync("pnpm rebuild bcrypt --build-from-source", {
-      cwd: backendDir,
-      stdio: "inherit",
-    });
-    console.log("✅ Fallback native rebuild completed\n");
-  } catch (fallbackError) {
-    console.warn("⚠️  Fallback native rebuild also failed:", fallbackError.message);
+  const bsqlRelease = path.join(
+    backendNodeModules,
+    "better-sqlite3",
+    "build",
+    "Release",
+    "better_sqlite3.node"
+  );
+  if (fs.existsSync(bsqlRelease)) {
+    console.log("✅ better-sqlite3 binary present:", bsqlRelease);
+  } else {
+    console.warn(
+      "⚠️ better-sqlite3 binary missing; npm may need to build from source"
+    );
   }
+
+  const bcryptBinding = path.join(
+    backendNodeModules,
+    "bcrypt",
+    "lib",
+    "binding",
+    process.platform === "darwin"
+      ? `napi-v3-darwin-${process.arch}`
+      : `napi-v3-${process.platform}-${process.arch}`,
+    process.platform === "win32" ? "bcrypt_lib.node" : "bcrypt_lib.node"
+  );
+  if (fs.existsSync(bcryptBinding)) {
+    console.log("✅ bcrypt native binding present:", bcryptBinding);
+  } else {
+    console.warn("⚠️ bcrypt native binding not found; relying on prebuilt binaries");
+  }
+} catch (error) {
+  console.warn("⚠️ Native module check failed:", error.message);
 }
 
 // 4. Build frontend
 console.log("🎨 Building frontend...");
 try {
-  execSync("pnpm --filter sophon-frontend build", {
+  execSync("pnpm --dir frontend build", {
     cwd: path.join(__dirname, ".."),
     stdio: "inherit",
   });
@@ -104,9 +129,9 @@ if (!fs.existsSync(frontendDist)) {
 const stagedFrontend = path.join(__dirname, "..", "frontend-dist");
 console.log("📦 Staging frontend to:", stagedFrontend);
 if (fs.existsSync(stagedFrontend)) {
-  fs.removeSync(stagedFrontend);
+  fs.rmSync(stagedFrontend, { recursive: true, force: true });
 }
-fs.copySync(frontendDist, stagedFrontend);
+copyRecursiveSync(frontendDist, stagedFrontend);
 console.log("✅ Frontend staged\n");
 
 console.log("✅ Build preparation complete!\n");
