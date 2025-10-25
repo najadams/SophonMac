@@ -75,8 +75,7 @@ try {
     backendNodeModules,
     "better-sqlite3",
     "build",
-    "Release",
-    "better_sqlite3.node"
+    "Release"
   );
   if (fs.existsSync(bsqlRelease)) {
     console.log("✅ better-sqlite3 binary present:", bsqlRelease);
@@ -102,7 +101,21 @@ try {
     console.warn("⚠️ bcrypt native binding not found; relying on prebuilt binaries");
   }
 } catch (error) {
-  console.warn("⚠️ Native module check failed:", error.message);
+  console.warn("⚠️ Native module check skipped:", error.message);
+}
+
+// Rebuild better-sqlite3 for bundled Node runtime to avoid ABI mismatch
+console.log("\n🔁 Rebuilding better-sqlite3 for bundled Node runtime...");
+try {
+  const targetNodeVersion = process.env.BUNDLED_NODE_VERSION || "20.19.3";
+  console.log(`   → Target Node version: ${targetNodeVersion}`);
+  execSync(
+    `npm rebuild better-sqlite3 --update-binary --runtime=node --target=${targetNodeVersion}`,
+    { cwd: backendDir, stdio: "inherit" }
+  );
+  console.log("✅ better-sqlite3 rebuilt for Node", targetNodeVersion);
+} catch (error) {
+  console.warn("⚠️ better-sqlite3 rebuild failed; backend may rely on system Node:", error.message);
 }
 
 // 4. Build frontend

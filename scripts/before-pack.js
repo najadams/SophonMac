@@ -74,6 +74,20 @@ module.exports = async function (context) {
     console.log("📦 Backend node_modules will be included directly in package");
     console.log("✅ Backend dependencies are ready for packaging");
 
+    // Rebuild better-sqlite3 to match bundled Node runtime
+    console.log("\n🔁 Rebuilding better-sqlite3 for bundled Node runtime...");
+    try {
+      const targetNodeVersion = process.env.BUNDLED_NODE_VERSION || "20.19.3";
+      console.log(`   → Target Node version: ${targetNodeVersion}`);
+      execSync(
+        `npm rebuild better-sqlite3 --update-binary --runtime=node --target=${targetNodeVersion}`,
+        { cwd: backendDir, stdio: "inherit" }
+      );
+      console.log("✅ better-sqlite3 rebuilt for Node", targetNodeVersion);
+    } catch (error) {
+      console.warn("⚠️ better-sqlite3 rebuild failed; backend may rely on system Node:", error.message);
+    }
+
     // Stage frontend to top-level frontend-dist for electron-builder 'files'
     const frontendSrc = path.join(process.cwd(), "frontend", "dist");
     const frontendDest = path.join(process.cwd(), "frontend-dist");

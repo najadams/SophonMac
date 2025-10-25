@@ -495,28 +495,36 @@ function startBackend() {
       // Use proper Node.js executable for packaged apps
       let nodeExecutable, spawnArgs;
       if (app.isPackaged) {
-        // Prefer spawning an external Node process to avoid Electron ABI issues
-        let nodeExecutableCandidates = [
-          process.env.NODE_BINARY,
-          process.env.NVM_BIN ? path.join(process.env.NVM_BIN, 'node') : null,
-          '/opt/homebrew/bin/node',
-          '/usr/local/bin/node',
-          '/usr/bin/node'
-        ].filter(Boolean);
-        let nodeExecutableResolved = nodeExecutableCandidates.find(p => {
-          try { return fs.existsSync(p); } catch { return false; }
-        }) || '/usr/bin/env';
+        // Prefer bundled Node if available
+        const bundledNode = resolveBundledNode();
+        if (bundledNode) {
+          nodeExecutable = bundledNode;
+          spawnArgs = [backendPath];
+          logToFile('INFO', `Using bundled Node executable: ${bundledNode}`);
+        } else {
+          // Fallback: use external Node from PATH to avoid Electron ABI issues
+          let nodeExecutableCandidates = [
+            process.env.NODE_BINARY,
+            process.env.NVM_BIN ? path.join(process.env.NVM_BIN, 'node') : null,
+            '/opt/homebrew/bin/node',
+            '/usr/local/bin/node',
+            '/usr/bin/node'
+          ].filter(Boolean);
+          let nodeExecutableResolved = nodeExecutableCandidates.find(p => {
+            try { return fs.existsSync(p); } catch { return false; }
+          }) || '/usr/bin/env';
 
-        // External Node does not need ELECTRON_RUN_AS_NODE
-        delete backendEnv.ELECTRON_RUN_AS_NODE;
+          // External Node does not need ELECTRON_RUN_AS_NODE
+          delete backendEnv.ELECTRON_RUN_AS_NODE;
 
-        nodeExecutable = nodeExecutableResolved;
-        spawnArgs = nodeExecutable === '/usr/bin/env'
-          ? ['node', backendPath]
-          : [backendPath];
+          nodeExecutable = nodeExecutableResolved;
+          spawnArgs = nodeExecutable === '/usr/bin/env'
+            ? ['node', backendPath]
+            : [backendPath];
 
-        logToFile('INFO', `Using external Node executable: ${nodeExecutable}`);
-        logToFile('INFO', `Spawning backend index.js from: ${backendPath}`);
+          logToFile('INFO', `Using external Node executable: ${nodeExecutable}`);
+          logToFile('INFO', `Spawning backend index.js from: ${backendPath}`);
+        }
       } else {
         // In development, prefer spawning with a real Node executable to avoid Electron ABI issues
         const nodeExecutableCandidates = [
@@ -824,4 +832,23 @@ function cleanupAndQuit() {
     app.removeAllListeners('before-quit');
     app.quit();
   }, 10000);
+}
+
+// Resolve bundled Node.js binary if present inside the packaged app resources
+function resolveBundledNode() {
+  try {
+    if (!app.isPackaged) return null;
+    const base = path.join(process.resourcesPath, 'node');
+    let candidate;
+    if (process.platform === 'darwin') {
+      candidate = path.join(base, `darwin-${process.arch}`, 'bin', 'node');
+    } else if (process.platform === 'win32') {
+      candidate = path.join(base, 'win-x64', 'node.exe');
+    } else {
+      candidate = path.join(base, `linux-${process.arch}`, 'bin', 'node');
+    }
+    return fs.existsSync(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
 }

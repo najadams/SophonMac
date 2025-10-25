@@ -45,6 +45,12 @@
     "directories": {
       "output": "dist"
     },
+    "extraResources": [
+      { "from": "resources/runtime/node-darwin-arm64", "to": "node/darwin-arm64" },
+      { "from": "resources/runtime/node-darwin-x64", "to": "node/darwin-x64" },
+      { "from": "resources/runtime/node-win-x64", "to": "node/win-x64" },
+      { "from": "resources/runtime/node-linux-x64", "to": "node/linux-x64" }
+    ],
     "files": [
       "main.js",
       "backend/**/*",
