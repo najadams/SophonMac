@@ -62,14 +62,6 @@ const InfoCard = styled(Card)(({ theme }) => ({
   },
 }));
 
-// Helper function to format currency
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "GHS",
-  }).format(amount || 0);
-};
-
 // Helper function to format date
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -79,15 +71,15 @@ const formatDate = (dateString) => {
   });
 };
 
-// Tab panel component
 function TabPanel({ children, value, index, ...other }) {
   return (
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`product-tabpanel-${index}`}
-      aria-labelledby={`product-tab-${index}`}
-      {...other}>
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
+      {...other}
+    >
       {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
@@ -97,8 +89,17 @@ const ProductInfo = () => {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const companyId = useSelector((state) => state.companyState.data.id);
+  const company = useSelector((state) => state.companyState.data);
+  const companyId = company.id;
   const [tabValue, setTabValue] = useState(0);
+
+  // Helper function to format currency using company's currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: company.currencyCode || "GHS",
+    }).format(amount || 0);
+  };
 
   const product = location.state?.product;
 

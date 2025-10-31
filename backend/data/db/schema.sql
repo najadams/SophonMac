@@ -3,6 +3,22 @@
 -- Enable foreign keys
 PRAGMA foreign_keys = ON;
 
+-- Currency reference table (ISO 4217 codes)
+CREATE TABLE IF NOT EXISTS Currency (
+    code TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    symbol TEXT,
+    decimals INTEGER DEFAULT 2
+);
+
+-- Seed a few common currencies
+INSERT OR IGNORE INTO Currency (code, name, symbol, decimals) VALUES
+    ('USD', 'US Dollar', '$', 2),
+    ('EUR', 'Euro', '€', 2),
+    ('GBP', 'British Pound', '£', 2),
+    ('GHS', 'Ghanaian Cedi', '₵', 2),
+    ('TZS', 'Tanzanian Shilling', 'Sh', 2);
+
 -- Company table
 CREATE TABLE Company (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,7 +34,7 @@ CREATE TABLE Company (
     contact TEXT,
     location TEXT,
     taxRate REAL,
-    currency TEXT,
+    currencyCode TEXT REFERENCES Currency(code) DEFAULT 'GHS',
     currentPlan TEXT,
     emailNotifications INTEGER DEFAULT 0,
     momo TEXT,
@@ -60,7 +76,7 @@ CREATE TABLE Settings (
     companyId INTEGER NOT NULL,
     emailNotifications INTEGER DEFAULT 1,
     smsNotifications INTEGER DEFAULT 0,
-    currency TEXT,
+    currencyCode TEXT REFERENCES Currency(code) DEFAULT 'GHS',
     theme TEXT DEFAULT 'light',
     roundingSales INTEGER DEFAULT 0,
     createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -474,95 +490,98 @@ CREATE INDEX idx_purchase_order_company ON PurchaseOrder(companyId);
 CREATE INDEX idx_purchase_order_vendor ON PurchaseOrder(vendorId, companyId);
 CREATE INDEX idx_vendor_payment_vendor ON VendorPayment(vendorId, companyId);
 
--- Company table with authentication fields
-CREATE TABLE IF NOT EXISTS Company (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  address TEXT,
-  phone TEXT,
-  email TEXT UNIQUE NOT NULL,
-  tax_id TEXT,
-  password TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- MIGRATION ONLY BEGIN Currency Normalization
+BEGIN TRANSACTION;
+
+-- Ensure Currency table exists and is seeded
+CREATE TABLE IF NOT EXISTS Currency (
+    code TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    symbol TEXT,
+    decimals INTEGER DEFAULT 2
 );
 
--- Worker table with authentication and role fields
-CREATE TABLE IF NOT EXISTS Worker (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  position TEXT,
-  phone TEXT,
-  email TEXT,
-  password TEXT NOT NULL,
-  role TEXT DEFAULT 'worker', -- 'super_admin', 'admin', 'worker', etc.
-  company_id INTEGER NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (company_id) REFERENCES Company (id)
+INSERT OR IGNORE INTO Currency (code, name, symbol, decimals) VALUES
+    ('USD', 'US Dollar', '$', 2),
+    ('EUR', 'Euro', '€', 2),
+    ('GBP', 'British Pound', '£', 2),
+    ('GHS', 'Ghanaian Cedi', '₵', 2),
+    ('TZS', 'Tanzanian Shilling', 'Sh', 2);
+
+-- Recreate Company with currencyCode FK
+CREATE TABLE Company_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    companyName TEXT NOT NULL UNIQUE,
+    email TEXT UNIQUE,
+    password TEXT NOT NULL,
+    isEmailVerified INTEGER DEFAULT 0,
+    emailVerificationToken TEXT,
+    emailVerificationExpires TEXT,
+    passwordResetToken TEXT,
+    passwordResetExpires TEXT,
+    refreshToken TEXT,
+    contact TEXT,
+    location TEXT,
+    taxRate REAL,
+    currencyCode TEXT REFERENCES Currency(code) DEFAULT 'GHS',
+    currentPlan TEXT,
+    emailNotifications INTEGER DEFAULT 0,
+    momo TEXT,
+    nextBillingDate TEXT,
+    paymentMethod TEXT,
+    paymentProvider TEXT,
+    smsNotifications INTEGER DEFAULT 0,
+    storeAddress TEXT,
+    taxId TEXT,
+    tinNumber TEXT,
+    receiptTemplate TEXT DEFAULT 'template1',
+    receiptHeader TEXT,
+    receiptFooter TEXT,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Rest of your schema tables
-CREATE TABLE IF NOT EXISTS Inventory (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  description TEXT,
-  quantity INTEGER DEFAULT 0,
-  unit_price REAL DEFAULT 0,
-  category TEXT,
-  company_id INTEGER NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (company_id) REFERENCES Company (id)
+INSERT INTO Company_new (
+  id, companyName, email, password, isEmailVerified, emailVerificationToken,
+  emailVerificationExpires, passwordResetToken, passwordResetExpires, refreshToken,
+  contact, location, taxRate, currencyCode, currentPlan, emailNotifications, momo,
+  nextBillingDate, paymentMethod, paymentProvider, smsNotifications, storeAddress,
+  taxId, tinNumber, receiptTemplate, receiptHeader, receiptFooter, createdAt, updatedAt
+)
+SELECT 
+  id, companyName, email, password, isEmailVerified, emailVerificationToken,
+  emailVerificationExpires, passwordResetToken, passwordResetExpires, refreshToken,
+  contact, location, taxRate, COALESCE(currency, 'GHS'), currentPlan, emailNotifications, momo,
+  nextBillingDate, paymentMethod, paymentProvider, smsNotifications, storeAddress,
+  taxId, tinNumber, receiptTemplate, receiptHeader, receiptFooter, createdAt, updatedAt
+FROM Company;
+
+DROP TABLE Company;
+ALTER TABLE Company_new RENAME TO Company;
+
+-- Recreate Settings with currencyCode FK
+CREATE TABLE Settings_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    companyId INTEGER NOT NULL,
+    emailNotifications INTEGER DEFAULT 1,
+    smsNotifications INTEGER DEFAULT 0,
+    currencyCode TEXT REFERENCES Currency(code) DEFAULT 'GHS',
+    theme TEXT DEFAULT 'light',
+    roundingSales INTEGER DEFAULT 0,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS Customer (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  address TEXT,
-  phone TEXT,
-  email TEXT,
-  company_id INTEGER NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (company_id) REFERENCES Company (id)
-);
+INSERT INTO Settings_new (
+  id, companyId, emailNotifications, smsNotifications, currencyCode, theme, roundingSales, createdAt, updatedAt
+)
+SELECT 
+  id, companyId, emailNotifications, smsNotifications, COALESCE(currency, 'GHS'), theme, roundingSales, createdAt, updatedAt
+FROM Settings;
 
+DROP TABLE Settings;
+ALTER TABLE Settings_new RENAME TO Settings;
 
-CREATE TABLE IF NOT EXISTS Receipt (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  date TEXT,
-  total_amount REAL DEFAULT 0,
-  payment_method TEXT,
-  customer_id INTEGER,
-  company_id INTEGER NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (customer_id) REFERENCES Customer (id),
-  FOREIGN KEY (company_id) REFERENCES Company (id)
-);
-
-CREATE TABLE IF NOT EXISTS Debt (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  amount REAL NOT NULL,
-  due_date TEXT,
-  description TEXT,
-  status TEXT DEFAULT 'pending',
-  customer_id INTEGER NOT NULL,
-  company_id INTEGER NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (customer_id) REFERENCES Customer (id),
-  FOREIGN KEY (company_id) REFERENCES Company (id)
-);
-
-CREATE TABLE IF NOT EXISTS PurchaseOrder (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  order_date TEXT,
-  delivery_date TEXT,
-  status TEXT DEFAULT 'pending',
-  total_amount REAL DEFAULT 0,
-  vendor_id INTEGER NOT NULL,
-  company_id INTEGER NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (vendor_id) REFERENCES Vendor (id),
-  FOREIGN KEY (company_id) REFERENCES Company (id)
-);
-
--- Add to Inventory table (for future migration)
-ALTER TABLE Inventory ADD COLUMN onhandPrecision INTEGER DEFAULT 1000000; -- Store as integer * 1,000,000
-ALTER TABLE Inventory ADD COLUMN displayUnit TEXT; -- Preferred display unit
+COMMIT;
+-- MIGRATION ONLY END Currency Normalization

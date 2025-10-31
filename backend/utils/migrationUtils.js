@@ -24,6 +24,18 @@ const columnExists = (tableName, columnName) => {
   });
 };
 
+// Read a named block from consolidated schema.sql using begin/end markers
+function readSchemaBlock(beginMarker, endMarker) {
+  const schemaPath = path.join(__dirname, '../data/db/schema.sql');
+  const schema = fs.readFileSync(schemaPath, 'utf8');
+  const beginIndex = schema.indexOf(beginMarker);
+  const endIndex = schema.indexOf(endMarker, beginIndex + beginMarker.length);
+  if (beginIndex === -1 || endIndex === -1) {
+    throw new Error(`Schema block not found for markers: ${beginMarker} ... ${endMarker}`);
+  }
+  return schema.substring(beginIndex + beginMarker.length, endIndex);
+}
+
 // Run migration if needed
 const runReceiptDetailMigration = async () => {
   try {
@@ -32,10 +44,11 @@ const runReceiptDetailMigration = async () => {
     
     if (!salesUnitExists) {
       console.log('Running ReceiptDetail migration to add unit tracking fields...');
-      
-      // Read migration SQL file
-      const migrationPath = path.join(__dirname, '../migrations/add_receipt_detail_units.sql');
-      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      // Read migration-only block from consolidated schema
+      const migrationSQL = readSchemaBlock(
+        '-- MIGRATION ONLY BEGIN ReceiptDetail Units',
+        '-- MIGRATION ONLY END ReceiptDetail Units'
+      );
       
       // Execute the entire SQL file at once to handle complex statements
       await new Promise((resolve, reject) => {
@@ -75,10 +88,11 @@ const runNetworkingMigrations = async () => {
     
     if (!tableExists) {
       console.log('Running networking migrations...');
-      
-      // Read networking migration SQL file
-      const migrationPath = path.join(__dirname, '../migrations/add_networking_tables.sql');
-      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      // Read networking schema block from consolidated schema
+      const migrationSQL = readSchemaBlock(
+        '-- BEGIN Networking Schema',
+        '-- END Networking Schema'
+      );
       
       // Execute the entire SQL file at once to handle complex statements
       await new Promise((resolve, reject) => {
@@ -117,10 +131,11 @@ const runCustomRolesMigration = async () => {
     
     if (!tableExists) {
       console.log('Running CustomRoles table migration...');
-      
-      // Read CustomRoles migration SQL file
-      const migrationPath = path.join(__dirname, '../migrations/add_custom_roles_table.sql');
-      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      // Read CustomRoles schema block from consolidated schema
+      const migrationSQL = readSchemaBlock(
+        '-- BEGIN CustomRoles Schema',
+        '-- END CustomRoles Schema'
+      );
       
       // Execute the entire SQL file at once to handle complex statements
       await new Promise((resolve, reject) => {
@@ -147,6 +162,7 @@ const runMigrations = async () => {
   try {
     await runReceiptDetailMigration();
     await runCustomRolesMigration();
+    await runCurrencyNormalizationMigration();
     console.log('All migrations completed successfully!');
   } catch (error) {
     console.error('Migration error:', error);
@@ -159,5 +175,45 @@ module.exports = {
   runReceiptDetailMigration,
   runCustomRolesMigration,
   runNetworkingMigrations,
-  columnExists
+  columnExists,
+  runCurrencyNormalizationMigration
 };
+
+// Normalize currency handling: reference table and FK columns
+async function runCurrencyNormalizationMigration() {
+  try {
+    // Determine if migration is needed
+    const currencyTableExists = await new Promise((resolve, reject) => {
+      getDb().get("SELECT name FROM sqlite_master WHERE type='table' AND name='Currency'", (err, row) => {
+        if (err) reject(err); else resolve(!!row);
+      });
+    });
+
+    const companyHasCurrencyCode = await columnExists('Company', 'currencyCode').catch(() => false);
+    const settingsHasCurrencyCode = await columnExists('Settings', 'currencyCode').catch(() => false);
+
+    const needsMigration = !currencyTableExists || !companyHasCurrencyCode || !settingsHasCurrencyCode;
+
+    if (!needsMigration) {
+      console.log('Currency normalization already applied.');
+      return;
+    }
+
+    console.log('Running Currency normalization migration...');
+    const migrationSQL = readSchemaBlock(
+      '-- MIGRATION ONLY BEGIN Currency Normalization',
+      '-- MIGRATION ONLY END Currency Normalization'
+    );
+
+    await new Promise((resolve, reject) => {
+      getDb().exec(migrationSQL, (err) => {
+        if (err) reject(err); else resolve();
+      });
+    });
+
+    console.log('Currency normalization migration completed successfully!');
+  } catch (error) {
+    console.error('Error running Currency normalization migration:', error);
+    throw error;
+  }
+}

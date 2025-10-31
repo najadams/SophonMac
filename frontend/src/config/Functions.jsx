@@ -585,7 +585,7 @@ export const tableActions = {
     }
   },
 
-  addCustomer: async ({ companyId, name, phone, email, address, company }) => {
+  addCustomer: async ({ companyId, name, phone, email, address, company,notes }) => {
     try {
       const response = await axios.post(`/api/customers/`, {
         belongsTo: companyId,
@@ -594,15 +594,21 @@ export const tableActions = {
         email,
         address,
         company,
+        notes
       });
 
+      console.log(response)
       if (response.status === 201) {
         return response.data;
+      }
+      if (response.status === 409) {
+        console.log(response)
+        // return response
       }
     } catch (error) {
       // Check if it's a known error response from our API
       console.log(error);
-      return error.response.data.message; // Throw the specific error message
+      return error.response.data.error; // Throw the specific error message
     }
   },
 

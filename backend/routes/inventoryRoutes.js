@@ -31,7 +31,6 @@ const newProduct = async (req, res) => {
       unitConversions,
     } = req.body;
 
-    console.log(companyId, name, salesPrice);
     // Validate required fields
     if (!companyId) {
       return res.status(400).json({ message: "Company ID is required" });

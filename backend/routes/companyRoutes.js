@@ -444,7 +444,7 @@ const updateCompanyDetails = async (req, res) => {
       "contact",
       "location",
       "taxRate",
-      "currency",
+      "currencyCode",
       "currentPlan",
       "emailNotifications",
       "momo",

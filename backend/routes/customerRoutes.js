@@ -31,125 +31,7 @@ router.get('/', (req, res) => {
   });
 });
 
-// Create a new customer
-router.post('/', (req, res) => {
-  const { name, email, phone, address, belongsTo, company, city, notes } = req.body;
-  
-  if (!name || !belongsTo) {
-    return res.status(400).json({ message: 'Customer name and company Id are required' });
-  }
-  
-  // Start a transaction to ensure data consistency
-  db.serialize(() => {
-    db.run('BEGIN TRANSACTION');
-    
-    // Insert the customer first
-    db.run(
-      'INSERT INTO Customer (name, address, city, belongsTo, company, notes) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, address || null, city || null, belongsTo, company || 'nocompany', notes || null],
-      function(err) {
-        if (err) {
-          db.run('ROLLBACK');
-          
-          // Check if it's a unique constraint violation for customer already exists
-          if (err.code === 'SQLITE_CONSTRAINT' && err.message.includes('UNIQUE constraint failed: Customer.belongsTo, Customer.name, Customer.company')) {
-            return res.status(409).json({ message: 'Customer already exists' });
-          }
-          
-          return res.status(500).json({ error: err.message });
-        }
-        
-        const customerId = this.lastID;
-        let completedOperations = 0;
-        let totalOperations = 0;
-        
-        // Count how many additional operations we need to perform
-        if (email) totalOperations++;
-        if (phone) totalOperations++;
-        
-        // If no additional operations, commit and return
-        if (totalOperations === 0) {
-          db.run('COMMIT', (commitErr) => {
-            if (commitErr) {
-              return res.status(500).json({ error: commitErr.message });
-            }
-            res.status(201).json({ id: customerId, message: 'Customer created successfully' });
-          });
-          return;
-        }
-        
-        // Function to check if all operations are complete
-        const checkCompletion = () => {
-          completedOperations++;
-          if (completedOperations === totalOperations) {
-            db.run('COMMIT', (commitErr) => {
-              if (commitErr) {
-                return res.status(500).json({ error: commitErr.message });
-              }
-              res.status(201).json({ id: customerId, message: 'Customer created successfully' });
-            });
-          }
-        };
-        
-        // Insert email addresses if provided (handle array)
-        if (email) {
-          const emailArray = Array.isArray(email) ? email : [email];
-          const validEmails = [...new Set(emailArray.filter(e => e && e.trim() !== '').map(e => e.trim()))];
-          
-          if (validEmails.length > 0) {
-            let emailInsertCount = 0;
-            validEmails.forEach((emailAddress) => {
-              db.run(
-                'INSERT OR IGNORE INTO CustomerEmail (customerId, email) VALUES (?, ?)',
-                [customerId, emailAddress],
-                function(emailErr) {
-                  if (emailErr) {
-                    db.run('ROLLBACK');
-                    return res.status(500).json({ error: emailErr.message });
-                  }
-                  emailInsertCount++;
-                  if (emailInsertCount === validEmails.length) {
-                    checkCompletion();
-                  }
-                }
-              );
-            });
-          } else {
-            checkCompletion();
-          }
-        }
-        
-        // Insert phone numbers if provided (handle array)
-        if (phone) {
-          const phoneArray = Array.isArray(phone) ? phone : [phone];
-          const validPhones = [...new Set(phoneArray.filter(p => p && p.trim() !== '').map(p => p.trim()))];
-          
-          if (validPhones.length > 0) {
-            let phoneInsertCount = 0;
-            validPhones.forEach((phoneNumber) => {
-              db.run(
-                'INSERT OR IGNORE INTO CustomerPhone (customerId, phone) VALUES (?, ?)',
-                [customerId, phoneNumber],
-                function(phoneErr) {
-                  if (phoneErr) {
-                    db.run('ROLLBACK');
-                    return res.status(500).json({ error: phoneErr.message });
-                  }
-                  phoneInsertCount++;
-                  if (phoneInsertCount === validPhones.length) {
-                    checkCompletion();
-                  }
-                }
-              );
-            });
-          } else {
-            checkCompletion();
-          }
-        }
-      }
-    );
-  });
-});
+
 
 // Update a customer
 router.put('/:id', (req, res) => {
@@ -175,141 +57,215 @@ router.put('/:id', (req, res) => {
 });
 
 // PATCH endpoint for updating customer (handles arrays for phone and email)
-router.patch('/:id', (req, res) => {
+router.patch("/:id", (req, res) => {
   const { name, email, phone, address, company } = req.body;
   const customerId = req.params.id;
-  
+
   if (!name) {
-    return res.status(400).json({ error: 'Customer name is required' });
+    return res.status(400).json({ error: "Customer name is required" });
   }
-  
-  // Start a transaction to ensure data consistency
-  db.serialize(() => {
-    db.run('BEGIN TRANSACTION');
-    
-    // Update the main customer record
-    db.run(
-      'UPDATE Customer SET name = ?, address = ?, company = ? WHERE id = ?',
-      [name, address || null, company || 'nocompany', customerId],
-      function(err) {
-        if (err) {
-          db.run('ROLLBACK');
-          return res.status(500).json({ error: err.message });
-        }
-        
-        if (this.changes === 0) {
-          db.run('ROLLBACK');
-          return res.status(404).json({ error: 'Customer not found' });
-        }
-        
-        let completedOperations = 0;
-        let totalOperations = 0;
-        
-        // Count operations needed
-        if (email !== undefined) totalOperations++;
-        if (phone !== undefined) totalOperations++;
-        
-        // If no additional operations, commit and return
-        if (totalOperations === 0) {
-          db.run('COMMIT', (commitErr) => {
-            if (commitErr) {
-              return res.status(500).json({ error: commitErr.message });
-            }
-            res.status(200).json({ message: 'Customer updated successfully' });
-          });
-          return;
-        }
-        
-        // Function to check if all operations are complete
-        const checkCompletion = () => {
-          completedOperations++;
-          if (completedOperations === totalOperations) {
-            db.run('COMMIT', (commitErr) => {
-              if (commitErr) {
-                return res.status(500).json({ error: commitErr.message });
-              }
-              res.status(200).json({ message: 'Customer updated successfully' });
-            });
+
+  try {
+    // Use better-sqlite3's built-in transaction wrapper
+    const updateTransaction = db.transaction(() => {
+      // 1️⃣ Update main customer record
+      const updateCustomer = db.prepare(`
+        UPDATE Customer
+        SET name = ?, address = ?, company = ?
+        WHERE id = ?
+      `);
+
+      const result = updateCustomer.run(
+        name,
+        address || null,
+        company || "nocompany",
+        customerId
+      );
+
+      if (result.changes === 0) {
+        throw new Error("NOT_FOUND");
+      }
+
+      // 2️⃣ Update emails (if field was sent)
+      if (email !== undefined) {
+        const deleteEmails = db.prepare(
+          "DELETE FROM CustomerEmail WHERE customerId = ?"
+        );
+        deleteEmails.run(customerId);
+
+        const emailArray = Array.isArray(email) ? email : [email];
+        const validEmails = [
+          ...new Set(
+            emailArray.filter((e) => e && e.trim() !== "").map((e) => e.trim())
+          ),
+        ];
+
+        if (validEmails.length > 0) {
+          const insertEmail = db.prepare(`
+            INSERT OR IGNORE INTO CustomerEmail (customerId, email)
+            VALUES (?, ?)
+          `);
+
+          for (const e of validEmails) {
+            insertEmail.run(customerId, e);
           }
-        };
-        
-        // Update email addresses
-        if (email !== undefined) {
-          // First delete existing emails
-          db.run('DELETE FROM CustomerEmail WHERE customerId = ?', [customerId], (deleteErr) => {
-            if (deleteErr) {
-              db.run('ROLLBACK');
-              return res.status(500).json({ error: deleteErr.message });
-            }
-            
-            // Insert new emails if provided
-            const emailArray = Array.isArray(email) ? email : [email];
-            const validEmails = [...new Set(emailArray.filter(e => e && e.trim() !== '').map(e => e.trim()))];
-            
-            if (validEmails.length > 0) {
-              let emailInsertCount = 0;
-              validEmails.forEach((emailAddress) => {
-                db.run(
-                  'INSERT OR IGNORE INTO CustomerEmail (customerId, email) VALUES (?, ?)',
-                  [customerId, emailAddress],
-                  function(emailErr) {
-                    if (emailErr) {
-                      db.run('ROLLBACK');
-                      return res.status(500).json({ error: emailErr.message });
-                    }
-                    emailInsertCount++;
-                    if (emailInsertCount === validEmails.length) {
-                      checkCompletion();
-                    }
-                  }
-                );
-              });
-            } else {
-              checkCompletion();
-            }
-          });
-        }
-        
-        // Update phone numbers
-        if (phone !== undefined) {
-          // First delete existing phones
-          db.run('DELETE FROM CustomerPhone WHERE customerId = ?', [customerId], (deleteErr) => {
-            if (deleteErr) {
-              db.run('ROLLBACK');
-              return res.status(500).json({ error: deleteErr.message });
-            }
-            
-            // Insert new phones if provided
-            const phoneArray = Array.isArray(phone) ? phone : [phone];
-            const validPhones = [...new Set(phoneArray.filter(p => p && p.trim() !== '').map(p => p.trim()))];
-            
-            if (validPhones.length > 0) {
-              let phoneInsertCount = 0;
-              validPhones.forEach((phoneNumber) => {
-                db.run(
-                  'INSERT OR IGNORE INTO CustomerPhone (customerId, phone) VALUES (?, ?)',
-                  [customerId, phoneNumber],
-                  function(phoneErr) {
-                    if (phoneErr) {
-                      db.run('ROLLBACK');
-                      return res.status(500).json({ error: phoneErr.message });
-                    }
-                    phoneInsertCount++;
-                    if (phoneInsertCount === validPhones.length) {
-                      checkCompletion();
-                    }
-                  }
-                );
-              });
-            } else {
-              checkCompletion();
-            }
-          });
         }
       }
-    );
-  });
+
+      // 3️⃣ Update phones (if field was sent)
+      if (phone !== undefined) {
+        const deletePhones = db.prepare(
+          "DELETE FROM CustomerPhone WHERE customerId = ?"
+        );
+        deletePhones.run(customerId);
+
+        const phoneArray = Array.isArray(phone) ? phone : [phone];
+        const validPhones = [
+          ...new Set(
+            phoneArray.filter((p) => p && p.trim() !== "").map((p) => p.trim())
+          ),
+        ];
+
+        if (validPhones.length > 0) {
+          const insertPhone = db.prepare(`
+            INSERT OR IGNORE INTO CustomerPhone (customerId, phone)
+            VALUES (?, ?)
+          `);
+
+          for (const p of validPhones) {
+            insertPhone.run(customerId, p);
+          }
+        }
+      }
+    });
+
+    // Execute transaction
+    updateTransaction();
+
+    res.status(200).json({ message: "Customer updated successfully" });
+  } catch (err) {
+    if (err.message === "NOT_FOUND") {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
+    if (
+      err.code === "SQLITE_CONSTRAINT" &&
+      err.message.includes("UNIQUE constraint failed")
+    ) {
+      return res
+        .status(409)
+        .json({ error: "Duplicate customer or unique constraint violation" });
+    }
+
+    console.error("Update transaction failed:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
+
+// POST /customers — create new customer
+router.post("/", (req, res) => {
+  const {
+    belongsTo,
+    name,
+    company = "nocompany",
+    address = "",
+    city = "",
+    loyaltyPoints = 0,
+    totalSpent = 0,
+    lastPurchaseDate = null,
+    notes = "",
+    phones = [],
+    emails = [],
+  } = req.body;
+
+  if (!belongsTo || !name) {
+    return res.status(400).json({ error: "belongsTo and name are required." });
+  }
+
+  // check for existing customer
+  const existingCustomer = db.connection
+    .prepare(`SELECT id FROM Customer WHERE belongsTo = ? AND name = ? AND company = ?`)
+    .get(belongsTo, name, company);
+  if (existingCustomer) {
+    return res.status(409).json({ error: "Customer already exists." });
+  }
+  
+  const insertCustomerSQL = `
+    INSERT INTO Customer (
+      belongsTo, company, name, address, city, loyaltyPoints, totalSpent, lastPurchaseDate, notes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  try {
+    const customerInsert = db.connection
+      .prepare(insertCustomerSQL)
+      .run(
+        belongsTo,
+        company,
+        name,
+        address,
+        city,
+        loyaltyPoints,
+        totalSpent,
+        lastPurchaseDate,
+        notes
+      );
+
+    const customerId = customerInsert.lastInsertRowid;
+    console.log(customerId)
+
+    // Insert phone numbers
+    const insertPhoneSQL = `INSERT INTO CustomerPhone (customerId, phone) VALUES (?, ?)`;
+    const insertPhoneStmt = db.connection.prepare(insertPhoneSQL);
+    for (const phone of phones) {
+      if (phone && phone.trim()) insertPhoneStmt.run(customerId, phone.trim());
+    }
+
+    // Insert emails
+    const insertEmailSQL = `INSERT INTO CustomerEmail (customerId, email) VALUES (?, ?)`;
+    const insertEmailStmt = db.connection.prepare(insertEmailSQL);
+    for (const email of emails) {
+      if (email && email.trim()) insertEmailStmt.run(customerId, email.trim());
+    }
+
+    // Fetch the new record
+    const customer = db.connection
+      .prepare(`SELECT * FROM Customer WHERE id = ?`)
+      .get(customerId);
+
+    const customerPhones = db.connection
+      .prepare(`SELECT phone FROM CustomerPhone WHERE customerId = ?`)
+      .all(customerId)
+      .map((p) => p.phone);
+
+    const customerEmails = db.connection
+      .prepare(`SELECT email FROM CustomerEmail WHERE customerId = ?`)
+      .all(customerId)
+      .map((e) => e.email);
+
+    res.status(201).json({
+      message: "Customer created successfully",
+      customer: {
+        ...customer,
+        phones: customerPhones,
+        emails: customerEmails,
+      },
+    });
+  } catch (err) {
+    console.error("Error creating customer:", err);
+
+    // Handle UNIQUE constraint error for (belongsTo, name, company)
+    if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      return res.status(409).json({
+        error:
+          "A customer with this name and company already exists for this business.",
+      });
+    }
+
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
 
 // Delete a customer
 router.delete('/:id', (req, res) => {
@@ -376,18 +332,15 @@ router.get('/:id', (req, res) => {
         phone: customer.phone ? customer.phone.split(',') : [],
         email: customer.email ? customer.email.split(',') : []
       }));
-      console.log(customers)
       res.json({ customers: customers || [] });
     }
   });
 });
 router.get('/company/:companyId', (req, res) => {
-  console.log(req.params.companyId)
   db.all('SELECT * FROM Customer WHERE belongsTo = ?', [req.params.companyId], (err, rows) => {
     if (err) {
       return res.status(500).json({ message: err.message });
     }
-    console.log(rows)
     res.json(rows);
   });
 });
@@ -632,7 +585,6 @@ router.get('/:customerId/summary', (req, res) => {
     // Transform phone and email to arrays
     customer.phone = customer.phone ? customer.phone.split(',') : [];
     customer.email = customer.email ? customer.email.split(',') : [];
-    console.log(customer)
     
     res.json({ customer });
   });

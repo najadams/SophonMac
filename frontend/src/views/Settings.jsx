@@ -262,7 +262,7 @@ const Settings = () => {
               enableReports: Boolean(company.enableReports) !== false,
               enableAnalytics: Boolean(company.enableAnalytics) !== false,
               enableMultiCurrency: Boolean(company.enableMultiCurrency),
-              defaultCurrency: company.defaultCurrency || "GHS",
+              currencyCode: company.currencyCode || "GHS",
               enableExchangeRates: Boolean(company.enableExchangeRates),
               enablePaymentMethods: Boolean(company.enablePaymentMethods) !== false,
               defaultPaymentMethod: company.defaultPaymentMethod || "cash",

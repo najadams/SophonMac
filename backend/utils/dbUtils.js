@@ -58,33 +58,17 @@ const DBUtils = {
   createSchema() {
     return new Promise((resolve, reject) => {
       const schemaPath = path.join(__dirname, "..", "data", "db", "schema.sql");
-      const schema = fs.readFileSync(schemaPath, "utf8");
-      const statements = schema.split(";").filter(Boolean);
-
-      // Use a recursive function to execute statements sequentially
-      const executeStatements = (index) => {
-        if (index >= statements.length) {
+      const schemaRaw = fs.readFileSync(schemaPath, "utf8");
+      // Strip migration-only blocks so initial schema creation doesn't run them
+      const schema = schemaRaw.replace(/-- MIGRATION ONLY BEGIN[\s\S]*?-- MIGRATION ONLY END[\s\S]*?/g, "");
+      // Execute entire schema at once to support triggers and complex statements
+      getDb().exec(schema, (err) => {
+        if (err) {
+          reject(err);
+        } else {
           resolve();
-          return;
         }
-
-        const stmt = statements[index].trim();
-        if (!stmt) {
-          executeStatements(index + 1);
-          return;
-        }
-
-        getDb().exec(stmt, (err) => {
-          if (err) {
-            console.error(`Error executing SQL statement: ${stmt}`, err);
-            reject(err);
-          } else {
-            executeStatements(index + 1);
-          }
-        });
-      };
-
-      executeStatements(0);
+      });
     });
   },
 };

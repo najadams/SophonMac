@@ -216,6 +216,7 @@ function registerRoutes(withDb) {
       const reportRoutes = require('./routes/reportRoutes');
       const notificationRoutes = require('./routes/notificationRoutes');
       const syncRoutes = require('./routes/syncRoutes');
+      const currencyRoutes = require('./routes/currencyRoutes');
 
       app.use('/api/auth', authRoutes);
       app.use('/api/companies', companyRoutes);
@@ -232,6 +233,7 @@ function registerRoutes(withDb) {
       app.use('/api/notifications', notificationRoutes);
       app.use('/api/reports', reportRoutes);
       app.use('/api/sync', syncRoutes);
+      app.use('/api/currencies', currencyRoutes);
       console.log('Registered full route set with DB');
     } else {
       // Minimal route set without DB already includes /api/network above

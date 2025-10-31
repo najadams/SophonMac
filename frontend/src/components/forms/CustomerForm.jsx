@@ -32,7 +32,7 @@ const validationSchema = Yup.object().shape({
     .required("Customer name is required")
     .min(2, "Name must be at least 2 characters")
     .max(50, "Name must not exceed 50 characters")
-    .matches(/^[a-zA-Z\s-]+$/, "Only letters, spaces, and hyphens are allowed"),
+    .matches(/^[a-zA-Z0-9\s-.]+$/, "Only letters, spaces, and hyphens are allowed"),
   phone: Yup.array().of(
     Yup.string()
       .matches(phoneRegExp, "Invalid phone number format")
@@ -45,7 +45,7 @@ const validationSchema = Yup.object().shape({
   company: Yup.string()
     .max(50, "Company name must not exceed 50 characters")
     .matches(
-      /^[a-zA-Z0-9\s-]+$/,
+      /^[a-zA-Z0-9\s-.]+$/,
       "Only letters, numbers, spaces, and hyphens are allowed"
     ),
 });
