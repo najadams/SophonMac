@@ -73,7 +73,7 @@ const CustomerForm = ({ data, editMutation }) => {
       let error;
       if (data) {
         values.id = data.id;
-        error = await tableActions.updateCustomer(values);
+        error = await tableActions.updateCustomer({companyId, ...values});
       } else {
         const result = await tableActions.addCustomer({ ...values, companyId });
         if (typeof result === "string") {

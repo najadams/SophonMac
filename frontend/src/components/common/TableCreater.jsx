@@ -65,6 +65,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
 
 const TableCreater = ({ companyId, data, type, onDataUpdate }) => {
   const [Headers, setHeaders] = useState([]);
+  const [processedData, setProcessedData] = useState([]);
   const [Data, setData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteRow, setDeleteRow] = useState(null);
@@ -75,6 +76,7 @@ const TableCreater = ({ companyId, data, type, onDataUpdate }) => {
   const isMobile = useMediaQuery((theme) => theme.breakpoints.down("mymd"));
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  let processed = [];
 
   const fetchData = useCallback(async () => {
     try {
@@ -92,17 +94,20 @@ const TableCreater = ({ companyId, data, type, onDataUpdate }) => {
       if (fetchedData && fetchedData.length > 0) {
         // Ensure only one phone and email are displayed
         if (type === "customers") {
-          const processedData = fetchedData.map((item) => ({
+           processed = fetchedData.map((item) => ({
             ...item,
             phone: Array.isArray(item.phone) ? item.phone[0] : item.phone, // Take the first phone
             email: Array.isArray(item.email) ? item.email[0] : item.email, // Take the first email
           }));
+          if (processed) {
+            setProcessedData(processed);
+          }
         } else {
-          processedData = fetchedData;
+          setProcessedData(fetchedData);
         }
 
         setHeaders(
-          Object.keys(processedData[0]).filter(
+          Object.keys(processed[0]).filter(
             (key) =>
               key !== "id" &&
               key !== "unitConversions" &&
@@ -286,7 +291,7 @@ const TableCreater = ({ companyId, data, type, onDataUpdate }) => {
 
   const editCustomerMutation = useMutation(
     (values) => {
-      return axios.patch(`/api/customers/${values.id}`, values);
+      return axios.patch(`/api/customers/${companyId}/${values.id}`, values);
     },
     {
       onSuccess: (data) => {

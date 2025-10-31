@@ -537,10 +537,9 @@ export const tableActions = {
     }
   },
 
-  updateCustomer: async ({ id, name, phone, email, address, company }) => {
+  updateCustomer: async ({ id, name, phone, email, address, company, companyId }) => {
     try {
-      console.log(id);
-      const customer = await axios.patch(`/api/customers/${id}`, {
+      const customer = await axios.patch(`/api/customers/${companyId}/${id}`, {
         id,
         name,
         phone,
@@ -553,7 +552,7 @@ export const tableActions = {
       }
     } catch (error) {
       console.log(error);
-      return error.response?.data?.message || "An error occured";
+      return error.response?.data?.error || "An error occured";
     }
   },
   updateCompanyData: async ({ companyId, ...details }) => {

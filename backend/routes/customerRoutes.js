@@ -32,133 +32,179 @@ router.get('/', (req, res) => {
 });
 
 
-
-// Update a customer
-router.put('/:id', (req, res) => {
-  const { name, email, phone, address, company_id } = req.body;
-  
-  if (!name || !company_id) {
-    return res.status(400).json({ error: 'Customer name and company_id are required' });
-  }
-  
-  db.run(
-    'UPDATE Customer SET name = ?, email = ?, phone = ?, address = ?, company_id = ? WHERE id = ?',
-    [name, email, phone, address, company_id, req.params.id],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      if (this.changes === 0) {
-        return res.status(404).json({ error: 'Customer not found' });
-      }
-      res.json({ changes: this.changes });
-    }
-  );
-});
-
 // PATCH endpoint for updating customer (handles arrays for phone and email)
-router.patch("/:id", (req, res) => {
-  const { name, email, phone, address, company } = req.body;
-  const customerId = req.params.id;
+router.patch("/:compnayId/:id", (req, res) => {
+  const customerId = parseInt(req.params.id, 10);
+  const belongsTo = parseInt(req.params.compnayId, 10);
+  const {
+    name,
+    company = "nocompany",
+    address,
+    city,
+    notes,
+    phone = [],
+    email = [],
+  } = req.body;
+  console.log(req.body)
 
-  if (!name) {
-    return res.status(400).json({ error: "Customer name is required" });
+  if (!customerId || !name || !belongsTo) {
+    return res
+      .status(400)
+      .json({ error: "Customer ID, belongsTo, and name are required." });
   }
 
   try {
-    // Use better-sqlite3's built-in transaction wrapper
-    const updateTransaction = db.transaction(() => {
-      // 1️⃣ Update main customer record
-      const updateCustomer = db.prepare(`
-        UPDATE Customer
-        SET name = ?, address = ?, company = ?
-        WHERE id = ?
-      `);
+    // 1️⃣ Verify customer exists
+    const existing = db.connection
+      .prepare(`SELECT * FROM Customer WHERE id = ? AND belongsTo = ? AND deleted = 0`)
+      .get(customerId, belongsTo);
 
-      const result = updateCustomer.run(
-        name,
-        address || null,
-        company || "nocompany",
-        customerId
+    if (!existing) {
+      return res.status(404).json({ error: "Customer not found." });
+    }
+
+    // 2️⃣ Check for another customer with same name/company/belongsTo
+    const duplicateCustomer = db.connection
+      .prepare(
+        `SELECT id FROM Customer
+         WHERE belongsTo = ? AND name = ? AND company = ? AND deleted = 0 AND id != ?`
+      )
+      .get(belongsTo, name, company, customerId);
+
+    if (duplicateCustomer) {
+      return res.status(409).json({
+        error:
+          "Another customer with the same name and company already exists.",
+      });
+    }
+
+    // 3️⃣ Check for duplicate phone numbers
+    if (phone.length > 0) {
+      const placeholders = phone.map(() => "?").join(",");
+      const phoneConflict = db.connection
+        .prepare(
+          `SELECT CustomerPhone.phone, Customer.name
+           FROM CustomerPhone
+           JOIN Customer ON Customer.id = CustomerPhone.customerId
+           WHERE phone IN (${placeholders})
+           AND Customer.deleted = 0
+           AND Customer.id != ?`
+        )
+        .get(...phone, customerId);
+
+      if (phoneConflict) {
+        return res.status(409).json({
+          error: `Phone number "${phoneConflict.phone}" is already linked to another customer ("${phoneConflict.name}").`,
+        });
+      }
+    }
+
+    // 4️⃣ Check for duplicate emails
+    if (email.length > 0) {
+      const placeholders = email.map(() => "?").join(",");
+      const emailConflict = db.connection
+        .prepare(
+          `SELECT CustomerEmail.email, Customer.name
+           FROM CustomerEmail
+           JOIN Customer ON Customer.id = CustomerEmail.customerId
+           WHERE email IN (${placeholders})
+           AND Customer.deleted = 0
+           AND Customer.id != ?`
+        )
+        .get(...email, customerId);
+
+      if (emailConflict) {
+        return res.status(409).json({
+          error: `Email "${emailConflict.email}" is already linked to another customer ("${emailConflict.name}").`,
+        });
+      }
+    }
+
+    // 5️⃣ Perform atomic update inside a transaction
+    const transaction = db.connection.transaction(() => {
+      // Update main customer table
+      db.connection
+        .prepare(
+          `UPDATE Customer
+           SET name = ?, company = ?, address = ?, city = ?, notes = ?, updatedAt = CURRENT_TIMESTAMP
+           WHERE id = ?`
+        )
+        .run(
+          name,
+          company,
+          address || null,
+          city || null,
+          notes || null,
+          customerId
+        );
+
+      // Update phones
+      db.connection
+        .prepare(`DELETE FROM CustomerPhone WHERE customerId = ?`)
+        .run(customerId);
+
+      const insertPhone = db.connection.prepare(
+        `INSERT INTO CustomerPhone (customerId, phone) VALUES (?, ?)`
       );
-
-      if (result.changes === 0) {
-        throw new Error("NOT_FOUND");
+      const validPhones = [
+        ...new Set(
+          (Array.isArray(phone) ? phone : [phone])
+            .filter((p) => p && p.trim() !== "")
+            .map((p) => p.trim())
+        ),
+      ];
+      for (const phone of validPhones) {
+        insertPhone.run(customerId, phone);
       }
 
-      // 2️⃣ Update emails (if field was sent)
-      if (email !== undefined) {
-        const deleteEmails = db.prepare(
-          "DELETE FROM CustomerEmail WHERE customerId = ?"
-        );
-        deleteEmails.run(customerId);
+      // Update emails
+      db.connection
+        .prepare(`DELETE FROM CustomerEmail WHERE customerId = ?`)
+        .run(customerId);
 
-        const emailArray = Array.isArray(email) ? email : [email];
-        const validEmails = [
-          ...new Set(
-            emailArray.filter((e) => e && e.trim() !== "").map((e) => e.trim())
-          ),
-        ];
-
-        if (validEmails.length > 0) {
-          const insertEmail = db.prepare(`
-            INSERT OR IGNORE INTO CustomerEmail (customerId, email)
-            VALUES (?, ?)
-          `);
-
-          for (const e of validEmails) {
-            insertEmail.run(customerId, e);
-          }
-        }
-      }
-
-      // 3️⃣ Update phones (if field was sent)
-      if (phone !== undefined) {
-        const deletePhones = db.prepare(
-          "DELETE FROM CustomerPhone WHERE customerId = ?"
-        );
-        deletePhones.run(customerId);
-
-        const phoneArray = Array.isArray(phone) ? phone : [phone];
-        const validPhones = [
-          ...new Set(
-            phoneArray.filter((p) => p && p.trim() !== "").map((p) => p.trim())
-          ),
-        ];
-
-        if (validPhones.length > 0) {
-          const insertPhone = db.prepare(`
-            INSERT OR IGNORE INTO CustomerPhone (customerId, phone)
-            VALUES (?, ?)
-          `);
-
-          for (const p of validPhones) {
-            insertPhone.run(customerId, p);
-          }
-        }
+      const insertEmail = db.connection.prepare(
+        `INSERT INTO CustomerEmail (customerId, email) VALUES (?, ?)`
+      );
+      const validEmails = [
+        ...new Set(
+          (Array.isArray(email) ? email : [email])
+            .filter((e) => e && e.trim() !== "")
+            .map((e) => e.trim())
+        ),
+      ];
+      for (const email of validEmails) {
+        insertEmail.run(customerId, email);
       }
     });
 
     // Execute transaction
-    updateTransaction();
+    transaction();
 
-    res.status(200).json({ message: "Customer updated successfully" });
+    // 6️⃣ Fetch updated customer record with phones/emails
+    const customer = db.connection
+      .prepare(`SELECT * FROM Customer WHERE id = ?`)
+      .get(customerId);
+
+    const updatedPhones = db.connection
+      .prepare(`SELECT phone FROM CustomerPhone WHERE customerId = ?`)
+      .all(customerId)
+      .map((p) => p.phone);
+
+    const updatedEmails = db.connection
+      .prepare(`SELECT email FROM CustomerEmail WHERE customerId = ?`)
+      .all(customerId)
+      .map((e) => e.email);
+
+    res.status(200).json({
+      message: "Customer updated successfully.",
+      customer: { ...customer, phones: updatedPhones, emails: updatedEmails },
+    });
   } catch (err) {
-    if (err.message === "NOT_FOUND") {
-      return res.status(404).json({ error: "Customer not found" });
-    }
-
-    if (
-      err.code === "SQLITE_CONSTRAINT" &&
-      err.message.includes("UNIQUE constraint failed")
-    ) {
-      return res
-        .status(409)
-        .json({ error: "Duplicate customer or unique constraint violation" });
-    }
-
-    console.error("Update transaction failed:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Error updating customer:", err);
+    res.status(500).json({
+      error: "An error occurred while updating the customer.",
+      details: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
   }
 });
 
@@ -174,29 +220,86 @@ router.post("/", (req, res) => {
     totalSpent = 0,
     lastPurchaseDate = null,
     notes = "",
-    phones = [],
-    emails = [],
+    phone = [],
+    email = [],
   } = req.body;
 
   if (!belongsTo || !name) {
     return res.status(400).json({ error: "belongsTo and name are required." });
   }
 
-  // check for existing customer
-  const existingCustomer = db.connection
-    .prepare(`SELECT id FROM Customer WHERE belongsTo = ? AND name = ? AND company = ?`)
-    .get(belongsTo, name, company);
-  if (existingCustomer) {
-    return res.status(409).json({ error: "Customer already exists." });
-  }
-  
-  const insertCustomerSQL = `
-    INSERT INTO Customer (
-      belongsTo, company, name, address, city, loyaltyPoints, totalSpent, lastPurchaseDate, notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
   try {
+    // 1️⃣ Check if a customer with same name & company already exists
+    const existingCustomer = db.connection
+      .prepare(
+        `SELECT id FROM Customer
+         WHERE belongsTo = ? AND name = ? AND company = ? AND deleted = 0`
+      )
+      .get(belongsTo, name, company);
+
+    if (existingCustomer) {
+      return res
+        .status(409)
+        .json({ error: "Customer already exists under this company." });
+    }
+
+    // 2️⃣ Check for duplicate phone numbers
+    let duplicatePhones = [];
+    if (phone.length > 0) {
+      const placeholders = phone.map(() => "?").join(",");
+      const phoneResults = db.connection
+        .prepare(
+          `SELECT phone, Customer.name AS ownerName, Customer.company AS ownerCompany
+           FROM CustomerPhone
+           JOIN Customer ON Customer.id = CustomerPhone.customerId
+           WHERE phone IN (${placeholders}) AND Customer.deleted = 0`
+        )
+        .all(...phone);
+
+      if (phoneResults.length > 0) {
+        duplicatePhones = phoneResults.map(
+          (r) => `${r.phone} (belongs to ${r.ownerName} @ ${r.ownerCompany})`
+        );
+      }
+    }
+
+    // 3️⃣ Check for duplicate emails
+    let duplicateEmails = [];
+    if (email.length > 0) {
+      const placeholders = email.map(() => "?").join(",");
+      const emailResults = db.connection
+        .prepare(
+          `SELECT email, Customer.name AS ownerName, Customer.company AS ownerCompany
+           FROM CustomerEmail
+           JOIN Customer ON Customer.id = CustomerEmail.customerId
+           WHERE email IN (${placeholders}) AND Customer.deleted = 0`
+        )
+        .all(...email);
+
+      if (emailResults.length > 0) {
+        duplicateEmails = emailResults.map(
+          (r) => `${r.email} (belongs to ${r.ownerName} @ ${r.ownerCompany})`
+        );
+      }
+    }
+
+    // 4️⃣ If any duplicates exist, stop here and notify user
+    if (duplicatePhones.length > 0 || duplicateEmails.length > 0) {
+      return res.status(409).json({
+        error: "Duplicate phone or email found.",
+        duplicatePhones,
+        duplicateEmails,
+      });
+    }
+
+    // 5️⃣ Proceed to insert new customer
+    const insertCustomerSQL = `
+      INSERT INTO Customer (
+        belongsTo, company, name, address, city,
+        loyaltyPoints, totalSpent, lastPurchaseDate, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
     const customerInsert = db.connection
       .prepare(insertCustomerSQL)
       .run(
@@ -212,23 +315,23 @@ router.post("/", (req, res) => {
       );
 
     const customerId = customerInsert.lastInsertRowid;
-    console.log(customerId)
 
-    // Insert phone numbers
-    const insertPhoneSQL = `INSERT INTO CustomerPhone (customerId, phone) VALUES (?, ?)`;
-    const insertPhoneStmt = db.connection.prepare(insertPhoneSQL);
-    for (const phone of phones) {
-      if (phone && phone.trim()) insertPhoneStmt.run(customerId, phone.trim());
+    // 6️⃣ Insert phones and emails (only after passing duplicate check)
+    const insertPhoneStmt = db.connection.prepare(
+      `INSERT INTO CustomerPhone (customerId, phone) VALUES (?, ?)`
+    );
+    for (const sphone of phone) {
+      if (sphone && sphone.trim()) insertPhoneStmt.run(customerId, sphone.trim());
     }
 
-    // Insert emails
-    const insertEmailSQL = `INSERT INTO CustomerEmail (customerId, email) VALUES (?, ?)`;
-    const insertEmailStmt = db.connection.prepare(insertEmailSQL);
-    for (const email of emails) {
-      if (email && email.trim()) insertEmailStmt.run(customerId, email.trim());
+    const insertEmailStmt = db.connection.prepare(
+      `INSERT INTO CustomerEmail (customerId, email) VALUES (?, ?)`
+    );
+    for (const semail of email) {
+      if (semail && semail.trim()) insertEmailStmt.run(customerId, semail.trim());
     }
 
-    // Fetch the new record
+    // 7️⃣ Retrieve and return the created customer
     const customer = db.connection
       .prepare(`SELECT * FROM Customer WHERE id = ?`)
       .get(customerId);
@@ -254,15 +357,17 @@ router.post("/", (req, res) => {
   } catch (err) {
     console.error("Error creating customer:", err);
 
-    // Handle UNIQUE constraint error for (belongsTo, name, company)
-    if (err.code === "SQLITE_CONSTRAINT_UNIQUE") {
+    if (
+      err.code === "SQLITE_CONSTRAINT_UNIQUE" ||
+      err.message.includes("UNIQUE constraint failed")
+    ) {
       return res.status(409).json({
         error:
           "A customer with this name and company already exists for this business.",
       });
     }
 
-    res.status(500).json({ error: "Database error" });
+    res.status(500).json({ error: "Database error occurred." });
   }
 });
 
