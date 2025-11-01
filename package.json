@@ -96,7 +96,7 @@
       "gatekeeperAssess": false
     },
     "win": {
-      "icon": "resources/icon.ico",
+      "icon": "resources/icon.png",
       "requestedExecutionLevel": "asInvoker",
       "verifyUpdateCodeSignature": false,
       "signAndEditExecutable": false,
