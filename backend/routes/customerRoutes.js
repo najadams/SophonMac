@@ -441,6 +441,7 @@ router.get('/:id', (req, res) => {
     }
   });
 });
+
 router.get('/company/:companyId', (req, res) => {
   db.all('SELECT * FROM Customer WHERE belongsTo = ?', [req.params.companyId], (err, rows) => {
     if (err) {
