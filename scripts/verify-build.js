@@ -101,6 +101,7 @@ for (const maker of makers) {
           "express",
           "socket.io",
           "bcrypt",
+          "better-sqlite3",
         ];
 
         let allPresent = true;

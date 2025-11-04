@@ -479,7 +479,7 @@ function startBackend() {
           logToFile('INFO', `Setting NODE_PATH to backend node_modules: ${backendNodeModules}`);
           
           // Verify critical modules exist
-          const criticalModules = ['cors', 'express', 'sqlite3'];
+          const criticalModules = ['cors', 'express', 'better-sqlite3', 'bcrypt', 'socket.io'];
           for (const mod of criticalModules) {
             const modPath = path.join(backendNodeModules, mod);
             const exists = fs.existsSync(modPath);
