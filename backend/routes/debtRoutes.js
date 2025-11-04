@@ -74,83 +74,101 @@ router.get('/:companyId/all', (req, res) => {
 });
 
 // Process debt payment
-router.post('/:debtId/pay', (req, res) => {
+router.post("/:debtId/pay", (req, res) => {
   const { debtId } = req.params;
-  const { amount, workerId, paymentMethod = 'cash' } = req.body;
-  
+  const { amount, workerId, paymentMethod = "cash" } = req.body;
+
   if (!amount || !workerId) {
-    return res.status(400).json({ error: 'Amount and worker ID are required' });
+    return res.status(400).json({ error: "Amount and worker ID are required" });
   }
-  
+
   const paymentAmount = parseFloat(amount);
-  if (paymentAmount <= 0) {
-    return res.status(400).json({ error: 'Payment amount must be greater than 0' });
+  if (isNaN(paymentAmount) || paymentAmount <= 0) {
+    return res
+      .status(400)
+      .json({ error: "Payment amount must be greater than 0" });
   }
-  
-  // Start a transaction
-  db.serialize(() => {
-    db.run('BEGIN TRANSACTION');
-    
-    // Get current debt amount and status
-    db.get('SELECT amount, status FROM Debt WHERE id = ?', [debtId], (err, debt) => {
-      if (err) {
-        db.run('ROLLBACK');
-        return res.status(500).json({ error: err.message });
-      }
-      
-      if (!debt) {
-        db.run('ROLLBACK');
-        return res.status(404).json({ error: 'Debt not found' });
-      }
-      
-      if (debt.status === 'paid') {
-        db.run('ROLLBACK');
-        return res.status(400).json({ error: 'Debt is already fully paid' });
-      }
-      
-      if (paymentAmount > debt.amount) {
-        db.run('ROLLBACK');
-        return res.status(400).json({ error: 'Payment amount cannot exceed debt amount' });
-      }
-      
-      const newAmount = debt.amount - paymentAmount;
-      const newStatus = newAmount <= 0 ? 'paid' : 'pending';
-      
-      // Update debt amount and status
-      db.run(
-        'UPDATE Debt SET amount = ?, status = ?, updatedAt = datetime("now") WHERE id = ?',
-        [newAmount, newStatus, debtId],
-        function(err) {
-          if (err) {
-            db.run('ROLLBACK');
-            return res.status(500).json({ error: err.message });
-          }
-          
-          // Insert payment record
-          db.run(
-            'INSERT INTO DebtPayment (debtId, amountPaid, workerId, paymentMethod, date) VALUES (?, ?, ?, ?, datetime("now"))',
-            [debtId, paymentAmount, workerId, paymentMethod],
-            function(err) {
-              if (err) {
-                db.run('ROLLBACK');
-                return res.status(500).json({ error: err.message });
-              }
-              
-              db.run('COMMIT');
-              res.json({ 
-                success: true, 
-                newAmount: newAmount,
-                newStatus: newStatus,
-                paymentId: this.lastID,
-                message: newStatus === 'paid' ? 'Debt fully paid!' : 'Payment recorded successfully'
-              });
-            }
-          );
+
+  // Start manual transaction using better-sqlite3 (via shim)
+  try {
+    db.exec("BEGIN TRANSACTION");
+
+    // Get current debt
+    db.get(
+      "SELECT amount, status FROM Debt WHERE id = ?",
+      [debtId],
+      (err, debt) => {
+        if (err) {
+          db.exec("ROLLBACK");
+          return res.status(500).json({ error: err.message });
         }
-      );
-    });
-  });
+
+        if (!debt) {
+          db.exec("ROLLBACK");
+          return res.status(404).json({ error: "Debt not found" });
+        }
+
+        if (debt.status === "paid") {
+          db.exec("ROLLBACK");
+          return res.status(400).json({ error: "Debt is already fully paid" });
+        }
+
+        if (paymentAmount > debt.amount) {
+          db.exec("ROLLBACK");
+          return res
+            .status(400)
+            .json({ error: "Payment amount cannot exceed debt amount" });
+        }
+
+        const newAmount = debt.amount - paymentAmount;
+        const newStatus = newAmount <= 0 ? "paid" : "pending";
+
+        // Update debt record
+        db.run(
+          "UPDATE Debt SET amount = ?, status = ?, updatedAt = datetime('now') WHERE id = ?",
+          [newAmount, newStatus, debtId],
+          function (err) {
+            if (err) {
+              db.exec("ROLLBACK");
+              return res.status(500).json({ error: err.message });
+            }
+
+            // Insert payment record
+            db.run(
+              "INSERT INTO DebtPayment (debtId, amountPaid, workerId, paymentMethod, date) VALUES (?, ?, ?, ?, datetime('now'))",
+              [debtId, paymentAmount, workerId, paymentMethod],
+              function (err) {
+                if (err) {
+                  db.exec("ROLLBACK");
+                  return res.status(500).json({ error: err.message });
+                }
+
+                // Commit
+                db.exec("COMMIT");
+
+                res.json({
+                  success: true,
+                  newAmount,
+                  newStatus,
+                  paymentId: this.lastID,
+                  message:
+                    newStatus === "paid"
+                      ? "Debt fully paid!"
+                      : "Payment recorded successfully",
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  } catch (e) {
+    db.exec("ROLLBACK");
+    console.error("Transaction failed:", e.message);
+    return res.status(500).json({ error: e.message });
+  }
 });
+
 
 // Get a single debt by ID
 router.get('/debt/:id', (req, res) => {
