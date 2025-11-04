@@ -77,7 +77,9 @@ let LAST_DB_ERROR = null;
 
 // Middleware
 app.use(cors({
+  // origin: ['http://localhost:5174', 'http://localhost:5173', 'http://192.168.0.102:5174'],
   origin: true,
+  credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
