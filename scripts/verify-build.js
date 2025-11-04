@@ -169,6 +169,24 @@ for (const maker of makers) {
       }
     }
 
+    // Check for bundled Node runtime on Windows to avoid ABI mismatches
+    if (process.platform === "win32") {
+      const bundledWinNode = path.join(resourcesRoot, "node", "win-x64", "node.exe");
+      if (fs.existsSync(bundledWinNode)) {
+        console.log(`  ✅ Bundled Windows Node found: ${bundledWinNode}`);
+      } else {
+        console.warn(
+          "  ⚠ Bundled Windows Node runtime not found. App will use PATH 'node'."
+        );
+        console.warn(
+          "    → To ensure native modules match, add resources/runtime/node-win-x64/node.exe"
+        );
+        console.warn(
+          "    → Or set BUNDLED_NODE_VERSION to your PATH Node version before building"
+        );
+      }
+    }
+
     console.log();
   }
 }

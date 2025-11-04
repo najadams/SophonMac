@@ -13,6 +13,8 @@ on:
 jobs:
   build-windows-packager:
     runs-on: windows-latest
+    env:
+      BUNDLED_NODE_VERSION: '22.11.0'
     
     steps:
     - name: Checkout code
@@ -21,7 +23,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '22'
         cache: 'npm'
         
     - name: Setup pnpm
@@ -46,9 +48,23 @@ jobs:
       run: |
         cd frontend
         pnpm run build
+
+    - name: Stage Windows Node runtime (Node ${{ env.BUNDLED_NODE_VERSION }})
+      shell: pwsh
+      run: |
+        $Version = "${{ env.BUNDLED_NODE_VERSION }}"
+        $ZipUrl = "https://nodejs.org/dist/v$Version/node-v$Version-win-x64.zip"
+        Write-Host "Downloading Node runtime from $ZipUrl"
+        Invoke-WebRequest -Uri $ZipUrl -OutFile node-win-x64.zip
+        Expand-Archive -Path node-win-x64.zip -DestinationPath node-win-x64 -Force
+        New-Item -ItemType Directory -Force -Path resources/runtime/node-win-x64 | Out-Null
+        Copy-Item -Path "node-win-x64/node-v$Version-win-x64/node.exe" -Destination "resources/runtime/node-win-x64/node.exe" -Force
+        Write-Host "Staged node.exe to resources/runtime/node-win-x64/node.exe"
         
     - name: Package Windows app with electron-packager
       run: pnpm run package:win
+      env:
+        BUNDLED_NODE_VERSION: ${{ env.BUNDLED_NODE_VERSION }}
       
     - name: Create zip archive
       run: |
