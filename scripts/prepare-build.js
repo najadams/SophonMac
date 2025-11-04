@@ -107,8 +107,8 @@ try {
 // Rebuild better-sqlite3 for bundled/target Node runtime to avoid ABI mismatch
 console.log("\n🔁 Rebuilding better-sqlite3 for bundled Node runtime...");
 try {
-  // Default to Node 22 to match common PATH installs on Windows
-  const targetNodeVersion = process.env.BUNDLED_NODE_VERSION || "22.11.0";
+  // Default to Node 20 to use prebuilt better-sqlite3 binaries (ABI 115)
+  const targetNodeVersion = process.env.BUNDLED_NODE_VERSION || "20.18.1";
   console.log(`   → Target Node version: ${targetNodeVersion}`);
   execSync(
     `npm rebuild better-sqlite3 --update-binary --runtime=node --target=${targetNodeVersion}`,

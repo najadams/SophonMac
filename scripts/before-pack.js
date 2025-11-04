@@ -77,8 +77,8 @@ module.exports = async function (context) {
     // Rebuild better-sqlite3 to match bundled/target Node runtime
     console.log("\n🔁 Rebuilding better-sqlite3 for bundled Node runtime...");
     try {
-      // Default to Node 22 to match common PATH installs on Windows
-      const targetNodeVersion = process.env.BUNDLED_NODE_VERSION || "22.11.0";
+      // Default to Node 20 to use prebuilt better-sqlite3 binaries (ABI 115)
+      const targetNodeVersion = process.env.BUNDLED_NODE_VERSION || "20.18.1";
       console.log(`   → Target Node version: ${targetNodeVersion}`);
       execSync(
         `npm rebuild better-sqlite3 --update-binary --runtime=node --target=${targetNodeVersion}`,

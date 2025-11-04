@@ -11,7 +11,7 @@ jobs:
   build-windows:
     runs-on: windows-latest
     env:
-      BUNDLED_NODE_VERSION: '22.11.0'
+      BUNDLED_NODE_VERSION: '20.18.1'
     
     steps:
     - name: Checkout code
@@ -20,7 +20,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '22'
+        node-version: '20'
         cache: 'npm'
         
     - name: Setup pnpm

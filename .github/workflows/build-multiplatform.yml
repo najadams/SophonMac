@@ -11,7 +11,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     env:
-      BUNDLED_NODE_VERSION: '22.11.0'
+      BUNDLED_NODE_VERSION: '20.18.1'
     
     strategy:
       matrix:
@@ -24,7 +24,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.os == 'windows-latest' && '22' || '18' }}
+        node-version: '20'
         cache: 'npm'
         
     - name: Setup pnpm
