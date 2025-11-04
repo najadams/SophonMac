@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../data/db/db");
+const { promises } = require("fs-extra");
 
 // Helper function to format date for SQLite
 const formatDateForSql = (date) => {
@@ -336,14 +337,31 @@ const newReceipts = async (req, res) => {
     const [company, name] = customerName
       .split(" - ")
       .map((str) => str?.toLowerCase().trim());
+      const companyName = company === "nocompany" ? null : company;
 
+    console.log(name, company, companyName)
     // Fetch customer using callback-based API
     const customer = await new Promise((resolve, reject) => {
-      const customerQuery = `
+      let customerQuery;
+      let params;
+      
+      if (companyName === null) {
+        // For customers with no company name
+        customerQuery = `
+        SELECT * FROM Customer 
+        WHERE LOWER(name) = ? AND belongsTo = ? AND (company IS NULL OR company = '')
+        `;
+        params = [name, companyId];
+      } else {
+        // For customers with company name
+        customerQuery = `
         SELECT * FROM Customer 
         WHERE LOWER(name) = ? AND belongsTo = ? AND LOWER(company) = ?
-      `;
-      db.get(customerQuery, [name, companyId, company], (err, row) => {
+        `;
+        params = [name, companyId, companyName];
+      }
+      
+      db.get(customerQuery, params, (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
