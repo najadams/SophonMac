@@ -252,52 +252,63 @@ const Reports = () => {
       );
     }
 
-    // if (value === 2) {
-    //   if (isInventoryLoading) {
-    //     return (
-    //       <motion.div
-    //         key="loading"
-    //         variants={loadingVariants}
-    //         initial="initial"
-    //         animate="animate"
-    //         exit="exit"
-    //         style={{
-    //           display: "flex",
-    //           justifyContent: "center",
-    //           alignItems: "center",
-    //           minHeight: "60vh",
-    //         }}>
-    //         <CircularProgress />
-    //       </motion.div>
-    //     );
-    //   }
-    //   if (isInventoryError) {
-    //     return (
-    //       <motion.div
-    //         key="error"
-    //         variants={pageVariants}
-    //         initial="initial"
-    //         animate="animate"
-    //         exit="exit">
-    //         <Typography color="error">
-    //           Error loading inventory report
-    //         </Typography>
-    //       </motion.div>
-    //     );
-    //   }
-    //   if (!inventoryData)
-    //     return <Typography>No inventory data available</Typography>;
-    //   return (
-    //     <motion.div
-    //       key="inventory"
-    //       variants={pageVariants}
-    //       initial="initial"
-    //       animate="animate"
-    //       exit="exit">
-    //       <InventoryReport inventoryItems={inventoryData.aggregatedData} />
-    //     </motion.div>
-    //   );
-    // }
+    if (value === 2) {
+      if (isInventoryLoading) {
+        return (
+          <motion.div
+            key="loading"
+            variants={loadingVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              minHeight: "60vh",
+            }}>
+            <CircularProgress />
+          </motion.div>
+        );
+      }
+      if (isInventoryError) {
+        return (
+          <motion.div
+            key="error"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit">
+            <Typography color="error">
+              Error loading inventory report
+            </Typography>
+          </motion.div>
+        );
+      }
+      if (!inventoryData)
+        return <Typography>No inventory data available</Typography>;
+      return (
+        <motion.div
+          key="inventory"
+          variants={pageVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit">
+          <Suspense fallback={<CircularProgress />}>
+            <InventoryReport 
+              products={inventoryData.products} 
+              totalQuantitySold={inventoryData.totalQuantitySold}
+              totalRevenue={inventoryData.totalRevenue}
+              totalProfit={inventoryData.totalProfit}
+              totalItemsWithSales={inventoryData.totalItemsWithSales}
+              companyId={companyId}
+              startDate={filters.startDate}
+              endDate={filters.endDate}
+            />
+          </Suspense>
+        </motion.div>
+      );
+    }
 
     if (value === 3) {
       if (isPurchasesLoading) {
@@ -409,7 +420,7 @@ const Reports = () => {
             aria-label="full width tabs example">
             <Tab label="Summary" />
             <Tab label="Sales" />
-            {/* <Tab label="Inventory" /> */}
+            <Tab label="Inventory" />
             {/* <Tab label="Purchases" /> */}
             {/* <Tab label="Debts" /> */}
           </Tabs>

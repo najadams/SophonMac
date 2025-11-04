@@ -4,6 +4,7 @@ import {
   Paper,
   Card,
   CardContent,
+  TablePagination,
   Typography,
   Table,
   TableHead,
@@ -13,10 +14,16 @@ import {
   TableContainer,
   TableSortLabel,
   Box,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  CircularProgress,
 } from "@mui/material";
 import SearchField from "../../hooks/SearchField";
 import { StyledTableHead } from "./SalesReport";
-import { Inventory, TrendingUp, AttachMoney } from "@mui/icons-material";
+import { Inventory, TrendingUp, AttachMoney, LocalMall } from "@mui/icons-material";
 
 const capitalizeFirstLetter = (str) => {
   if (typeof str === "string") {
@@ -32,9 +39,9 @@ const capitalizeFirstLetter = (str) => {
 const formatQuantityWithUnits = (quantity, baseUnit, salesUnit, conversionRate) => {
   if (!quantity || quantity === 0) return "0";
   
-  // If baseUnit is 'none' or empty, return empty string
+  // If baseUnit is 'none' or empty, show numeric value without unit
   if (!baseUnit || baseUnit === 'none' || baseUnit === '') {
-    return '';
+    return `${quantity}`;
   }
   
   // If no conversion rate or it's 1, just show the quantity with base unit
@@ -58,6 +65,73 @@ const formatQuantityWithUnits = (quantity, baseUnit, salesUnit, conversionRate) 
     // For conversion rates >= 1, show in base units
     return `${quantity} ${baseUnit}`;
   }
+};
+
+// Customer Details Modal Component
+const CustomerDetailsModal = ({ 
+  selectedProduct, 
+  customerData, 
+  modalOpen, 
+  handleCloseModal, 
+  loadingCustomers 
+}) => {
+  return (
+    <Dialog 
+      open={modalOpen} 
+      onClose={handleCloseModal} 
+      maxWidth="md" 
+      fullWidth
+    >
+      <DialogTitle>
+        Customer Purchase Details - {selectedProduct?.name}
+      </DialogTitle>
+      <DialogContent>
+        {loadingCustomers ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Customer Name</TableCell>
+                <TableCell>Company</TableCell>
+                <TableCell align="right">Quantity</TableCell>
+                <TableCell align="right">Total Amount</TableCell>
+                <TableCell align="right">Purchase Count</TableCell>
+                <TableCell>Last Purchase</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {customerData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
+                    No customer data available
+                  </TableCell>
+                </TableRow>
+              ) : (
+                customerData.map((customer, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{customer.customerName}</TableCell>
+                    <TableCell>{customer.customerCompany || 'N/A'}</TableCell>
+                    <TableCell align="right">{customer.totalQuantity}</TableCell>
+                    <TableCell align="right">₵{customer.totalAmount.toFixed(2)}</TableCell>
+                    <TableCell align="right">{customer.purchaseCount}</TableCell>
+                    <TableCell>{new Date(customer.lastPurchaseDate).toLocaleDateString()}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleCloseModal} color="primary">
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 };
 
 // Inventory Summary Cards Component
@@ -144,7 +218,7 @@ const InventorySummaryCards = ({ inventoryData, totalQuantitySold, totalItemsWit
               mb: 1,
               fontWeight: 500,
             }}>
-            Total Amount Spent
+            Total Amount Sold
           </Typography>
           <Typography
             variant="h4"
@@ -207,9 +281,11 @@ const InventorySummaryCards = ({ inventoryData, totalQuantitySold, totalItemsWit
 };
 
 // Inventory Table Component
-const InventoryTable = ({ inventoryItems = [], searchTerm }) => {
+const InventoryTable = ({ inventoryItems = [], searchTerm, onProductClick }) => {
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("name");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   const items = Array.isArray(inventoryItems) ? inventoryItems : [];
 
   const handleRequestSort = (property) => {
@@ -219,7 +295,7 @@ const InventoryTable = ({ inventoryItems = [], searchTerm }) => {
   };
 
   const filteredItems = items.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (item.name || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const sortedItems = [...filteredItems].sort((a, b) => {
@@ -227,14 +303,32 @@ const InventoryTable = ({ inventoryItems = [], searchTerm }) => {
     if (orderBy === "name") {
       comparator = a.name.localeCompare(b.name);
     } else if (orderBy === "totalQuantity") {
-      comparator = (a.totalQuantity || 0) - (b.totalQuantity || 0);
+      const aQty = a.totalQuantity ?? a.quantitySold ?? 0;
+      const bQty = b.totalQuantity ?? b.quantitySold ?? 0;
+      comparator = aQty - bQty;
     } else if (orderBy === "onhand") {
       comparator = (a.onhand || 0) - (b.onhand || 0);
     } else if (orderBy === "totalSalesPrice") {
-      comparator = (a.totalSalesPrice || 0) - (b.totalSalesPrice || 0);
+      const aRev = a.totalSalesPrice ?? a.totalRevenue ?? 0;
+      const bRev = b.totalSalesPrice ?? b.totalRevenue ?? 0;
+      comparator = aRev - bRev;
     }
     return comparator * (order === "asc" ? 1 : -1);
   });
+
+  // Pagination handlers
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const paginatedItems = sortedItems.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   return (
     <TableContainer
@@ -276,74 +370,127 @@ const InventoryTable = ({ inventoryItems = [], searchTerm }) => {
                 active={orderBy === "totalSalesPrice"}
                 direction={orderBy === "totalSalesPrice" ? order : "asc"}
                 onClick={() => handleRequestSort("totalSalesPrice")}>
-                Total Amount Spent
+                Total Amount Sold
               </TableSortLabel>
             </TableCell>
           </TableRow>
         </StyledTableHead>
         <TableBody>
-          {sortedItems.map((item) => (
-            <TableRow
-              key={item.id || item._id}
-              sx={{
-                "&:hover": {
-                  backgroundColor: "#f5f5f5",
-                },
-              }}>
-              <TableCell>{capitalizeFirstLetter(item.name)}</TableCell>
-              <TableCell align="right">
-                {formatQuantityWithUnits(
-                  item.totalQuantity || 0,
-                  item.baseUnit,
-                  item.salesUnit || null,
-                  item.conversionRate || 1
-                )}
-              </TableCell>
-              <TableCell align="right">
-                {formatQuantityWithUnits(
-                  item.onhand || 0,
-                  item.baseUnit,
-                  item.salesUnit || null,
-                  item.conversionRate || 1
-                )}
-              </TableCell>
-              <TableCell align="right">
-                ₵{(item.totalSalesPrice || 0).toFixed(2)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
+          {paginatedItems.map((item) => (
+          <TableRow
+            key={item.id || item._id}
+            onClick={() => onProductClick && onProductClick(item)}
+            sx={{
+              "&:hover": {
+                backgroundColor: "#f5f5f5",
+                cursor:
+                  ((item.totalQuantity ?? item.quantitySold ?? 0) > 0)
+                    ? "pointer"
+                    : "default",
+              },
+            }}>
+            <TableCell>{capitalizeFirstLetter(item.name)}</TableCell>
+            <TableCell align="right">
+              {formatQuantityWithUnits(
+                item.totalQuantity ?? item.quantitySold ?? 0,
+                item.baseUnit,
+                item.salesUnit || null,
+                item.conversionRate || 1
+              )}
+            </TableCell>
+            <TableCell align="right">
+              {formatQuantityWithUnits(
+                item.onhand || 0,
+                item.baseUnit,
+                item.salesUnit || null,
+                item.conversionRate || 1
+              )}
+            </TableCell>
+            <TableCell align="right">
+              ₵{(item.totalSalesPrice ?? item.totalRevenue ?? 0).toFixed(2)}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
       </Table>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", p: 2 }}>
+        <TablePagination
+          component="div"
+          count={sortedItems.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[10, 25, 50, 100]}
+        />
+      </Box>
     </TableContainer>
   );
 };
 
 // InventoryReports Component
-const InventoryReports = ({ inventoryItems }) => {
+const InventoryReports = ({ products = [], inventoryItems, companyId, startDate, endDate }) => {
   const [totalCash, setTotalCash] = useState(0);
   const [totalQuantitySold, setTotalQuantitySold] = useState(0);
   const [totalItemsWithSales, setTotalItemsWithSales] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [customerData, setCustomerData] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
 
   useEffect(() => {
-    if (inventoryItems) {
-      const totalAmount = inventoryItems.reduce(
-        (total, data) => total + (data.totalSalesPrice || 0),
-        0
+    const src = Array.isArray(inventoryItems) && inventoryItems.length > 0
+      ? inventoryItems
+      : Array.isArray(products) ? products : [];
+
+    const totalAmount = src.reduce(
+      (sum, item) => sum + (item.totalSalesPrice ?? item.totalRevenue ?? 0),
+      0
+    );
+    const totalQty = src.reduce(
+      (sum, item) => sum + (item.totalQuantity ?? item.quantitySold ?? 0),
+      0
+    );
+    const itemsWithSales = src.filter(
+      (item) => (item.totalQuantity ?? item.quantitySold ?? 0) > 0
+    ).length;
+
+    setTotalCash(totalAmount);
+    setTotalQuantitySold(totalQty);
+    setTotalItemsWithSales(itemsWithSales);
+  }, [inventoryItems, products]);
+
+  const handleProductClick = async (item) => {
+    if (!item || ((item.totalQuantity ?? item.quantitySold ?? 0) === 0)) return;
+    
+    setLoadingCustomers(true);
+    setSelectedProduct(item);
+    
+    try {
+      const response = await fetch(
+        `/api/reports/product-customers?companyId=${companyId}&productName=${encodeURIComponent(item.name)}&startDate=${startDate}&endDate=${endDate}`
       );
-      const totalQty = inventoryItems.reduce(
-        (total, data) => total + (data.totalQuantity || 0),
-        0
-      );
-      const itemsWithSales = inventoryItems.filter(
-        (item) => (item.totalQuantity || 0) > 0
-      ).length;
       
-      setTotalCash(totalAmount);
-      setTotalQuantitySold(totalQty);
-      setTotalItemsWithSales(itemsWithSales);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomerData(data.customers || []);
+        setModalOpen(true);
+      } else {
+        console.error('Failed to fetch customer data');
+      }
+    } catch (error) {
+      console.error('Error fetching customer data:', error);
+    } finally {
+      setLoadingCustomers(false);
     }
-  }, [inventoryItems]);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setSelectedProduct(null);
+    setCustomerData([]);
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -382,10 +529,23 @@ const InventoryReports = ({ inventoryItems }) => {
           </Typography>
           <SearchField onSearch={setSearchTerm} />
         </Box>
-        <InventoryTable
-          inventoryItems={inventoryItems}
-          searchTerm={searchTerm}
+        <InventoryTable 
+          inventoryItems={
+            (Array.isArray(inventoryItems) && inventoryItems.length > 0)
+              ? inventoryItems
+              : (Array.isArray(products) ? products : [])
+          } 
+          searchTerm={searchTerm} 
+          onProductClick={handleProductClick}
         />
+      
+      <CustomerDetailsModal
+        selectedProduct={selectedProduct}
+        customerData={customerData}
+        modalOpen={modalOpen}
+        handleCloseModal={handleCloseModal}
+        loadingCustomers={loadingCustomers}
+      />
       </Paper>
     </Box>
   );
