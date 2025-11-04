@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const { promisify } = require('util');
 
 // Get summary report
 router.get('/summary', (req, res) => {
@@ -204,7 +205,7 @@ router.get('/sales', (req, res) => {
 });
 
 // Get inventory report
-router.get('/inventory', (req, res) => {
+router.get('/oldinventory', (req, res) => {
   const { companyId, startDate, endDate } = req.query;
 
   if (!companyId) {
@@ -267,6 +268,126 @@ router.get('/inventory', (req, res) => {
       inventory: rows,
       aggregatedData: rows,
       summary
+    });
+  });
+});
+
+// Get product sales report
+router.get('/inventory', (req, res) => {
+  const { companyId, startDate, endDate } = req.query;
+
+  if (!companyId) {
+    return res.status(400).json({ error: 'Company ID is required' });
+  }
+
+  // Default to today if no dates provided
+  const today = new Date().toISOString().split('T')[0];
+  const start = startDate || today;
+  const end = endDate || today;
+
+  // Query to get product sales data with quantity sold and revenue
+  // NOTE: Use conditional SUMs so products with zero sales still appear,
+  // while only counting sales within the selected date range and unflagged receipts.
+  const productSalesQuery = `
+    SELECT 
+      i.id,
+      i.name,
+      i.category,
+      i.baseUnit,
+      i.costPrice,
+      i.salesPrice,
+      i.onhand,
+      COALESCE(SUM(CASE WHEN DATE(r.createdAt) BETWEEN ? AND ? AND (r.flagged = 0 OR r.flagged IS NULL) THEN rd.quantity ELSE 0 END), 0) as quantitySold,
+      COALESCE(SUM(CASE WHEN DATE(r.createdAt) BETWEEN ? AND ? AND (r.flagged = 0 OR r.flagged IS NULL) THEN rd.quantity * rd.salesPrice ELSE 0 END), 0) as totalRevenue,
+      COALESCE(SUM(CASE WHEN DATE(r.createdAt) BETWEEN ? AND ? AND (r.flagged = 0 OR r.flagged IS NULL) THEN rd.quantity * (rd.salesPrice - i.costPrice) ELSE 0 END), 0) as totalProfit
+    FROM 
+      Inventory i
+    LEFT JOIN 
+      ReceiptDetail rd ON i.name = rd.name
+    LEFT JOIN
+      Receipt r ON rd.receiptId = r.id
+    WHERE 
+      i.companyId = ? AND i.deleted = 0
+    GROUP BY 
+      i.id
+    ORDER BY 
+      quantitySold DESC
+  `;
+
+  db.all(productSalesQuery, [start, end, start, end, start, end, companyId], (err, rows) => {
+    if (err) {
+      console.error('Error fetching product sales report:', err);
+      return res.status(500).json({ error: 'Failed to fetch product sales report' });
+    }
+
+    // Calculate aggregated data
+    const totalQuantitySold = rows.reduce((sum, item) => sum + item.quantitySold, 0);
+    const totalRevenue = rows.reduce((sum, item) => sum + item.totalRevenue, 0);
+    const totalProfit = rows.reduce((sum, item) => sum + item.totalProfit, 0);
+    const totalItemsWithSales = rows.filter(item => item.quantitySold > 0).length;
+
+    console.log(rows)
+    res.json({
+      totalQuantitySold,
+      totalRevenue,
+      totalProfit,
+      totalItemsWithSales,
+      products: rows || []
+    });
+  });
+});
+
+// Get customer purchases for specific product
+router.get('/product-customers', (req, res) => {
+  const { companyId, productName, startDate, endDate } = req.query;
+
+  if (!companyId || !productName) {
+    return res.status(400).json({ error: 'Company ID and product name are required' });
+  }
+
+  // Default to today if no dates provided
+  const today = new Date().toISOString().split('T')[0];
+  const start = startDate || today;
+  const end = endDate || today;
+
+  const customerPurchasesQuery = `
+    SELECT 
+      c.id as customerId,
+      c.name as customerName,
+      c.company as customerCompany,
+      SUM(rd.quantity) as totalQuantity,
+      SUM(rd.quantity * rd.salesPrice) as totalAmount,
+      COUNT(DISTINCT r.id) as purchaseCount,
+      MAX(r.createdAt) as lastPurchaseDate
+    FROM 
+      ReceiptDetail rd
+    JOIN 
+      Receipt r ON rd.receiptId = r.id
+    JOIN 
+      Customer c ON r.customerId = c.id
+    WHERE 
+      r.companyId = ? 
+      AND rd.name = ?
+      AND DATE(r.createdAt) BETWEEN ? AND ?
+      AND (r.flagged = 0 OR r.flagged IS NULL)
+    GROUP BY 
+      c.id, c.name, c.company
+    ORDER BY 
+      totalQuantity DESC
+  `;
+
+  db.all(customerPurchasesQuery, [companyId, productName, start, end], (err, rows) => {
+    if (err) {
+      console.error('Error fetching customer purchases:', err);
+      return res.status(500).json({ error: 'Failed to fetch customer purchases' });
+    }
+
+    res.json({
+      productName,
+      customers: rows || [],
+      totalCustomers: rows.length,
+      totalQuantity: rows.reduce((sum, customer) => sum + customer.totalQuantity, 0),
+      totalRevenue: rows.reduce((sum, customer) => sum + customer.totalAmount, 0)
     });
   });
 });
