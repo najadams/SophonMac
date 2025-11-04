@@ -462,7 +462,7 @@ export const tableActions = {
       const data = response.data.customers.map((item, index) => ({
         id: item.id,
         index: index + 1,
-        company: item.company ? item.company : "None",
+        company: item.company ? item.company : "nocompany",
         name: item.name,
         phone:
           Array.isArray(item.phone) &&
@@ -484,7 +484,7 @@ export const tableActions = {
     try {
       const response = await axios.get(`/api/customers/${companyId}`);
       const data = response.data.customers.map((item) =>
-        capitalizeFirstLetter(`${item?.company || "None"} - ${item?.name}`)
+        capitalizeFirstLetter(`${item?.company || "nocompany"} - ${item?.name}`)
       );
       return data;
     } catch (error) {

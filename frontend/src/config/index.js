@@ -29,7 +29,7 @@ export const API_BASE_URL = getBackendURL();
 
 const instance = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: false, // Important for handling cookies
+  withCredentials: true, // Enable credentials for CORS
 });
 
 let isRefreshing = false;
