@@ -89,7 +89,7 @@ const SignIn = ({ isLoggedIn }) => {
 
   const login = async (companyName, password) => {
     try {
-      const response = await axios.post(`/api/auth/login`, {
+      const response = await axios.post(`api/auth/login`, {
         companyName,
         password,
       });

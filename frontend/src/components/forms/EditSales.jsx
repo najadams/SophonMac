@@ -193,7 +193,7 @@ const EditSales = () => {
         ? `${capitalizeFirstLetter(
             row.customerCompany
           )} - ${capitalizeFirstLetter(row.customerName)}`
-        : `None - ${capitalizeFirstLetter(row.customerName)}`;
+        : `Nocompany - ${capitalizeFirstLetter(row.customerName)}`;
 
       return {
         customerName: usedCustomerName || "",
