@@ -1,5 +1,5 @@
 const EventEmitter = require('events');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const db = require('../data/db/db');
 const { createSupabaseServiceClient, supabaseConfig } = require('../config/supabase.config');
 
@@ -435,7 +435,7 @@ class SyncEngine extends EventEmitter {
   }
 
   generateSyncId() {
-    return uuidv4();
+    return randomUUID();
   }
 
   // ===== SUPABASE SYNC METHODS =====
