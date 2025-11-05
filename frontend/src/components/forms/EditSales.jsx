@@ -412,71 +412,80 @@ const EditSales = () => {
     }
   };
 
-  const handleNewProductSubmit = async () => {
-    try {
-      if (!validateFields(newProduct, setErrors)) return; // Validate the input fields
-      setSubmittingForm(true);
-      // Ensure the product name is properly formatted
-      const formattedProductName = newProduct.name.trim().toLowerCase();
+   const handleNewProductSubmit = async () => {
+     try {
+       if (!validateFields(newProduct, setErrors)) return; // Validate the input fields
+       setSubmittingForm(true);
+       // Ensure the product name is properly formatted
+       const formattedProductName = newProduct.name.trim().toLowerCase();
 
-      // Send request to add product
-      const data = await tableActions.addProduct({
-        ...newProduct,
-        name: formattedProductName,
-        companyId,
-      });
+       // Send request to add product
+       const data = await tableActions.addProduct({
+         ...newProduct,
+         name: formattedProductName,
+         companyId,
+       });
 
-      if (!data || !data.data) {
-        const errorMessage = typeof data === 'string' ? data : (data?.message || 'Failed to add product');
-        throw new Error(errorMessage);
-      }
+       if (!data || typeof data === "string") {
+         const errorMessage =
+           typeof data === "string"
+             ? data
+             : data?.message || "Failed to add product";
+         throw new Error(errorMessage);
+       }
 
-      const addedProduct = data.data.data;
-      const acceptedProduct = {
-        id: addedProduct._id,
-        name: capitalizeFirstLetter(addedProduct.name),
-        salesPrice: addedProduct.salesPrice || 0,
-        onhand: addedProduct.onhand || 0,
-        baseUnit: addedProduct.defaultUnit || addedProduct.baseUnit || "none",
-        allowsUnitBreakdown: addedProduct.allowsUnitBreakdown || false,
-        atomicUnit: addedProduct.atomicUnit || addedProduct.defaultUnit || addedProduct.baseUnit || "none",
-        conversionFactor: addedProduct.conversionFactor || 1,
-        conversions: addedProduct.conversions || [],
-      };
+       const addedProduct = data;
+       const acceptedProduct = {
+         id: addedProduct.id,
+         name: addedProduct.name,
+         salesPrice: addedProduct.salesPrice || 0,
+         onhand: addedProduct.onhand || 0,
+         baseUnit: addedProduct.defaultUnit || addedProduct.baseUnit || "none",
+         allowsUnitBreakdown: addedProduct.allowsUnitBreakdown || false,
+         atomicUnit:
+           addedProduct.atomicUnit ||
+           addedProduct.defaultUnit ||
+           addedProduct.baseUnit ||
+           "none",
+         conversionFactor: addedProduct.conversionFactor || 1,
+         conversions: addedProduct.conversions || [],
+       };
 
-      // Update product options properly
-      setProductOptions((prevOptions) => {
-        const filteredOptions = prevOptions.filter(
-          (option) => option.name !== "<<<< Add New Product >>>>"
-        );
-        return [
-          { id: 1, name: "<<<< Add New Product >>>>" },
-          acceptedProduct,
-          ...filteredOptions,
-        ];
-      });
+       // Update product options properly
+       setProductOptions((prevOptions) => {
+         const filteredOptions = prevOptions.filter(
+           (option) => option.name !== "<<<< Add New Product >>>>"
+         );
+         return [
+           { id: 1, name: "<<<< Add New Product >>>>" },
+           acceptedProduct,
+           ...filteredOptions,
+         ];
+       });
 
-      // productOptions.slice(1,0,acceptedProduct)
+       // productOptions.slice(1,0,acceptedProduct)
 
-      // Close dialog and reset form
-      setNewProductDialogOpen(false);
-      setSubmittingForm(false);
-      setNewProduct({
-        name: "",
-        salesPrice: "",
-        costPrice: "",
-        onhand: "",
-        baseUnit: "none",
-        allowsUnitBreakdown: false,
-        atomicUnit: "none",
-        conversionFactor: 1,
-        potentialLoss: 0,
-      });
-    } catch (error) {
-      setSubmittingForm(false);
-      setError(error.message || "Failed to add new product");
-    }
-  };
+       
+
+       // Close dialog and reset form
+       setNewProductDialogOpen(false);
+       setSubmittingForm(false);
+       setNewProduct({
+         name: "",
+         salesPrice: "",
+         costPrice: "",
+         onhand: "",
+         baseUnit: "none",
+         allowsUnitBreakdown: false,
+         atomicUnit: "none",
+         conversionFactor: 1,
+         potentialLoss: 0,
+       });
+     } catch (error) {
+       setSubmittingForm(false);
+       setError(error.message || "Failed to add new product");
+     }
+   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

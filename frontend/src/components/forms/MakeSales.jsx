@@ -364,7 +364,6 @@ const MakeSales = ({
       }
 
       const addedProduct = data;
-      console.log(addedProduct)
       const acceptedProduct = {
         id: addedProduct.id,
         name: addedProduct.name,
