@@ -131,13 +131,21 @@ const runCustomRolesMigration = async () => {
     
     if (!tableExists) {
       console.log('Running CustomRoles table migration...');
-      // Read CustomRoles schema block from consolidated schema
-      const migrationSQL = readSchemaBlock(
-        '-- BEGIN CustomRoles Schema',
-        '-- END CustomRoles Schema'
-      );
-      
-      // Execute the entire SQL file at once to handle complex statements
+      // Prefer consolidated schema block; fallback to dedicated migrations file if markers missing
+      let migrationSQL = '';
+      try {
+        migrationSQL = readSchemaBlock(
+          '-- BEGIN CustomRoles Schema',
+          '-- END CustomRoles Schema'
+        );
+        console.log('Using CustomRoles schema block from consolidated schema.sql');
+      } catch (blockErr) {
+        const filePath = path.join(__dirname, '../migrations/add_custom_roles_table.sql');
+        migrationSQL = fs.readFileSync(filePath, 'utf8');
+        console.log('CustomRoles block not found; using migrations/add_custom_roles_table.sql');
+      }
+
+      // Execute the SQL
       await new Promise((resolve, reject) => {
         getDb().exec(migrationSQL, (err) => {
           if (err) {
@@ -147,7 +155,7 @@ const runCustomRolesMigration = async () => {
           }
         });
       });
-      
+
       console.log('CustomRoles table migration completed successfully!');
     } else {
       console.log('CustomRoles table migration already applied.');

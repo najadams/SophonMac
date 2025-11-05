@@ -323,7 +323,6 @@ const newReceipts = async (req, res) => {
       checkDebt,
       paymentMethod,
     } = req.body;
-    console.log(req.body);
 
     if (!Array.isArray(products) || products.length === 0) {
       return res
@@ -339,7 +338,6 @@ const newReceipts = async (req, res) => {
       .map((str) => str?.toLowerCase().trim());
       const companyName = company === "nocompany" ? null : company;
 
-    console.log(name, company, companyName)
     // Fetch customer using callback-based API
     const customer = await new Promise((resolve, reject) => {
       let customerQuery;
@@ -852,7 +850,6 @@ const updateReceipt = async (req, res) => {
     paymentMethod = "cash",
   } = req.body;
 
-  console.log("this is from the update function  ", req.body);
   try {
     // Get existing receipt
     const receipt = await new Promise((resolve, reject) => {
@@ -1365,8 +1362,6 @@ router.patch("/:receiptId/flag", async (req, res) => {
     // Log the flag change for audit purposes
     const action = flagged ? 'flagged' : 'unflagged';
     const inventoryAction = flagged ? 'refilled' : 'deducted from';
-    console.log(`Receipt ${receiptId} has been ${action} for company ${companyId}`);
-    console.log(`Inventory has been ${inventoryAction} for ${receiptDetails.length} items`);
 
     res.json({
       message: `Receipt ${action} successfully`,

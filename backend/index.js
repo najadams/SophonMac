@@ -134,6 +134,15 @@ app.get('/', (req, res) => {
       }
     }
 
+    // Ensure CustomRoles table exists in production builds
+    if (DB_AVAILABLE && migrationUtils && migrationUtils.runCustomRolesMigration) {
+      try {
+        await migrationUtils.runCustomRolesMigration();
+      } catch (migErr) {
+        console.warn('CustomRoles migration failed:', migErr.message);
+      }
+    }
+
     // Initialize networking system
     const networkManager = new NetworkManager();
     app.set('networkManager', networkManager);
