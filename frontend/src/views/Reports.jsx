@@ -352,7 +352,12 @@ const Reports = () => {
           initial="initial"
           animate="animate"
           exit="exit">
-          <PurchasesReport data={purchasesData.purchases} />
+          <Suspense fallback={<CircularProgress />}>
+            <PurchasesReport 
+              purchaseData={purchasesData.summary}
+              purchaseTransactions={purchasesData.purchases}
+            />
+          </Suspense>
         </motion.div>
       );
     }
@@ -396,7 +401,15 @@ const Reports = () => {
           initial="initial"
           animate="animate"
           exit="exit">
-          <DebtsReport data={debtsData.debts} />
+          <Suspense fallback={<CircularProgress />}>
+            <DebtsReport 
+              debtData={debtsData.summary}
+              vendorDebtData={debtsData.vendorSummary}
+              customerDebts={debtsData.debts}
+              vendorDebts={debtsData.vendorDebts}
+              customerPayments={debtsData.debtPayments}
+            />
+          </Suspense>
         </motion.div>
       );
     }
@@ -421,8 +434,8 @@ const Reports = () => {
             <Tab label="Summary" />
             <Tab label="Sales" />
             <Tab label="Inventory" />
-            {/* <Tab label="Purchases" /> */}
-            {/* <Tab label="Debts" /> */}
+            <Tab label="Purchases" />
+            <Tab label="Debts" />
           </Tabs>
         </div>
         <div style={{ padding: 20 }}>.</div>

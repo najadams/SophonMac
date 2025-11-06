@@ -404,7 +404,8 @@ router.get('/debts', (req, res) => {
   const start = startDate || today;
   const end = endDate || today;
 
-  const debtsQuery = `
+  // Customer debts query
+  const customerDebtsQuery = `
     SELECT 
       d.id,
       d.amount,
@@ -422,26 +423,98 @@ router.get('/debts', (req, res) => {
     ORDER BY d.createdAt DESC
   `;
 
-  db.all(debtsQuery, [companyId, start, end], (err, rows) => {
-    if (err) {
-      console.error('Error fetching debts report:', err);
-      return res.status(500).json({ error: 'Failed to fetch debts report' });
-    }
+  // Vendor debts query (from Supplies with balance > 0)
+  const vendorDebtsQuery = `
+    SELECT 
+      s.id,
+      s.totalCost,
+      s.amountPaid,
+      s.balance as amount,
+      s.status,
+      s.createdAt,
+      v.name as vendorName,
+      v.phone as vendorPhone,
+      w.name as workerName
+    FROM Supplies s
+    LEFT JOIN Vendor v ON s.supplierId = v.id
+    LEFT JOIN Worker w ON s.restockedBy = w.id
+    WHERE s.companyId = ? 
+      AND DATE(s.createdAt) BETWEEN ? AND ?
+      AND s.balance > 0
+    ORDER BY s.createdAt DESC
+  `;
 
-    const summary = {
-      totalDebts: rows.reduce((sum, debt) => sum + debt.amount, 0),
-      pendingDebts: rows.filter(debt => debt.status === 'pending').length,
-      totalDebtsCount: rows.length
+  // Customer debt payments within period
+  const customerPaymentsQuery = `
+    SELECT 
+      dp.id,
+      dp.amountPaid,
+      dp.paymentMethod,
+      dp.date as createdAt,
+      c.name as customerName,
+      cp.phone as customerPhone,
+      w.name as workerName
+    FROM DebtPayment dp
+    JOIN Debt d ON dp.debtId = d.id
+    LEFT JOIN Customer c ON d.customerId = c.id
+    LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
+    LEFT JOIN Worker w ON dp.workerId = w.id
+    WHERE d.companyId = ? 
+      AND DATE(dp.date) BETWEEN ? AND ?
+    ORDER BY dp.date DESC
+  `;
+
+  // Execute queries
+  Promise.all([
+    new Promise((resolve, reject) => {
+      db.all(customerDebtsQuery, [companyId, start, end], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    }),
+    new Promise((resolve, reject) => {
+      db.all(vendorDebtsQuery, [companyId, start, end], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    }),
+    new Promise((resolve, reject) => {
+      db.all(customerPaymentsQuery, [companyId, start, end], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    })
+  ])
+  .then(([customerDebts, vendorDebts, customerPayments]) => {
+    // Customer debts summary
+    const customerSummary = {
+      totalDebts: customerDebts.reduce((sum, debt) => sum + debt.amount, 0),
+      pendingDebts: customerDebts.filter(debt => debt.status === 'pending').length,
+      totalDebtsCount: customerDebts.length
+    };
+
+    // Vendor debts summary
+    const vendorSummary = {
+      totalOutstanding: vendorDebts.reduce((sum, debt) => sum + debt.amount, 0),
+      totalPaid: vendorDebts.reduce((sum, debt) => sum + (debt.totalCost - debt.amount), 0),
+      pendingPurchases: vendorDebts.filter(debt => debt.status === 'pending').length
     };
 
     res.json({
-      debts: rows,
-      summary,
+      debts: customerDebts,
+      summary: customerSummary,
+      vendorDebts: vendorDebts,
+      vendorSummary: vendorSummary,
+      debtPayments: customerPayments,
       period: {
         startDate: start,
         endDate: end
       }
     });
+  })
+  .catch(err => {
+    console.error('Error fetching debts report:', err);
+    res.status(500).json({ error: 'Failed to fetch debts report' });
   });
 });
 

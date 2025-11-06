@@ -595,8 +595,112 @@ const VendorDebtsTable = ({ vendorDebts = [] }) => {
   );
 };
 
+// Customer Debt Payments Table
+const CustomerDebtPaymentsTable = ({ payments = [] }) => {
+  const [order, setOrder] = useState("asc");
+  const [orderBy, setOrderBy] = useState("date");
+
+  const handleRequestSort = (property) => {
+    const isAsc = orderBy === property && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
+    setOrderBy(property);
+  };
+
+  const sorted = [...payments].sort((a, b) => {
+    let comparator = 0;
+
+    if (orderBy === "date") {
+      const dateA = new Date(a.createdAt || a.date);
+      const dateB = new Date(b.createdAt || b.date);
+      comparator = dateA - dateB;
+    } else if (orderBy === "customerName") {
+      comparator = (a.customerName || "").localeCompare(b.customerName || "");
+    } else if (orderBy === "amountPaid") {
+      comparator = (a.amountPaid || 0) - (b.amountPaid || 0);
+    }
+
+    return comparator * (order === "asc" ? 1 : -1);
+  });
+
+  return (
+    <TableContainer
+      component={Paper}
+      elevation={2}
+      sx={{
+        borderRadius: "12px",
+        overflow: "hidden",
+      }}>
+      <Table>
+        <StyledTableHead>
+          <TableRow>
+            <TableCell>
+              <TableSortLabel
+                active={orderBy === "date"}
+                direction={orderBy === "date" ? order : "asc"}
+                onClick={() => handleRequestSort("date")}>
+                Date
+              </TableSortLabel>
+            </TableCell>
+            <TableCell>
+              <TableSortLabel
+                active={orderBy === "customerName"}
+                direction={orderBy === "customerName" ? order : "asc"}
+                onClick={() => handleRequestSort("customerName")}>
+                Customer
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right">Phone</TableCell>
+            <TableCell align="right">
+              <TableSortLabel
+                active={orderBy === "amountPaid"}
+                direction={orderBy === "amountPaid" ? order : "asc"}
+                onClick={() => handleRequestSort("amountPaid")}>
+                Amount Paid
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right">Method</TableCell>
+            <TableCell align="right">Handled By</TableCell>
+          </TableRow>
+        </StyledTableHead>
+        <TableBody>
+          <AnimatePresence>
+            {sorted.map((p, index) => (
+              <motion.tr
+                key={p.id || index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{
+                  duration: 0.3,
+                  delay: index * 0.05,
+                }}
+                style={{
+                  display: "table-row",
+                  backgroundColor: "white",
+                }}>
+                <TableCell>
+                  {p.createdAt || p.date
+                    ? new Date(p.createdAt || p.date).toLocaleDateString()
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {capitalizeFirstLetter(p.customerName || "Unknown Customer")}
+                </TableCell>
+                <TableCell align="right">{p.customerPhone || "N/A"}</TableCell>
+                <TableCell align="right">₵{formatNumber((p.amountPaid || 0).toFixed(2))}</TableCell>
+                <TableCell align="right">{(p.paymentMethod || "").replace(/_/g, " ")}</TableCell>
+                <TableCell align="right">{capitalizeFirstLetter(p.workerName || "N/A")}</TableCell>
+              </motion.tr>
+            ))}
+          </AnimatePresence>
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+};
+
 // Main DebtsReports Component
-const DebtsReports = ({ debtData, vendorDebtData, customerDebts, vendorDebts }) => {
+const DebtsReports = ({ debtData, vendorDebtData, customerDebts, vendorDebts, customerPayments }) => {
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -637,6 +741,21 @@ const DebtsReports = ({ debtData, vendorDebtData, customerDebts, vendorDebts }) 
     });
   }, [vendorDebts, searchTerm]);
 
+  const filteredCustomerPayments = useMemo(() => {
+    if (!customerPayments || !Array.isArray(customerPayments)) {
+      return [];
+    }
+    return customerPayments.filter((payment) => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        (payment.customerName || "").toLowerCase().includes(searchLower) ||
+        (payment.customerPhone || "").toLowerCase().includes(searchLower) ||
+        (payment.paymentMethod || "").toLowerCase().includes(searchLower) ||
+        (payment.workerName || "").toLowerCase().includes(searchLower)
+      );
+    });
+  }, [customerPayments, searchTerm]);
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography
@@ -666,8 +785,8 @@ const DebtsReports = ({ debtData, vendorDebtData, customerDebts, vendorDebts }) 
         </Tabs>
       </Paper>
 
-      {tabValue === 0 && (
-        <>
+  {tabValue === 0 && (
+    <>
           <Paper elevation={0} sx={{ p: 3, mb: 4, backgroundColor: "#f8f9fa" }}>
             <Typography
               variant="h5"
@@ -681,28 +800,49 @@ const DebtsReports = ({ debtData, vendorDebtData, customerDebts, vendorDebts }) 
             <CustomerDebtSummaryCards debtData={debtData} />
           </Paper>
 
-          <Paper elevation={0} sx={{ p: 3, backgroundColor: "#f8f9fa" }}>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 3,
-              }}>
-              <Typography
-                variant="h5"
-                sx={{
-                  fontWeight: 600,
-                  color: "#1a237e",
-                }}>
-                Customer Debt Details
-              </Typography>
-              <SearchField onSearch={handleSearch} />
-            </Box>
-            <CustomerDebtsTable debts={filteredCustomerDebts} />
-          </Paper>
-        </>
-      )}
+      <Paper elevation={0} sx={{ p: 3, backgroundColor: "#f8f9fa" }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 3,
+          }}>
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 600,
+              color: "#1a237e",
+            }}>
+            Customer Debt Details
+          </Typography>
+          <SearchField onSearch={handleSearch} />
+        </Box>
+        <CustomerDebtsTable debts={filteredCustomerDebts} />
+      </Paper>
+
+      <Paper elevation={0} sx={{ p: 3, mt: 4, backgroundColor: "#f8f9fa" }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 3,
+          }}>
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 600,
+              color: "#1a237e",
+            }}>
+            Customer Payments
+          </Typography>
+          <SearchField onSearch={handleSearch} />
+        </Box>
+        <CustomerDebtPaymentsTable payments={filteredCustomerPayments} />
+      </Paper>
+    </>
+  )}
 
       {tabValue === 1 && (
         <>
