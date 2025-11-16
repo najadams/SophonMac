@@ -82,7 +82,6 @@ const WorkerEntry = () => {
   const [error, setError] = useState(null);
   const dispatch = useDispatch();
   const companyId = useSelector((state) => state.companyState.data?.id);
-  useEffect(() => console.log(companyId, 'from worker entry'))
   const { setUser } = useUser();
 
   const accountSignin = async (companyId, name, password) => {

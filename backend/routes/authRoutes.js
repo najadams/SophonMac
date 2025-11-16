@@ -128,12 +128,13 @@ router.post('/login', (req, res) => {
 
 // Worker Login
 router.post('/account', (req, res) => {
-  const { name, password } = req.body;
+  const { name, password, companyId } = req.body;
+  console.log(companyId)
   if (!name || !password) {
     return res.status(400).json({ error: 'Worker name and password are required' });
   }
   
-  db.get('SELECT w.* FROM Worker w JOIN Company c ON w.companyId = c.id WHERE w.name = ?', [name], async (err, worker) => {
+  db.get('SELECT w.* FROM Worker w JOIN Company c ON w.companyId = c.id WHERE w.name = ? AND w.companyId = ?', [name, companyId], async (err, worker) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }

@@ -146,25 +146,37 @@ router.get("/overall/:companyId", (req, res) => {
               });
             });
 
-            const result = receipts.map((receipt) => ({
-              id: receipt.id,
-              companyId: receipt.companyId,
-              customerId: {
-                id: receipt.customerId,
-                name: receipt.customerName,
-                company: receipt.customerCompany,
-              },
-              workerName: receipt.workerName,
-              detail: detailsByReceiptId[receipt.id] || [],
-              total: receipt.total,
-              amountPaid: receipt.amountPaid,
-              discount: receipt.discount,
-              profit: receipt.profit,
-              createdAt: receipt.createdAt,
-              balance: receipt.balance,
-              flagged: receipt.flagged,
-              paymentMethod: receipt.paymentMethod || "cash",
-            }));
+            const result = receipts.map((receipt) => {
+              const details = detailsByReceiptId[receipt.id] || [];
+              const adjustedDetails = details.map((d) => {
+                const baseProfit = (d.salesPrice - d.costPrice) * d.quantity;
+                const discountShare =
+                  receipt.total && receipt.total > 0
+                    ? ((d.totalPrice || 0) / receipt.total) * (receipt.discount || 0)
+                    : 0;
+                return { ...d, profit: baseProfit - discountShare };
+              });
+
+              return {
+                id: receipt.id,
+                companyId: receipt.companyId,
+                customerId: {
+                  id: receipt.customerId,
+                  name: receipt.customerName,
+                  company: receipt.customerCompany,
+                },
+                workerName: receipt.workerName,
+                detail: adjustedDetails,
+                total: receipt.total,
+                amountPaid: receipt.amountPaid,
+                discount: receipt.discount,
+                profit: receipt.profit,
+                createdAt: receipt.createdAt,
+                balance: receipt.balance,
+                flagged: receipt.flagged,
+                paymentMethod: receipt.paymentMethod || "cash",
+              };
+            });
 
             res.status(200).json(result);
           }
@@ -565,7 +577,7 @@ const newReceipts = async (req, res) => {
           discount,
           amountPaid,
           finalBalance,
-          totalProfit,
+          totalProfit - (discount || 0),
           paymentMethod,
         ],
         function (err) {
@@ -1138,7 +1150,7 @@ const updateReceipt = async (req, res) => {
           amountPaid,
           discount,
           balance,
-          totalProfit,
+          totalProfit - (discount || 0),
           paymentMethod,
           receiptId,
         ],

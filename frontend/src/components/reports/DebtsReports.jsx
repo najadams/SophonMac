@@ -758,16 +758,6 @@ const DebtsReports = ({ debtData, vendorDebtData, customerDebts, vendorDebts, cu
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography
-        variant="h4"
-        sx={{
-          fontWeight: 600,
-          color: "#1a237e",
-          mb: 3,
-        }}>
-        Debts Report
-      </Typography>
-
       <Paper elevation={0} sx={{ mb: 4 }}>
         <Tabs
           value={tabValue}

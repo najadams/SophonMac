@@ -12,7 +12,13 @@ class CustomRoleService {
       const response = await axios.get(`${this.baseURL}/${companyId}`);
       return response.data;
     } catch (error) {
-      console.error('Failed to get custom roles:', error);
+      // Gracefully handle auth/permission issues by returning empty list
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        // Not authorized or no token; return empty roles without throwing
+        return [];
+      }
+      // For other errors (network/server), rethrow to surface genuine problems
       throw error;
     }
   }
@@ -64,12 +70,20 @@ class CustomRoleService {
   // Get all custom roles for the current company (without requiring companyId parameter)
   async getAllCustomRoles() {
     try {
-      // Get company ID from localStorage or Redux store
-      const companyId = localStorage.getItem('companyId') || 1; // fallback to 1 for testing
+      // Prefer Redux store, fallback to localStorage. If not found, return empty.
+      const storeCompanyId = window.__REDUX_STORE__?.getState?.().companyState?.data?.id;
+      const localCompanyId = localStorage.getItem('companyId');
+      const companyId = storeCompanyId || (localCompanyId ? Number(localCompanyId) : null);
+
+      if (!companyId) {
+        // No company context available yet (not logged in or data not loaded)
+        return [];
+      }
+
       return await this.getCustomRoles(companyId);
     } catch (error) {
-      console.error('Failed to get all custom roles:', error);
-      return []; // Return empty array on error
+      // Any errors from getCustomRoles are already handled for 401/403
+      return [];
     }
   }
 }

@@ -133,6 +133,8 @@ export const validateFields = (newProduct, setErrors, noOnhand = true) => {
     newErrors.salesPrice = "Sales Price must be a positive number";
   if (!newProduct.costPrice || newProduct.costPrice <= 0)
     newErrors.costPrice = "Cost Price must be a positive number";
+  if (newProduct.costPrice >= newProduct.salesPrice)
+    newErrors.salesPrice = "Sales Price must be greater than Cost"
   if ((!newProduct.onhand || newProduct.onhand < 0) && noOnhand)
     newErrors.onhand = "Available Quantity must be at least 0";
 

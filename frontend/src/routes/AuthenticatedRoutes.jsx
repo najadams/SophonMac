@@ -10,6 +10,7 @@ import { getPermissionsForRole, PERMISSIONS } from "../context/userRoles";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Unauthorized from "../views/common/Unauthorized";
 import Employees from "./Employees";
+const ImportBackup = lazy(() => import("../views/ImportBackup"));
 
 const Dashboard = lazy(() => import("../views/Dashboard"));
 const VendorDetails = lazy(() => import("../views/VendorDetails"))
@@ -55,6 +56,22 @@ const AuthenticatedRoutes = () => {
         element={
           <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_SETTINGS}>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/backup/import"
+        element={
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_SETTINGS}>
+            <ImportBackup />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/backup/import"
+        element={
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_SETTINGS}>
+            <ImportBackup />
           </ProtectedRoute>
         }
       />
