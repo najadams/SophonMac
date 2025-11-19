@@ -40,9 +40,9 @@ router.get('/company/:companyId', async (req, res) => {
 router.post('/restore', async (req, res) => {
   try {
     const backup = req.body;
-    console.log('mkleaj')
     const { overwrite, targetCompanyId } = req.query;
 
+    console.table(req.query)
     if (!backup || !backup.metadata || !backup.company) {
       return res.status(400).json({ error: 'Invalid backup payload' });
     }
