@@ -1,6 +1,6 @@
-// API routes for sync operations
 const express = require('express');
 const router = express.Router();
+const db = require('../data/db/db');
 
 // Get sync status
 router.get('/status', async (req, res) => {
@@ -235,6 +235,103 @@ router.get('/logs', async (req, res) => {
       success: false,
       error: 'Failed to get sync logs'
     });
+  }
+});
+
+// Get events for replay (Sync)
+router.get('/events', (req, res) => {
+  const { companyId, sinceId, limit } = req.query;
+
+  if (!companyId) {
+    return res.status(400).json({ error: 'Company ID is required' });
+  }
+
+  const startId = parseInt(sinceId) || 0;
+  const maxLimit = parseInt(limit) || 100;
+
+  const query = `
+    SELECT * FROM EventLog 
+    WHERE companyId = ? AND id > ? 
+    ORDER BY id ASC 
+    LIMIT ?
+  `;
+
+  const db = require('../data/db/db');
+  db.all(query, [companyId, startId, maxLimit], (err, rows) => {
+    if (err) {
+      console.error('Error fetching events:', err);
+      return res.status(500).json({ error: 'Failed to fetch events' });
+    }
+
+    // Parse payload JSON
+    const events = rows.map(row => ({
+      ...row,
+      payload: JSON.parse(row.payload)
+    }));
+
+    res.json({
+      success: true,
+      data: events,
+      hasMore: events.length === maxLimit
+    });
+  });
+});
+
+// Get Sync Status (Umbrella)
+router.get('/umbrella/status', async (req, res) => {
+  try {
+    const { companyId } = req.query;
+    if (!companyId) return res.status(400).json({ error: 'Company ID required' });
+
+    // Get last synced ID
+    const syncState = await new Promise((resolve) => {
+      db.get("SELECT lastSyncedId, updatedAt FROM SyncState WHERE key = 'umbrella_events'", (err, row) => {
+        resolve(row || { lastSyncedId: 0, updatedAt: null });
+      });
+    });
+
+    // Get Network Members (Parent + Siblings + Children)
+    // Get Network Members (Partners)
+    const networkQuery = `
+      SELECT 
+        c.id, 
+        c.companyName, 
+        cn.relationshipType as relation,
+        'outgoing' as direction
+      FROM CompanyNetwork cn
+      JOIN Company c ON cn.targetCompanyId = c.id
+      WHERE cn.sourceCompanyId = ? AND cn.status = 'active'
+      UNION
+      SELECT 
+        c.id, 
+        c.companyName, 
+        cn.relationshipType as relation,
+        'incoming' as direction
+      FROM CompanyNetwork cn
+      JOIN Company c ON cn.sourceCompanyId = c.id
+      WHERE cn.targetCompanyId = ? AND cn.status = 'active'
+    `;
+
+    console.log('Fetching network status for companyId:', companyId);
+    const networkMembers = await new Promise((resolve) => {
+      db.all(networkQuery, [companyId, companyId], (err, rows) => {
+        if (err) console.error('Network query error:', err);
+        console.log('Network query rows:', rows);
+        resolve(rows || []);
+      });
+    });
+
+    res.json({
+      sync: {
+        online: true, // TODO: Check actual connection
+        lastSyncedId: syncState.lastSyncedId,
+        lastSyncedAt: syncState.updatedAt
+      },
+      network: networkMembers
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

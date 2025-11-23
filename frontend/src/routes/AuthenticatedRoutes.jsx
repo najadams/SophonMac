@@ -27,6 +27,7 @@ const Notifications = lazy(() => import("../views/Notifications"));
 const ProductInfo = lazy(() => import("../views/ProductInfo"))
 const CustomerInfo = lazy(() => import("../views/CustomerInfo"))
 const NetworkManager = lazy(() => import("../components/NetworkManager"));
+const TaxDashboard = lazy(() => import("../views/TaxDashboard"));
 
 const AuthenticatedRoutes = () => {
   const userRole = useSelector((state) => state.userState?.currentUser.role);
@@ -206,6 +207,14 @@ const AuthenticatedRoutes = () => {
         element={
           <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_CUSTOMERS}>
             <CustomerInfo />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/tax" 
+        element={
+          <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_TAX_DASHBOARD}>
+            <TaxDashboard />
           </ProtectedRoute>
         } 
       />

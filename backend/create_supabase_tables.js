@@ -56,6 +56,9 @@ async function createTables() {
       phone TEXT,
       email TEXT UNIQUE NOT NULL,
       tax_id TEXT,
+      tax_mode TEXT DEFAULT 'independent',
+      parent_company_id INTEGER,
+      tax_id_type TEXT DEFAULT 'TIN',
       password TEXT NOT NULL,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -90,6 +93,24 @@ async function createTables() {
       console.log('Notification table creation error:', notificationError.message);
     } else {
       console.log('Notification table created successfully');
+    }
+
+    // Execute Schema Updates (Views, Constraints)
+    console.log('Applying schema updates...');
+    const fs = require('fs');
+    const path = require('path');
+    const schemaPath = path.join(__dirname, 'data', 'db', 'schema_updates.sql');
+    
+    try {
+      const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+      const { error: schemaError } = await supabase.rpc('exec_sql', { sql: schemaSql });
+      if (schemaError) {
+        console.log('Schema updates error:', schemaError.message);
+      } else {
+        console.log('Schema updates applied successfully');
+      }
+    } catch (err) {
+      console.log('Error reading schema_updates.sql:', err.message);
     }
 
   } catch (error) {

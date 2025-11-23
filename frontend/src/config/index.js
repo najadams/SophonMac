@@ -1,30 +1,7 @@
 import axios from "axios";
+import { API_BASE_URL } from "./constants";
 
-// Use the appropriate API URL based on environment and role
-const getBackendURL = () => {
-  // Check if we're in a web deployment (no Electron)
-  const isWebDeployment = !window.require && !window.process?.versions?.electron;
-  
-  if (isWebDeployment) {
-    // In web deployment, use environment variable or default production URL
-    return import.meta.env.VITE_API_URL || 'http://localhost:3021';
-  }
-  
-  // In Electron app, use localhost
-  // Backend runs on port 3021
-  const hostname = window.location.hostname;
-  
-  // If accessing via localhost, this is the master device
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:3021';
-  }
-  
-  // If accessing via network IP, this is a slave device
-  // Use the network IP to connect to the master server
-  return `http://${hostname}:3021`;
-};
-
-export const API_BASE_URL = getBackendURL();
+export { API_BASE_URL };
 
 
 const instance = axios.create({

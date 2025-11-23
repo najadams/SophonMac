@@ -145,16 +145,36 @@ const SyncStatus = ({ companyId }) => {
   };
 
   // Initial load and periodic updates
+  // Initial load and periodic updates
   useEffect(() => {
     fetchSyncStatus();
     checkConnectivity();
     
+    // Real-time online/offline listeners
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Trigger sync when coming back online
+      console.log('Network restored, triggering auto-sync...');
+      handleManualSync();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Set initial state
+    setIsOnline(navigator.onLine);
+
     const interval = setInterval(() => {
       fetchSyncStatus();
       checkConnectivity();
     }, 30000); // Update every 30 seconds
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   // Get sync status color and icon

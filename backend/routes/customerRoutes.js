@@ -224,6 +224,10 @@ router.post("/", (req, res) => {
     email = [],
   } = req.body;
 
+  // Normalize phone and email to arrays
+  const phoneArray = Array.isArray(phone) ? phone : (phone ? [phone] : []);
+  const emailArray = Array.isArray(email) ? email : (email ? [email] : []);
+
   if (!belongsTo || !name) {
     return res.status(400).json({ error: "belongsTo and name are required." });
   }
@@ -245,8 +249,8 @@ router.post("/", (req, res) => {
 
     // 2️⃣ Check for duplicate phone numbers
     let duplicatePhones = [];
-    if (phone.length > 0) {
-      const placeholders = phone.map(() => "?").join(",");
+    if (phoneArray.length > 0) {
+      const placeholders = phoneArray.map(() => "?").join(",");
       const phoneResults = db.connection
         .prepare(
           `SELECT phone, Customer.name AS ownerName, Customer.company AS ownerCompany
@@ -254,7 +258,7 @@ router.post("/", (req, res) => {
            JOIN Customer ON Customer.id = CustomerPhone.customerId
            WHERE phone IN (${placeholders}) AND Customer.deleted = 0`
         )
-        .all(...phone);
+        .all(...phoneArray);
 
       if (phoneResults.length > 0) {
         duplicatePhones = phoneResults.map(
@@ -265,8 +269,8 @@ router.post("/", (req, res) => {
 
     // 3️⃣ Check for duplicate emails
     let duplicateEmails = [];
-    if (email.length > 0) {
-      const placeholders = email.map(() => "?").join(",");
+    if (emailArray.length > 0) {
+      const placeholders = emailArray.map(() => "?").join(",");
       const emailResults = db.connection
         .prepare(
           `SELECT email, Customer.name AS ownerName, Customer.company AS ownerCompany
@@ -274,7 +278,7 @@ router.post("/", (req, res) => {
            JOIN Customer ON Customer.id = CustomerEmail.customerId
            WHERE email IN (${placeholders}) AND Customer.deleted = 0`
         )
-        .all(...email);
+        .all(...emailArray);
 
       if (emailResults.length > 0) {
         duplicateEmails = emailResults.map(
@@ -320,14 +324,14 @@ router.post("/", (req, res) => {
     const insertPhoneStmt = db.connection.prepare(
       `INSERT INTO CustomerPhone (customerId, phone) VALUES (?, ?)`
     );
-    for (const sphone of phone) {
+    for (const sphone of phoneArray) {
       if (sphone && sphone.trim()) insertPhoneStmt.run(customerId, sphone.trim());
     }
 
     const insertEmailStmt = db.connection.prepare(
       `INSERT INTO CustomerEmail (customerId, email) VALUES (?, ?)`
     );
-    for (const semail of email) {
+    for (const semail of emailArray) {
       if (semail && semail.trim()) insertEmailStmt.run(customerId, semail.trim());
     }
 

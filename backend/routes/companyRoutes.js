@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../data/db/db");
+const EventService = require("../services/eventService");
+const bcrypt = require('bcrypt');
 
 // Get Counts
 const countData = async (req, res) => {
@@ -403,23 +405,51 @@ router.get("/:id", (req, res) => {
 });
 
 // Create a new company
-router.post("/", (req, res) => {
-  const { name, address, phone, email } = req.body;
+router.post("/", async (req, res) => {
+  const { name, address, phone, email, password, parentCompanyId } = req.body;
+  console.table(req.body);
 
   if (!name) {
     return res.status(400).json({ error: "Company name is required" });
   }
 
-  db.run(
-    "INSERT INTO Company (name, address, phone, email) VALUES (?, ?, ?, ?)",
-    [name, address, phone, email],
-    function (err) {
-      if (err) {
-        return res.status(500).json({ error: err.message });
+  try {
+    const pwd = password || 'password123';
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(pwd, salt);
+
+    db.run(
+      "INSERT INTO Company (companyName, storeAddress, contact, email, password, parentCompanyId) VALUES (?, ?, ?, ?, ?, ?)",
+      [name, address, phone, email, hashedPassword, parentCompanyId || null],
+      function (err) {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+        const newCompanyId = this.lastID;
+        
+        // If parentCompanyId is provided, also add to CompanyNetwork
+        if (parentCompanyId) {
+          db.run(
+            "INSERT INTO CompanyNetwork (sourceCompanyId, targetCompanyId, relationshipType, status) VALUES (?, ?, 'subsidiary', 'active')",
+            [newCompanyId, parentCompanyId],
+            (err) => {
+              if (err) console.error('Failed to link to parent in CompanyNetwork:', err);
+            }
+          );
+        }
+        
+        // Emit Event
+        EventService.emit(newCompanyId, 'COMPANY_CREATED', {
+          id: newCompanyId,
+          name, address, phone, email, parentCompanyId
+        });
+
+        res.status(201).json({ id: newCompanyId });
       }
-      res.status(201).json({ id: this.lastID });
-    }
-  );
+    );
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Update company data
@@ -458,6 +488,9 @@ const updateCompanyDetails = async (req, res) => {
       "receiptTemplate",
       "receiptHeader",
       "receiptFooter",
+      "taxMode",
+      "parentCompanyId",
+      "taxIdType",
     ];
 
     // Filter updates to only include allowed fields (excluding allowedUnits/allowedCategories)
@@ -600,6 +633,14 @@ const updateCompanyDetails = async (req, res) => {
                   ...safeCompany
                 } = companyRow;
 
+                // Emit Event
+                EventService.emit(company, 'COMPANY_UPDATED', {
+                  id: company,
+                  updates: filteredUpdates,
+                  allowedUnits: allowedUnits !== undefined ? allowedUnits : undefined,
+                  allowedCategories: allowedCategories !== undefined ? allowedCategories : undefined
+                });
+
                 res.status(200).json({
                   ...safeCompany,
                   allowedUnits,
@@ -629,6 +670,85 @@ router.delete("/:id", (req, res) => {
       return res.status(404).json({ error: "Company not found" });
     }
     res.json({ deleted: true });
+  });
+});
+
+// Network Management Endpoints
+
+// Get Network Connections
+router.get("/:id/network", (req, res) => {
+  const companyId = req.params.id;
+  const query = `
+    SELECT 
+      cn.id as linkId,
+      cn.relationshipType,
+      cn.status,
+      c.id as partnerId,
+      c.companyName as partnerName,
+      c.taxId as partnerTaxId,
+      'outgoing' as direction
+    FROM CompanyNetwork cn
+    JOIN Company c ON cn.targetCompanyId = c.id
+    WHERE cn.sourceCompanyId = ?
+    UNION
+    SELECT 
+      cn.id as linkId,
+      cn.relationshipType,
+      cn.status,
+      c.id as partnerId,
+      c.companyName as partnerName,
+      c.taxId as partnerTaxId,
+      'incoming' as direction
+    FROM CompanyNetwork cn
+    JOIN Company c ON cn.sourceCompanyId = c.id
+    WHERE cn.targetCompanyId = ?
+  `;
+
+  db.all(query, [companyId, companyId], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Add Network Connection
+router.post("/:id/network", (req, res) => {
+  const sourceCompanyId = req.params.id;
+  const { targetCompanyId, relationshipType } = req.body;
+
+  if (!targetCompanyId || !relationshipType) {
+    return res.status(400).json({ error: "Target Company ID and Relationship Type are required" });
+  }
+
+  const sql = `
+    INSERT INTO CompanyNetwork (sourceCompanyId, targetCompanyId, relationshipType, status)
+    VALUES (?, ?, ?, 'active')
+  `;
+
+  db.run(sql, [sourceCompanyId, targetCompanyId, relationshipType], function(err) {
+    if (err) {
+      if (err.message.includes('UNIQUE constraint failed')) {
+        return res.status(409).json({ error: "Relationship already exists" });
+      }
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(201).json({ id: this.lastID, message: "Network connection created" });
+  });
+});
+
+// Remove Network Connection
+router.delete("/:id/network/:partnerId", (req, res) => {
+  const companyId = req.params.id;
+  const partnerId = req.params.partnerId;
+
+  const sql = `
+    DELETE FROM CompanyNetwork 
+    WHERE (sourceCompanyId = ? AND targetCompanyId = ?) 
+       OR (sourceCompanyId = ? AND targetCompanyId = ?)
+  `;
+
+  db.run(sql, [companyId, partnerId, partnerId, companyId], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: "Network connection removed", changes: this.changes });
   });
 });
 
@@ -671,6 +791,9 @@ router.put("/update/:id", async (req, res) => {
       "receiptTemplate",
       "receiptHeader",
       "receiptFooter",
+      "taxMode",
+      "parentCompanyId",
+      "taxIdType",
     ];
 
     // Filter updates to only include allowed fields (excluding allowedUnits/allowedCategories)

@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   MANAGE_TRANSACTIONS: "manage_transactions",
   VIEW_NOTIFICATIONS: "view_notifications",
   CUSTOMIZE_PERMISSIONS: "customize_permissions", // New permission for admins
+  VIEW_TAX_DASHBOARD: "view_tax_dashboard",
 };
 
 // Default sidebar pages that can be customized
@@ -32,6 +33,7 @@ export const SIDEBAR_PAGES = {
   DEBT: { path: "/debt", icon: "bx-money", text: "Debt", permission: PERMISSIONS.MANAGE_DEBT },
   TRANSACTIONS: { path: "/transactions", icon: "bx-money-withdraw", text: "Transactions", permission: PERMISSIONS.MANAGE_TRANSACTIONS },
   REPORTS: { path: "/reports", icon: "bx-line-chart", text: "Reports", permission: PERMISSIONS.VIEW_REPORTS },
+  TAX: { path: "/tax", icon: "bx-calculator", text: "Tax", permission: PERMISSIONS.VIEW_TAX_DASHBOARD },
   NOTIFICATIONS: { path: "/notification", icon: "bx-notification", text: "Notification", permission: PERMISSIONS.VIEW_NOTIFICATIONS },
 };
 
@@ -50,6 +52,7 @@ export const rolePermissions = {
     PERMISSIONS.MANAGE_TRANSACTIONS,
     PERMISSIONS.VIEW_NOTIFICATIONS,
     PERMISSIONS.CUSTOMIZE_PERMISSIONS,
+    PERMISSIONS.VIEW_TAX_DASHBOARD,
   ],
   [ROLES.ADMIN]: [
     PERMISSIONS.VIEW_DASHBOARD,
@@ -64,6 +67,7 @@ export const rolePermissions = {
     PERMISSIONS.MANAGE_TRANSACTIONS,
     PERMISSIONS.VIEW_NOTIFICATIONS,
     PERMISSIONS.CUSTOMIZE_PERMISSIONS,
+    PERMISSIONS.VIEW_TAX_DASHBOARD,
   ],
   [ROLES.MANAGER]: [
     PERMISSIONS.VIEW_DASHBOARD,

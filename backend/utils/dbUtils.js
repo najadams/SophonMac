@@ -30,6 +30,9 @@ const DBUtils = {
 
       // Ensure base reference tables exist in legacy DBs
       await this.ensureCurrencyTable();
+      
+      // Ensure tax columns exist (Migration for Sophon Market)
+      await this.ensureTaxColumns();
 
       return true;
     } catch (error) {
@@ -98,6 +101,46 @@ const DBUtils = {
         } else {
           resolve();
         }
+      });
+    });
+  },
+
+  // Ensure Company table has tax columns (Migration)
+  ensureTaxColumns() {
+    return new Promise((resolve, reject) => {
+      const db = getDb();
+      
+      // Check if columns exist
+      db.all("PRAGMA table_info(Company)", [], (err, rows) => {
+        if (err) return reject(err);
+        
+        const columns = rows.map(r => r.name);
+        const missingColumns = [];
+        
+        if (!columns.includes('taxMode')) missingColumns.push("ADD COLUMN taxMode TEXT DEFAULT 'independent'");
+        if (!columns.includes('parentCompanyId')) missingColumns.push("ADD COLUMN parentCompanyId INTEGER REFERENCES Company(id) ON DELETE SET NULL");
+        if (!columns.includes('taxIdType')) missingColumns.push("ADD COLUMN taxIdType TEXT DEFAULT 'TIN'");
+        
+        if (missingColumns.length === 0) return resolve();
+        
+        console.log('Migrating Company table: Adding tax columns...');
+        
+        // SQLite only supports adding one column per ALTER TABLE statement
+        const runMigration = async () => {
+          try {
+            for (const colSql of missingColumns) {
+              await new Promise((res, rej) => {
+                db.run(`ALTER TABLE Company ${colSql}`, (e) => e ? rej(e) : res());
+              });
+            }
+            console.log('Tax columns added successfully.');
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        };
+        
+        runMigration();
       });
     });
   },

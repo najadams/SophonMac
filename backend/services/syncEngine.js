@@ -244,21 +244,21 @@ class SyncEngine extends EventEmitter {
     switch (operation) {
       case 'create':
         this.executeQuery(
-          'INSERT OR REPLACE INTO Product (id, companyId, name, category, baseUnit, costPrice, salesPrice, onhand, reorderPoint, minimumStock, description, sku, barcode, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT OR REPLACE INTO Inventory (id, companyId, name, category, baseUnit, costPrice, salesPrice, onhand, reorderPoint, minimumStock, description, sku, barcode, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [data.id, data.companyId, data.name, data.category, data.baseUnit, data.costPrice, data.salesPrice, data.onhand, data.reorderPoint, data.minimumStock, data.description, data.sku, data.barcode, data.createdAt, data.updatedAt]
         );
         break;
         
       case 'update':
         this.executeQuery(
-          'UPDATE Product SET name=?, category=?, baseUnit=?, costPrice=?, salesPrice=?, onhand=?, reorderPoint=?, minimumStock=?, description=?, sku=?, barcode=?, updatedAt=? WHERE id=? AND companyId=?',
+          'UPDATE Inventory SET name=?, category=?, baseUnit=?, costPrice=?, salesPrice=?, onhand=?, reorderPoint=?, minimumStock=?, description=?, sku=?, barcode=?, updatedAt=? WHERE id=? AND companyId=?',
           [data.name, data.category, data.baseUnit, data.costPrice, data.salesPrice, data.onhand, data.reorderPoint, data.minimumStock, data.description, data.sku, data.barcode, data.updatedAt, data.id, data.companyId]
         );
         break;
         
       case 'delete':
         this.executeQuery(
-          'DELETE FROM Product WHERE id=? AND companyId=?',
+          'DELETE FROM Inventory WHERE id=? AND companyId=?',
           [data.id, data.companyId]
         );
         break;
@@ -335,7 +335,7 @@ class SyncEngine extends EventEmitter {
     
     if (operation === 'update_stock') {
       this.executeQuery(
-        'UPDATE Product SET onhand=?, updatedAt=? WHERE id=? AND companyId=?',
+        'UPDATE Inventory SET onhand=?, updatedAt=? WHERE id=? AND companyId=?',
         [data.onhand, data.updatedAt, data.id, data.companyId]
       );
     }
@@ -754,15 +754,27 @@ class SyncEngine extends EventEmitter {
   async applySupabaseChange(tableName, record) {
     return new Promise((resolve, reject) => {
       // Check if record exists locally
-      db.get(`SELECT id FROM ${tableName} WHERE sync_id = ?`, [record.sync_id], (err, row) => {
+      // Select updatedAt to compare timestamps
+      db.get(`SELECT id, updatedAt FROM ${tableName} WHERE sync_id = ?`, [record.sync_id], (err, row) => {
         if (err) {
           reject(err);
           return;
         }
 
         if (row) {
-          // Update existing record
-          this.updateLocalRecord(tableName, record, resolve, reject);
+          // Check for conflict - Last Write Wins
+          // Supabase record keys match local keys because we upserted them that way
+          const remoteTime = new Date(record.updatedAt || record.created_at || 0).getTime();
+          const localTime = new Date(row.updatedAt || 0).getTime();
+
+          if (remoteTime > localTime) {
+            // Remote is newer, update local
+            this.updateLocalRecord(tableName, record, resolve, reject);
+          } else {
+            // Local is newer or equal, keep local
+            console.log(`Conflict resolved: Keeping local version of ${tableName} ${row.id} (Local: ${row.updatedAt}, Remote: ${record.updatedAt})`);
+            resolve();
+          }
         } else {
           // Insert new record
           this.insertLocalRecord(tableName, record, resolve, reject);

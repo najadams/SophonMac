@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const EventService = require('../services/eventService');
 
 // Get all inventory items
 router.get('/', (req, res) => {
@@ -142,9 +143,20 @@ const newProduct = async (req, res) => {
         function (err) {
           if (err) reject(err);
           else {
+            const newId = this.lastID;
+            
+            // Emit Event
+            EventService.emit(productData.companyId, 'INVENTORY_CHANGE', {
+              id: newId,
+              name: productData.name,
+              onhand: productData.onhand,
+              salesPrice: productData.salesPrice,
+              costPrice: productData.costPrice
+            });
+
             db.get(
               "SELECT * FROM Inventory WHERE id = ?",
-              [this.lastID],
+              [newId],
               (err, row) => {
                 if (err) reject(err);
                 else resolve(row);
@@ -508,6 +520,23 @@ const updateProduct = async (req, res) => {
             if (err) {
               reject(err);
             } else {
+              // Emit Events based on what changed
+              if (onhand !== undefined) {
+                EventService.emit(companyId || existingProduct.companyId, 'INVENTORY_CHANGE', {
+                  id: productId,
+                  name: name || existingProduct.name,
+                  onhand: onhand
+                });
+              }
+              
+              if (salesPrice !== undefined) {
+                EventService.emit(companyId || existingProduct.companyId, 'PRICING_UPDATE', {
+                  id: productId,
+                  name: name || existingProduct.name,
+                  salesPrice: salesPrice
+                });
+              }
+
               resolve();
             }
           }

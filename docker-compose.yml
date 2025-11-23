@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: pos-backend
+    restart: unless-stopped
+    ports:
+      - "3021:3021"
+    volumes:
+      - ./backend/data:/app/data
+    environment:
+      - PORT=3021
+      - NODE_ENV=production
+      # Configure these in your environment or .env file
+      - UMBRELLA_CORE_URL=${UMBRELLA_CORE_URL:-http://host.docker.internal:3000/api}
+      - COMPANY_AUTH_TOKEN=${COMPANY_AUTH_TOKEN}
+
+  frontend:
+    build: ./frontend
+    container_name: pos-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend

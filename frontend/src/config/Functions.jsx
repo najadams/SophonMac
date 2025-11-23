@@ -1,5 +1,5 @@
 import axios from "./index";
-import { API_BASE_URL } from "./index";
+import { API_BASE_URL } from "./constants";
 export const formatNumber = (num) => new Intl.NumberFormat().format(num);
 export function toSignificantFigures(num, sigFigs = 2) {
   if (num === 0) return 0;

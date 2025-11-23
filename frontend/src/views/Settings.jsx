@@ -32,11 +32,22 @@ import {
   Divider,
   Chip,
 } from "@mui/material";
-import { styled } from "@mui/system";
-import ErrorBoundary from "../components/common/ErrorBoundary";
-import { useDispatch } from "react-redux";
-import { ActionCreators } from "../actions/action";
 import {
+  Settings as SettingsIcon,
+  Security,
+  Notifications,
+  Language,
+  Palette,
+  Storage,
+  Info,
+  Receipt,
+  Business,
+  Group,
+  Category,
+  Inventory,
+  Payment,
+  Backup,
+  NetworkCheck,
   Store as StoreIcon,
   Payment as PaymentIcon,
   Receipt as ReceiptIcon,
@@ -52,7 +63,6 @@ import {
   LocalOffer as LocalOfferIcon,
   Security as SecurityIcon,
   Backup as BackupIcon,
-  Settings as SettingsIcon,
   PersonAdd,
   Add as AddIcon,
   Delete as DeleteIcon,
@@ -62,8 +72,13 @@ import {
   Sync as SyncIcon,
   PlayArrow as PlayArrowIcon,
   Stop as StopIcon,
-  Launch as LaunchIcon,
+  Launch as LaunchIcon
 } from "@mui/icons-material";
+import UmbrellaStatus from "../components/UmbrellaStatus";
+import { styled } from "@mui/system";
+import ErrorBoundary from "../components/common/ErrorBoundary";
+import { useDispatch } from "react-redux";
+import { ActionCreators } from "../actions/action";
 import { ROLES, rolePermissions, PERMISSIONS } from "../context/userRoles";
 import { useNavigate } from "react-router-dom";
 import networkService from "../services/networkService";
@@ -1009,6 +1024,24 @@ const Settings = () => {
                             Open Network Management
                           </Button>
                         </Box>
+                      </CardContent>
+                    </StyledCard>
+                  </Slide>
+                )}
+
+                {/* Umbrella Network Section */}
+                {canManageSettings && (
+                  <Slide direction="up" in timeout={1100}>
+                    <StyledCard sx={{ mb: 4 }}>
+                      <CardContent>
+                        <Box display="flex" alignItems="center" mb={2}>
+                          <NetworkCheck sx={{ mr: 1, color: "primary.main" }} />
+                          <Typography variant="h6">Umbrella Network</Typography>
+                        </Box>
+                        <Typography variant="body2" color="textSecondary" paragraph>
+                          Manage your connection to the Umbrella Trade Ecosystem.
+                        </Typography>
+                        <UmbrellaStatus companyId={companyId} />
                       </CardContent>
                     </StyledCard>
                   </Slide>
