@@ -20,7 +20,7 @@ router.post('/register', async (req, res) => {
       }
       
       if (company) {
-        return res.status(400).json({ message: 'Company with this email already exists' });
+        return res.status(400).json({ message: 'Company with this email or name already exists' });
       }
       
       // Hash the password
