@@ -45,6 +45,9 @@ CREATE TABLE Company (
     storeAddress TEXT,
     taxId TEXT,
     tinNumber TEXT,
+    taxMode TEXT DEFAULT 'independent', -- 'independent' or 'umbrella'
+    parentCompanyId INTEGER REFERENCES Company(id) ON DELETE SET NULL,
+    taxIdType TEXT DEFAULT 'TIN', -- 'TIN' or 'GH-Card'
     receiptTemplate TEXT DEFAULT 'template1',
     receiptHeader TEXT,
     receiptFooter TEXT,
@@ -489,6 +492,42 @@ CREATE INDEX idx_debt_company ON Debt(companyId);
 CREATE INDEX idx_purchase_order_company ON PurchaseOrder(companyId);
 CREATE INDEX idx_purchase_order_vendor ON PurchaseOrder(vendorId, companyId);
 CREATE INDEX idx_vendor_payment_vendor ON VendorPayment(vendorId, companyId);
+
+-- Device table for POS management
+CREATE TABLE Device (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    companyId INTEGER NOT NULL,
+    deviceId TEXT NOT NULL, -- UUID
+    name TEXT,
+    status TEXT DEFAULT 'offline', -- 'online', 'offline'
+    lastHeartbeat TEXT,
+    softwareVersion TEXT,
+    lastSyncedEventId INTEGER DEFAULT 0,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE,
+    UNIQUE(companyId, deviceId)
+);
+
+-- Event Log for Sync
+CREATE TABLE EventLog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    companyId INTEGER NOT NULL,
+    eventType TEXT NOT NULL, -- 'COMPANY_UPDATE', 'INVENTORY_CHANGE', etc.
+    payload TEXT NOT NULL, -- JSON string
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_eventlog_company ON EventLog(companyId);
+CREATE INDEX idx_eventlog_created ON EventLog(createdAt);
+
+-- Sync State for Umbrella Event Replay
+CREATE TABLE SyncState (
+    key TEXT PRIMARY KEY, -- e.g., 'umbrella_events'
+    lastSyncedId INTEGER DEFAULT 0,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
 -- MIGRATION ONLY BEGIN Currency Normalization
 BEGIN TRANSACTION;
