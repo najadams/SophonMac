@@ -168,6 +168,14 @@ app.get('/', (req, res) => {
             );
             if (success) {
               console.log('Networking system initialized successfully');
+
+              // Initialize Umbrella Sync Service
+              try {
+                const UmbrellaSyncService = require('./services/umbrellaSyncService');
+                await UmbrellaSyncService.initialize(companyInfo.id);
+              } catch (syncErr) {
+                console.warn('Failed to initialize Umbrella Sync:', syncErr.message);
+              }
             } else {
               console.warn('Failed to initialize networking system');
             }
@@ -247,6 +255,9 @@ function registerRoutes(withDb) {
       app.use('/api/sync', syncRoutes);
       app.use('/api/currencies', currencyRoutes);
       app.use('/api/backup', backupRoutes);
+      app.use('/api/tax', require('./routes/taxRoutes'));
+      app.use('/api/transfers', require('./routes/transferRoutes'));
+      app.use('/api/devices', require('./routes/deviceRoutes'));
       console.log('Registered full route set with DB');
     } else {
       // Minimal route set without DB already includes /api/network above
