@@ -536,7 +536,7 @@ function startBackend() {
       // Environment variables for backend
       const backendEnv = {
         ...process.env,
-        PORT: "3021",
+        PORT: "80",
         NODE_ENV: process.env.NODE_ENV,
         // Ensure backend has proper paths
         BACKEND_DIR: backendDir,
