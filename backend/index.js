@@ -69,7 +69,7 @@ const NetworkManager = require('./services/networkManager');
 const networkConfig = require('./config/network.config');
 
 const app = express();
-const PORT = networkConfig.server.port || parseInt(process.env.PORT) || 3021; 
+const PORT = networkConfig.server.port || parseInt(process.env.PORT) || 80; 
 
 // Track DB availability to allow network-only fallback in packaged mode
 let DB_AVAILABLE = true;

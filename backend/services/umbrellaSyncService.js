@@ -2,7 +2,7 @@ const db = require('../data/db/db');
 
 class UmbrellaSyncService {
   constructor() {
-    this.coreUrl = process.env.UMBRELLA_CORE_URL || 'http://localhost:3021/api';
+    this.coreUrl = process.env.UMBRELLA_CORE_URL || 'http://localhost:80/api';
     this.companyId = null; // Will be set on init
     this.isPolling = false;
     this.pollInterval = 10000; // 10 seconds

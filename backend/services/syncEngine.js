@@ -448,7 +448,7 @@ class SyncEngine extends EventEmitter {
     }
     
     try {
-      const { data, error } = await this.supabase.from('company').select('id').limit(1);
+      const { data, error } = await this.supabase.from('Company').select('id').limit(1);
       this.isOnline = !error;
       return this.isOnline;
     } catch (error) {
@@ -511,8 +511,8 @@ class SyncEngine extends EventEmitter {
     const { table_name, operation, data, sync_id } = item;
     const parsedData = JSON.parse(data || '{}');
     
-    // Convert table name to lowercase for PostgreSQL
-    const pgTableName = table_name.toLowerCase();
+    // Use original table name (Supabase tables are mixed case)
+    const pgTableName = table_name;
 
     try {
       let result;
@@ -575,8 +575,8 @@ class SyncEngine extends EventEmitter {
   // Upload local changes to Supabase
   async uploadChangesToSupabase(tableName, companyId) {
     return new Promise((resolve, reject) => {
-      // Convert table name to lowercase for PostgreSQL
-      const pgTableName = tableName.toLowerCase();
+      // Use original table name (Supabase tables are mixed case)
+      const pgTableName = tableName;
       
       // Different filtering logic for Company table vs other tables
       let query, params;
@@ -592,13 +592,13 @@ class SyncEngine extends EventEmitter {
       } else {
         // Check if table has companyId column
         // Define which tables have companyId column (using correct column names)
-        const tablesWithCompanyId = ['Settings', 'Worker', 'Inventory', 'Receipt', 'Debt', 'Supplies', 'PurchaseOrder', 'VendorPayment', 'Notification', 'Purchases'];
+        const tablesWithCompanyId = ['Settings', 'Worker', 'Inventory', 'Receipt', 'Debt', 'Supplies', 'PurchaseOrder', 'VendorPayment', 'Notification', 'Purchases', 'Vendor'];
         // ReceiptDetail doesn't have companyId - it's linked through Receipt
         // DebtPayment doesn't have companyId - it's linked through Debt
         // SuppliesDetail doesn't have companyId - it's linked through Supplies
         // PurchaseOrderItem doesn't have companyId - it's linked through PurchaseOrder
-        // Customer and Vendor tables will sync all records for now (no company filtering)
-        const tablesWithBelongsTo = [];
+        
+        const tablesWithBelongsTo = ['Customer'];
         
         // Tables that don't have updatedAt column (use id for ordering instead)
         const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
@@ -653,7 +653,23 @@ class SyncEngine extends EventEmitter {
             }
 
             // Upload to Supabase
-            const { error } = await this.supabase.from(pgTableName).upsert(row);
+            // Transform data for Supabase if needed
+            let recordToUpload = { ...row };
+            if (tableName === 'Company' || tableName === 'Settings') {
+              // Always map currency if it exists in the row (even if null)
+              if ('currency' in row) {
+                recordToUpload.currencyCode = row.currency;
+                delete recordToUpload.currency;
+              }
+            }
+            
+            // Exclude displayUnit and onhandPrecision from Inventory (local only columns)
+            if (tableName === 'Inventory') {
+              if ('displayUnit' in recordToUpload) delete recordToUpload.displayUnit;
+              if ('onhandPrecision' in recordToUpload) delete recordToUpload.onhandPrecision;
+            }
+
+            const { error } = await this.supabase.from(pgTableName).upsert(recordToUpload);
             
             if (error) {
               console.error(`Error uploading ${tableName} record ${row.id}:`, error);
@@ -677,12 +693,16 @@ class SyncEngine extends EventEmitter {
   // Download changes from Supabase
   async downloadChangesFromSupabase(tableName, companyId) {
     try {
-      // Convert table name to lowercase for PostgreSQL
-      const pgTableName = tableName.toLowerCase();
+      // Use original table name (Supabase tables are mixed case)
+      const pgTableName = tableName;
       
+      // Get last sync time for this table
       // Get last sync time for this table
       const lastSync = await this.getLastSupabaseSyncTime(tableName);
       
+      // Define tables without updatedAt column
+      const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+
       let query = this.supabase.from(pgTableName).select('*');
       
       // Filter by company if applicable - different logic for Company table
@@ -691,33 +711,24 @@ class SyncEngine extends EventEmitter {
           query = query.eq('id', companyId);
         } else {
           // Check if table has companyId column
-          const tablesWithCompanyId = ['Settings', 'Worker', 'Inventory', 'Receipt', 'Debt', 'Supplies', 'PurchaseOrder', 'VendorPayment', 'Notification', 'Purchases'];
+          const tablesWithCompanyId = ['Settings', 'Worker', 'Inventory', 'Receipt', 'Debt', 'Supplies', 'PurchaseOrder', 'VendorPayment', 'Notification', 'Purchases', 'Vendor'];
           // ReceiptDetail doesn't have companyId - it's linked through Receipt
           // DebtPayment doesn't have companyId - it's linked through Debt
           // SuppliesDetail doesn't have companyId - it's linked through Supplies
           // PurchaseOrderItem doesn't have companyId - it's linked through PurchaseOrder
-          // Customer and Vendor tables will sync all records for now (no company filtering)
-          const tablesWithBelongsTo = [];
+          
+          const tablesWithBelongsTo = ['Customer'];
           
           // Tables that don't have updatedAt column (use id for ordering instead)
-           const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+           // tablesWithoutUpdatedAt is defined above
            const orderByClause = tablesWithoutUpdatedAt.includes(tableName) ? 'id ASC' : 'COALESCE(updatedAt, createdAt) ASC';
           
           if (tablesWithCompanyId.includes(tableName)) {
-            // Use snake_case for PostgreSQL/Supabase
-            query = query.eq('company_id', companyId);
+            // Use camelCase for Supabase (matches schema)
+            query = query.eq('companyId', companyId);
           } else if (tablesWithBelongsTo.includes(tableName)) {
-            // For Customer and Vendor tables, try different column name variations
-            // First try company_id (standard), then belongs_to, then belongsTo
-            try {
-              query = query.eq('company_id', companyId);
-            } catch (e) {
-              try {
-                query = query.eq('belongs_to', companyId);
-              } catch (e2) {
-                query = query.eq('belongsTo', companyId);
-              }
-            }
+            // Customer table uses 'belongsTo'
+            query = query.eq('belongsTo', companyId);
           }
           // For tables without companyId, don't filter by company
         }
@@ -725,8 +736,13 @@ class SyncEngine extends EventEmitter {
       
       // Only get records updated since last sync
       if (lastSync) {
-        // Use updated_at for Supabase (PostgreSQL naming convention)
-        query = query.gt('updated_at', lastSync);
+        // Tables without updatedAt cannot be filtered by timestamp efficiently in this scheme
+        // We skip the filter for them to avoid errors, effectively doing a full sync for these tables
+        // or we could use 'id' if we tracked last synced ID, but we track time.
+        if (!tablesWithoutUpdatedAt.includes(tableName)) {
+           // Use updatedAt for Supabase (matches schema)
+           query = query.gt('updatedAt', lastSync);
+        }
       }
 
       const { data, error } = await query;
@@ -737,6 +753,11 @@ class SyncEngine extends EventEmitter {
 
       // Apply changes to local database
       for (const record of data || []) {
+        // Transform data for local DB if needed
+        if ((tableName === 'Company' || tableName === 'Settings') && record.currencyCode) {
+          record.currency = record.currencyCode;
+          delete record.currencyCode;
+        }
         await this.applySupabaseChange(tableName, record);
       }
 
@@ -754,8 +775,17 @@ class SyncEngine extends EventEmitter {
   async applySupabaseChange(tableName, record) {
     return new Promise((resolve, reject) => {
       // Check if record exists locally
-      // Select updatedAt to compare timestamps
-      db.get(`SELECT id, updatedAt FROM ${tableName} WHERE sync_id = ?`, [record.sync_id], (err, row) => {
+      // Determine which timestamp column to use
+      const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+      const timestampCol = tablesWithoutUpdatedAt.includes(tableName) ? 'id' : 'updatedAt'; // Fallback to id if no timestamp (not ideal but prevents error)
+      
+      let query = `SELECT id`;
+      if (!tablesWithoutUpdatedAt.includes(tableName)) {
+        query += `, updatedAt`;
+      }
+      query += ` FROM ${tableName} WHERE sync_id = ?`;
+
+      db.get(query, [record.sync_id], (err, row) => {
         if (err) {
           reject(err);
           return;
@@ -765,7 +795,12 @@ class SyncEngine extends EventEmitter {
           // Check for conflict - Last Write Wins
           // Supabase record keys match local keys because we upserted them that way
           const remoteTime = new Date(record.updatedAt || record.created_at || 0).getTime();
-          const localTime = new Date(row.updatedAt || 0).getTime();
+          
+          let localTime = 0;
+          if (row.updatedAt) {
+            localTime = new Date(row.updatedAt).getTime();
+          }
+
 
           if (remoteTime > localTime) {
             // Remote is newer, update local
@@ -954,6 +989,46 @@ class SyncEngine extends EventEmitter {
       this.supabaseSyncInterval = null;
       console.log('Automatic Supabase sync stopped');
     }
+  }
+
+  // Get sync logs
+  async getSyncLogs(limit = 50) {
+    return new Promise((resolve, reject) => {
+      db.all(`
+        SELECT * FROM SyncLog 
+        ORDER BY completed_at DESC 
+        LIMIT ?
+      `, [limit], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+  }
+
+  // Get outbox statistics
+  async getOutboxStats() {
+    return new Promise((resolve, reject) => {
+      db.all(`
+        SELECT operation, COUNT(*) as count 
+        FROM SyncOutbox 
+        GROUP BY operation
+      `, [], (err, rows) => {
+        if (err) reject(err);
+        else {
+          const stats = {
+            totalPending: 0,
+            byOperation: {}
+          };
+          
+          rows.forEach(row => {
+            stats.totalPending += row.count;
+            stats.byOperation[row.operation] = row.count;
+          });
+          
+          resolve(stats);
+        }
+      });
+    });
   }
 
   // Get comprehensive sync status
