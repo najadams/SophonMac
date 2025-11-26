@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../data/db/db");
+const dbUtils = require("../utils/dbUtils");
 const EventService = require("../services/eventService");
 const bcrypt = require('bcrypt');
 const { CLOSING } = require("ws");
@@ -419,20 +420,21 @@ router.post("/", async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(pwd, salt);
 
+    const newCompanyId = dbUtils.generateUUID();
     db.run(
-      "INSERT INTO Company (companyName, storeAddress, contact, email, password, parentCompanyId) VALUES (?, ?, ?, ?, ?, ?)",
-      [name, address, phone, email, hashedPassword, parentCompanyId || null],
+      "INSERT INTO Company (id, companyName, storeAddress, contact, email, password, parentCompanyId) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [newCompanyId, name, address, phone, email, hashedPassword, parentCompanyId || null],
       function (err) {
         if (err) {
           return res.status(500).json({ error: err.message });
         }
-        const newCompanyId = this.lastID;
         
         // If parentCompanyId is provided, also add to CompanyNetwork
         if (parentCompanyId) {
+          const networkId = dbUtils.generateUUID();
           db.run(
-            "INSERT INTO CompanyNetwork (sourceCompanyId, targetCompanyId, relationshipType, status) VALUES (?, ?, 'subsidiary', 'active')",
-            [newCompanyId, parentCompanyId],
+            "INSERT INTO CompanyNetwork (id, sourceCompanyId, targetCompanyId, relationshipType, status) VALUES (?, ?, ?, 'subsidiary', 'active')",
+            [networkId, newCompanyId, parentCompanyId],
             (err) => {
               if (err) console.error('Failed to link to parent in CompanyNetwork:', err);
             }
@@ -567,9 +569,10 @@ const updateCompanyDetails = async (req, res) => {
       if (allowedUnits.length > 0) {
         const insertPromises = allowedUnits.map((unit) => {
           return new Promise((resolve, reject) => {
+            const unitId = dbUtils.generateUUID();
             db.run(
-              "INSERT INTO CompanyAllowedUnits (companyId, unit) VALUES (?, ?)",
-              [company, unit],
+              "INSERT INTO CompanyAllowedUnits (id, companyId, unit) VALUES (?, ?, ?)",
+              [unitId, company, unit],
               (err) => {
                 if (err) reject(err);
                 else resolve();
@@ -599,9 +602,10 @@ const updateCompanyDetails = async (req, res) => {
       if (allowedCategories.length > 0) {
         const insertPromises = allowedCategories.map((category) => {
           return new Promise((resolve, reject) => {
+            const catId = dbUtils.generateUUID();
             db.run(
-              "INSERT INTO CompanyAllowedCategories (companyId, category) VALUES (?, ?)",
-              [company, category],
+              "INSERT INTO CompanyAllowedCategories (id, companyId, category) VALUES (?, ?, ?)",
+              [catId, company, category],
               (err) => {
                 if (err) reject(err);
                 else resolve();
@@ -746,19 +750,20 @@ router.post("/:id/network", (req, res) => {
     return res.status(400).json({ error: "Target Company ID and Relationship Type are required" });
   }
 
+  const networkId = dbUtils.generateUUID();
   const sql = `
-    INSERT INTO CompanyNetwork (sourceCompanyId, targetCompanyId, relationshipType, status)
-    VALUES (?, ?, ?, 'active')
+    INSERT INTO CompanyNetwork (id, sourceCompanyId, targetCompanyId, relationshipType, status)
+    VALUES (?, ?, ?, ?, 'active')
   `;
 
-  db.run(sql, [sourceCompanyId, targetCompanyId, relationshipType], function(err) {
+  db.run(sql, [networkId, sourceCompanyId, targetCompanyId, relationshipType], function(err) {
     if (err) {
       if (err.message.includes('UNIQUE constraint failed')) {
         return res.status(409).json({ error: "Relationship already exists" });
       }
       return res.status(500).json({ error: err.message });
     }
-    res.status(201).json({ id: this.lastID, message: "Network connection created" });
+    res.status(201).json({ id: networkId, message: "Network connection created" });
   });
 });
 
@@ -870,9 +875,10 @@ router.put("/update/:id", async (req, res) => {
       if (allowedUnits.length > 0) {
         const insertPromises = allowedUnits.map((unit) => {
           return new Promise((resolve, reject) => {
+            const unitId = dbUtils.generateUUID();
             db.run(
-              "INSERT INTO CompanyAllowedUnits (companyId, unit) VALUES (?, ?)",
-              [company, unit],
+              "INSERT INTO CompanyAllowedUnits (id, companyId, unit) VALUES (?, ?, ?)",
+              [unitId, company, unit],
               (err) => {
                 if (err) reject(err);
                 else resolve();
@@ -902,9 +908,10 @@ router.put("/update/:id", async (req, res) => {
       if (allowedCategories.length > 0) {
         const insertPromises = allowedCategories.map((category) => {
           return new Promise((resolve, reject) => {
+            const catId = dbUtils.generateUUID();
             db.run(
-              "INSERT INTO CompanyAllowedCategories (companyId, category) VALUES (?, ?)",
-              [company, category],
+              "INSERT INTO CompanyAllowedCategories (id, companyId, category) VALUES (?, ?, ?)",
+              [catId, company, category],
               (err) => {
                 if (err) reject(err);
                 else resolve();

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 
 // Get all vendors
 router.get('/:companyId', (req, res) => {
@@ -36,16 +37,17 @@ router.post('/:companyId', (req, res) => {
        .json({ error: "Vendor name and company ID are required" });
    }
 
-   db.run(
-     "INSERT INTO Vendor (name, phone, contact_person, companyId) VALUES (?, ?, ?, ?)",
-     [companyName, contact, supplierName, companyId],
-     function (err) {
-       if (err) {
-         return res.status(500).json({ error: err.message });
-       }
-       res.status(201).json({ id: this.lastID });
-     }
-   );
+    const vendorId = dbUtils.generateUUID();
+    db.run(
+      "INSERT INTO Vendor (id, name, phone, contact_person, companyId) VALUES (?, ?, ?, ?, ?)",
+      [vendorId, companyName, contact, supplierName, companyId],
+      function (err) {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+        res.status(201).json({ id: vendorId });
+      }
+    );
  } catch (error) {
     console.log(error)
     res.status(500).json({ message: "failed to add new supplier" })

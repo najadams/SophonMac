@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../data/db/db");
+const dbUtils = require("../utils/dbUtils");
 const { promises } = require("fs-extra");
 
 // Helper function to format date for SQLite
@@ -496,14 +497,16 @@ const newReceipts = async (req, res) => {
 
         // Record breakdown history
         await new Promise((resolve, reject) => {
+          const breakdownId = dbUtils.generateUUID();
           const breakdownQuery = `
             INSERT INTO BreakdownHistory (
-              inventoryId, date, fromUnit, toUnit, quantity, loss, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+              id, inventoryId, date, fromUnit, toUnit, quantity, loss, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `;
           db.run(
             breakdownQuery,
             [
+              breakdownId,
               inventoryItem.id,
               new Date().toISOString(),
               inventoryItem.baseUnit,
@@ -561,15 +564,17 @@ const newReceipts = async (req, res) => {
 
     // Insert receipt
     const receiptId = await new Promise((resolve, reject) => {
+      const newReceiptId = dbUtils.generateUUID();
       const insertReceipt = `
         INSERT INTO Receipt (
-          companyId, customerId, workerId, total, discount, 
+          id, companyId, customerId, workerId, total, discount, 
           amountPaid, balance, profit, paymentMethod
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       db.run(
         insertReceipt,
         [
+          newReceiptId,
           companyId,
           customer.id,
           workerId || null,
@@ -582,7 +587,7 @@ const newReceipts = async (req, res) => {
         ],
         function (err) {
           if (err) reject(err);
-          else resolve(this.lastID);
+          else resolve(newReceiptId);
         }
       );
     });
@@ -590,15 +595,17 @@ const newReceipts = async (req, res) => {
     // Insert receipt details
     for (const detail of receiptDetails) {
       await new Promise((resolve, reject) => {
+        const detailId = dbUtils.generateUUID();
         const insertDetail = `
           INSERT INTO ReceiptDetail (
-            receiptId, name, quantity, costPrice, salesPrice, salesUnit, 
+            id, receiptId, name, quantity, costPrice, salesPrice, salesUnit, 
             originalQuantity, baseUnitQuantity, conversionRate, atomicQuantity, totalPrice
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         db.run(
           insertDetail,
           [
+            detailId,
             receiptId,
             detail.name,
             detail.quantity,
@@ -708,17 +715,18 @@ const newReceipts = async (req, res) => {
       } else {
         // Create new debt
         debtId = await new Promise((resolve, reject) => {
+          const newDebtId = dbUtils.generateUUID();
           const insertDebt = `
             INSERT INTO Debt (
-              companyId, workerId, customerId, receiptId, amount, status
-            ) VALUES (?, ?, ?, ?, ?, 'pending')
+              id, companyId, workerId, customerId, receiptId, amount, status
+            ) VALUES (?, ?, ?, ?, ?, ?, 'pending')
           `;
           db.run(
             insertDebt,
-            [companyId, workerId || null, customer.id, receiptId, finalBalance],
+            [newDebtId, companyId, workerId || null, customer.id, receiptId, finalBalance],
             function (err) {
               if (err) reject(err);
-              else resolve(this.lastID);
+              else resolve(newDebtId);
             }
           );
         });

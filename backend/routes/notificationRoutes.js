@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 
 const router = express.Router();
 const dbPath = path.join(__dirname, '..', 'database.db');
@@ -34,19 +35,20 @@ router.post('/', (req, res) => {
         return res.status(400).json({ error: 'Company ID and message are required' });
     }
     
+    const notificationId = dbUtils.generateUUID();
     const query = `
-        INSERT INTO Notification (companyId, message, status, createdAt, updatedAt)
-        VALUES (?, ?, ?, datetime('now'), datetime('now'))
+        INSERT INTO Notification (id, companyId, message, status, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
     `;
     
-    db.run(query, [companyId, message, status], function(err) {
+    db.run(query, [notificationId, companyId, message, status], function(err) {
         if (err) {
             console.error('Error creating notification:', err);
             return res.status(500).json({ error: 'Failed to create notification' });
         }
         
         res.status(201).json({
-            id: this.lastID,
+            id: notificationId,
             companyId,
             message,
             status,

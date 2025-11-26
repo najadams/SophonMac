@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 
 // Get all purchase orders
 router.get('/', (req, res) => {
@@ -75,12 +76,14 @@ router.post('/:companyId', (req, res) => {
     db.run('BEGIN TRANSACTION');
     
     // Insert purchase order
+    const purchaseOrderId = dbUtils.generateUUID();
     db.run(
       `INSERT INTO PurchaseOrder (
-        companyId, vendorId, orderNumber, status, totalAmount, 
+        id, companyId, vendorId, orderNumber, status, totalAmount, 
         paymentStatus, amountPaid, dueDate, notes, orderedBy
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        purchaseOrderId,
         companyId, vendorId, orderNumber, status, finalTotal,
         paymentStatus, amountPaid, dueDate, notes, orderedBy
       ],
@@ -90,7 +93,6 @@ router.post('/:companyId', (req, res) => {
           return res.status(500).json({ error: err.message });
         }
         
-        const purchaseOrderId = this.lastID;
         let itemsInserted = 0;
         let hasError = false;
         
@@ -98,11 +100,13 @@ router.post('/:companyId', (req, res) => {
         items.forEach((item) => {
           const totalCost = item.quantity * item.costPrice;
           
+          const itemId = dbUtils.generateUUID();
           db.run(
             `INSERT INTO PurchaseOrderItem (
-              purchaseOrderId, productId, quantity, unit, costPrice, totalCost
-            ) VALUES (?, ?, ?, ?, ?, ?)`,
+              id, purchaseOrderId, productId, quantity, unit, costPrice, totalCost
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
+              itemId,
               purchaseOrderId, item.productId, item.quantity, 
               item.unit, item.costPrice, totalCost
             ],

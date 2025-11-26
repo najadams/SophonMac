@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 
 // Get all supplies for a company
 router.get('/:companyId', (req, res) => {
@@ -120,11 +121,12 @@ router.post('/:companyId', (req, res) => {
             const paymentStatus = balanceAmount <= 0 ? 'completed' : 'pending';
             
             // Insert supply record
+            const suppliesId = dbUtils.generateUUID();
             db.run(
               `INSERT INTO Supplies (
-                companyId, supplierId, totalCost, totalQuantity, amountPaid, discount, balance, status, restockedBy
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [companyId, supplierId, totalCost, totalQuantity, paidAmount, discountAmount, balanceAmount, paymentStatus, workerId],
+                id, companyId, supplierId, totalCost, totalQuantity, amountPaid, discount, balance, status, restockedBy
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [suppliesId, companyId, supplierId, totalCost, totalQuantity, paidAmount, discountAmount, balanceAmount, paymentStatus, workerId],
               function(supplyErr) {
                 if (supplyErr && !hasError) {
                   console.error('Supply insert error:', supplyErr);
@@ -133,7 +135,6 @@ router.post('/:companyId', (req, res) => {
                   return res.status(500).json({ error: 'Error creating supply record: ' + supplyErr.message });
                 }
                 
-                const suppliesId = this.lastID;
                 console.log('Supply record created with ID:', suppliesId);
                 
                 // Process each product
@@ -142,11 +143,13 @@ router.post('/:companyId', (req, res) => {
                 
                 products.forEach((item, index) => {
                   // Insert supply detail
+                  const detailId = dbUtils.generateUUID();
                   db.run(
                     `INSERT INTO SuppliesDetail (
-                      suppliesId, name, quantity, costPrice, salesPrice, totalPrice
-                    ) VALUES (?, ?, ?, ?, ?, ?)`,
+                      id, suppliesId, name, quantity, costPrice, salesPrice, totalPrice
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
                     [
+                      detailId,
                       suppliesId,
                       item.name,
                       item.quantity,
@@ -193,11 +196,13 @@ router.post('/:companyId', (req, res) => {
                               
                               if (inventoryRow) {
                                 // Create stock transaction record
+                                const transactionId = dbUtils.generateUUID();
                                 db.run(
                                   `INSERT INTO StockTransaction (
-                                    inventoryId, type, quantity, costPrice, salesPrice, transactionDate
-                                  ) VALUES (?, 'inbound', ?, ?, ?, ?)`,
+                                    id, inventoryId, type, quantity, costPrice, salesPrice, transactionDate
+                                  ) VALUES (?, ?, 'inbound', ?, ?, ?, ?)`,
                                   [
+                                    transactionId,
                                     inventoryRow.id,
                                     item.quantity,
                                     item.costPrice,
@@ -268,12 +273,14 @@ router.post('/:companyId', (req, res) => {
                   const paidAmount = parseFloat(amountPaid) || 0;
                   if (paidAmount > 0 && supplierId) {
                     console.log('Recording payment:', paidAmount);
+                    const paymentId = dbUtils.generateUUID();
                     db.run(
                       `INSERT INTO VendorPayment (
-                        companyId, vendorId, amount, paymentDate, 
+                        id, companyId, vendorId, amount, paymentDate, 
                         paymentMethod, notes, processedBy
-                      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                       [
+                        paymentId,
                         companyId, supplierId, paidAmount, new Date().toISOString(),
                         'cash', `Payment for supply record #${suppliesId}`, workerId
                       ],
@@ -323,9 +330,10 @@ router.post('/:companyId', (req, res) => {
           
           // Create vendor if it doesn't exist
           if (!vendor && vendorName) {
+            const newVendorId = dbUtils.generateUUID();
             db.run(
-              `INSERT INTO Vendor (companyId, name, contact_person, createdAt, updatedAt) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-              [companyId, vendorName, contactPerson],
+              `INSERT INTO Vendor (id, companyId, name, contact_person, createdAt, updatedAt) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+              [newVendorId, companyId, vendorName, contactPerson],
               function(vendorInsertErr) {
                 if (vendorInsertErr && !hasError) {
                   console.error('Vendor insert error:', vendorInsertErr);
@@ -334,7 +342,7 @@ router.post('/:companyId', (req, res) => {
                   return res.status(500).json({ error: 'Error creating vendor: ' + vendorInsertErr.message });
                 }
                 
-                supplierId = this.lastID;
+                supplierId = newVendorId;
                 console.log('New vendor created with ID:', supplierId, 'Name:', vendorName, 'Contact:', contactPerson);
                 processSupply();
               }

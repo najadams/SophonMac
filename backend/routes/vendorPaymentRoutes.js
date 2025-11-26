@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 
 // Create a new vendor payment
 router.post('/', (req, res) => {
@@ -16,13 +17,14 @@ router.post('/', (req, res) => {
   
   const paymentDate = new Date().toISOString();
   
+  const paymentId = dbUtils.generateUUID();
   db.run(
     `INSERT INTO VendorPayment (
-      companyId, vendorId, purchaseOrderId, amount, paymentDate,
+      id, companyId, vendorId, purchaseOrderId, amount, paymentDate,
       paymentMethod, reference, notes, processedBy
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      companyId, vendorId, purchaseOrderId, amount, paymentDate,
+      paymentId, companyId, vendorId, purchaseOrderId, amount, paymentDate,
       paymentMethod || 'cash', reference, notes, processedBy
     ],
     function(err) {
@@ -32,7 +34,7 @@ router.post('/', (req, res) => {
       }
       
       res.status(201).json({
-        id: this.lastID,
+        id: paymentId,
         companyId,
         vendorId,
         purchaseOrderId,

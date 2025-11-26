@@ -259,7 +259,7 @@ router.post('/custom-roles', verifyToken, async (req, res) => {
     
     // Create the custom role
     db.run(
-      'INSERT INTO CustomRoles (name, displayName, permissions, companyId, createdAt) VALUES (?, ?, ?, ?, datetime("now"))',
+      'INSERT INTO CustomRoles (name, displayName, permissions, companyId, createdAt) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
       [name, displayName, JSON.stringify(permissions), companyId],
       function(err) {
         if (err) {
@@ -323,7 +323,7 @@ router.put('/custom-roles/:id', verifyToken, async (req, res) => {
     
     // Update the custom role
     db.run(
-      'UPDATE CustomRoles SET name = ?, displayName = ?, permissions = ?, updatedAt = datetime("now") WHERE id = ? AND companyId = ?',
+      'UPDATE CustomRoles SET name = ?, displayName = ?, permissions = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND companyId = ?',
       [name, displayName, JSON.stringify(permissions), roleId, companyId],
       function(err) {
         if (err) {

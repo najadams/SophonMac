@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../middleware/authMiddleware');
@@ -8,6 +9,7 @@ const { JWT_SECRET } = require('../middleware/authMiddleware');
 // Company Registration
 router.post('/register', async (req, res) => {
   const { companyName, email, password } = req.body;
+  console.log("from register ", req.body)
   if (!companyName || !email || !password) {
     return res.status(400).json({ error: 'Company name, email, and password are required' });
   }
@@ -28,20 +30,22 @@ router.post('/register', async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, salt);
       
       // Create the company
+      const companyId = dbUtils.generateUUID();
+      console.log("from register ", companyId)
       db.run(
-        'INSERT INTO Company (companyName, email, password) VALUES (?, ?, ?)',
-        [companyName, email, hashedPassword],
+        'INSERT INTO Company (id, companyName, email, password) VALUES (?, ?, ?, ?)',
+        [companyId, companyName, email, hashedPassword],
         function(err) {
           if (err) {
+            console.log(err.message)
             return res.status(500).json({ error: err.message });
           }
           
-          const companyId = this.lastID;
-          
           // Create a default super_admin worker account
+          const workerId = dbUtils.generateUUID();
           db.run(
-            'INSERT INTO Worker (name, password, role,adminstatus, companyId) VALUES (?,?, ?, ?, ?)',
-            [`admin`, hashedPassword, 'super_admin', 1, companyId],
+            'INSERT INTO Worker (id, name, password, role,adminstatus, companyId) VALUES (?, ?,?, ?, ?, ?)',
+            [workerId, `admin`, hashedPassword, 'super_admin', 1, companyId],
             function(err) {
               if (err) {
                 return res.status(500).json({ error: err.message });

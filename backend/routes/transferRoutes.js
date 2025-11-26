@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 
 // Helper to check if companies are in the same Umbrella Network
 const validateUmbrellaRelationship = (sourceId, targetId) => {
@@ -98,12 +99,14 @@ router.post('/internal', async (req, res) => {
       const date = new Date().toISOString();
       
       // Source Transaction (Out)
-      db.run(`INSERT INTO StockTransaction (inventoryId, type, quantity, transactionDate, notes) VALUES (?, 'transfer_out', ?, ?, ?)`,
-        [sourceProduct.id, quantity, date, `Transfer to Company ${targetCompanyId}`]);
+      const sourceTxId = dbUtils.generateUUID();
+      db.run(`INSERT INTO StockTransaction (id, inventoryId, type, quantity, transactionDate, notes) VALUES (?, ?, 'transfer_out', ?, ?, ?)`,
+        [sourceTxId, sourceProduct.id, quantity, date, `Transfer to Company ${targetCompanyId}`]);
 
       // Target Transaction (In)
-      db.run(`INSERT INTO StockTransaction (inventoryId, type, quantity, transactionDate, notes) VALUES (?, 'transfer_in', ?, ?, ?)`,
-        [targetProduct.id, quantity, date, `Transfer from Company ${sourceCompanyId}`]);
+      const targetTxId = dbUtils.generateUUID();
+      db.run(`INSERT INTO StockTransaction (id, inventoryId, type, quantity, transactionDate, notes) VALUES (?, ?, 'transfer_in', ?, ?, ?)`,
+        [targetTxId, targetProduct.id, quantity, date, `Transfer from Company ${sourceCompanyId}`]);
 
       processed.push({ sku: sourceProduct.sku, quantity });
     }

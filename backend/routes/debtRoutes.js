@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 
 // Get all debts
 router.get('/', (req, res) => {
@@ -134,9 +135,10 @@ router.post("/:debtId/pay", (req, res) => {
             }
 
             // Insert payment record
+            const paymentId = dbUtils.generateUUID();
             db.run(
-              "INSERT INTO DebtPayment (debtId, amountPaid, workerId, paymentMethod, date) VALUES (?, ?, ?, ?, datetime('now'))",
-              [debtId, paymentAmount, workerId, paymentMethod],
+              "INSERT INTO DebtPayment (id, debtId, amountPaid, workerId, paymentMethod, date) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+              [paymentId, debtId, paymentAmount, workerId, paymentMethod],
               function (err) {
                 if (err) {
                   db.exec("ROLLBACK");
@@ -150,7 +152,7 @@ router.post("/:debtId/pay", (req, res) => {
                   success: true,
                   newAmount,
                   newStatus,
-                  paymentId: this.lastID,
+                  paymentId: paymentId,
                   message:
                     newStatus === "paid"
                       ? "Debt fully paid!"
@@ -218,14 +220,15 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Amount, customer ID, and company ID are required' });
   }
   
+  const debtId = dbUtils.generateUUID();
   db.run(
-    'INSERT INTO Debt (amount, due_date, description, status, customer_id, company_id) VALUES (?, ?, ?, ?, ?, ?)',
-    [amount, due_date, description, status || 'pending', customer_id, company_id],
+    'INSERT INTO Debt (id, amount, due_date, description, status, customer_id, company_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [debtId, amount, due_date, description, status || 'pending', customer_id, company_id],
     function(err) {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
-      res.status(201).json({ id: this.lastID });
+      res.status(201).json({ id: debtId });
     }
   );
 });

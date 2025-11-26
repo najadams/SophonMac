@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 const EventService = require('../services/eventService');
 
 // Get all inventory items
@@ -116,13 +117,15 @@ const newProduct = async (req, res) => {
 
     // Insert product
     const product = await new Promise((resolve, reject) => {
+      const newId = dbUtils.generateUUID();
       db.run(
         `INSERT INTO Inventory (
-          companyId, name, category, baseUnit, costPrice, salesPrice, 
+          id, companyId, name, category, baseUnit, costPrice, salesPrice, 
           onhand, reorderPoint, minimumStock, description, sku, barcode, 
           deleted, allowsUnitBreakdown, atomicUnit, lossFactor
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
+          newId,
           productData.companyId,
           productData.name,
           productData.category,
@@ -143,8 +146,6 @@ const newProduct = async (req, res) => {
         function (err) {
           if (err) reject(err);
           else {
-            const newId = this.lastID;
-            
             // Emit Event
             EventService.emit(productData.companyId, 'INVENTORY_CHANGE', {
               id: newId,
@@ -174,9 +175,10 @@ const newProduct = async (req, res) => {
 
         // Add to InventoryUnits table
         await new Promise((resolve, reject) => {
+          const unitId = dbUtils.generateUUID();
           db.run(
-            "INSERT INTO InventoryUnits (inventoryId, unit) VALUES (?, ?)",
-            [product.id, fromUnit],
+            "INSERT INTO InventoryUnits (id, inventoryId, unit) VALUES (?, ?, ?)",
+            [unitId, product.id, fromUnit],
             (err) => {
               if (err) reject(err);
               else resolve();
@@ -186,11 +188,13 @@ const newProduct = async (req, res) => {
 
         // Add to UnitConversion table
         await new Promise((resolve, reject) => {
+          const conversionId = dbUtils.generateUUID();
           db.run(
             `INSERT INTO UnitConversion (
-              inventoryId, fromUnit, toUnit, conversionRate, unitPrice
-            ) VALUES (?, ?, ?, ?, ?)`,
+              id, inventoryId, fromUnit, toUnit, conversionRate, unitPrice
+            ) VALUES (?, ?, ?, ?, ?, ?)`,
             [
+              conversionId,
               product.id,
               fromUnit,
               unit.toUnit.trim().toLowerCase(),
@@ -576,9 +580,10 @@ const updateProduct = async (req, res) => {
 
           // Add to InventoryUnits table
           await new Promise((resolve, reject) => {
+            const unitId = dbUtils.generateUUID();
             db.run(
-              "INSERT INTO InventoryUnits (inventoryId, unit) VALUES (?, ?)",
-              [productId, fromUnit],
+              "INSERT INTO InventoryUnits (id, inventoryId, unit) VALUES (?, ?, ?)",
+              [unitId, productId, fromUnit],
               (err) => {
                 if (err) reject(err);
                 else resolve();
@@ -588,11 +593,13 @@ const updateProduct = async (req, res) => {
 
           // Add to UnitConversion table
           await new Promise((resolve, reject) => {
+            const conversionId = dbUtils.generateUUID();
             db.run(
               `INSERT INTO UnitConversion (
-                inventoryId, fromUnit, toUnit, conversionRate, unitPrice
-              ) VALUES (?, ?, ?, ?, ?)`,
+                id, inventoryId, fromUnit, toUnit, conversionRate, unitPrice
+              ) VALUES (?, ?, ?, ?, ?, ?)`,
               [
+                conversionId,
                 productId,
                 fromUnit,
                 unit.toUnit.trim().toLowerCase(),

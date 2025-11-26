@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 
 // Get all customers
 router.get('/', (req, res) => {
@@ -144,7 +145,7 @@ router.patch("/:compnayId/:id", (req, res) => {
         .run(customerId);
 
       const insertPhone = db.connection.prepare(
-        `INSERT INTO CustomerPhone (customerId, phone) VALUES (?, ?)`
+        `INSERT INTO CustomerPhone (id, customerId, phone) VALUES (?, ?, ?)`
       );
       const validPhones = [
         ...new Set(
@@ -154,7 +155,7 @@ router.patch("/:compnayId/:id", (req, res) => {
         ),
       ];
       for (const phone of validPhones) {
-        insertPhone.run(customerId, phone);
+        insertPhone.run(dbUtils.generateUUID(), customerId, phone);
       }
 
       // Update emails
@@ -163,7 +164,7 @@ router.patch("/:compnayId/:id", (req, res) => {
         .run(customerId);
 
       const insertEmail = db.connection.prepare(
-        `INSERT INTO CustomerEmail (customerId, email) VALUES (?, ?)`
+        `INSERT INTO CustomerEmail (id, customerId, email) VALUES (?, ?, ?)`
       );
       const validEmails = [
         ...new Set(
@@ -173,7 +174,7 @@ router.patch("/:compnayId/:id", (req, res) => {
         ),
       ];
       for (const email of validEmails) {
-        insertEmail.run(customerId, email);
+        insertEmail.run(dbUtils.generateUUID(), customerId, email);
       }
     });
 
@@ -299,14 +300,16 @@ router.post("/", (req, res) => {
     // 5️⃣ Proceed to insert new customer
     const insertCustomerSQL = `
       INSERT INTO Customer (
-        belongsTo, company, name, address, city,
+        id, belongsTo, company, name, address, city,
         loyaltyPoints, totalSpent, lastPurchaseDate, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
+    const customerId = dbUtils.generateUUID();
     const customerInsert = db.connection
       .prepare(insertCustomerSQL)
       .run(
+        customerId,
         belongsTo,
         company,
         name,
@@ -318,21 +321,19 @@ router.post("/", (req, res) => {
         notes
       );
 
-    const customerId = customerInsert.lastInsertRowid;
-
     // 6️⃣ Insert phones and emails (only after passing duplicate check)
     const insertPhoneStmt = db.connection.prepare(
-      `INSERT INTO CustomerPhone (customerId, phone) VALUES (?, ?)`
+      `INSERT INTO CustomerPhone (id, customerId, phone) VALUES (?, ?, ?)`
     );
     for (const sphone of phoneArray) {
-      if (sphone && sphone.trim()) insertPhoneStmt.run(customerId, sphone.trim());
+      if (sphone && sphone.trim()) insertPhoneStmt.run(dbUtils.generateUUID(), customerId, sphone.trim());
     }
 
     const insertEmailStmt = db.connection.prepare(
-      `INSERT INTO CustomerEmail (customerId, email) VALUES (?, ?)`
+      `INSERT INTO CustomerEmail (id, customerId, email) VALUES (?, ?, ?)`
     );
     for (const semail of emailArray) {
-      if (semail && semail.trim()) insertEmailStmt.run(customerId, semail.trim());
+      if (semail && semail.trim()) insertEmailStmt.run(dbUtils.generateUUID(), customerId, semail.trim());
     }
 
     // 7️⃣ Retrieve and return the created customer

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
+const dbUtils = require('../utils/dbUtils');
 const { v4: uuidv4 } = require('uuid');
 
 // Register a new Device
@@ -16,8 +17,8 @@ router.post('/register', (req, res) => {
   const lastHeartbeat = new Date().toISOString();
 
   const query = `
-    INSERT INTO Device (companyId, deviceId, name, status, lastHeartbeat)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO Device (id, companyId, deviceId, name, status, lastHeartbeat)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(companyId, deviceId) DO UPDATE SET
       name = excluded.name,
       status = excluded.status,
@@ -25,7 +26,8 @@ router.post('/register', (req, res) => {
       updatedAt = CURRENT_TIMESTAMP
   `;
 
-  db.run(query, [companyId, newDeviceId, name, status, lastHeartbeat], function(err) {
+  const id = dbUtils.generateUUID();
+  db.run(query, [id, companyId, newDeviceId, name, status, lastHeartbeat], function(err) {
     if (err) {
       console.error('Error registering device:', err);
       return res.status(500).json({ error: 'Failed to register device' });
