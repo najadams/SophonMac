@@ -21,7 +21,7 @@ INSERT OR IGNORE INTO Currency (code, name, symbol, decimals) VALUES
 
 -- Company table
 CREATE TABLE Company (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     companyName TEXT NOT NULL UNIQUE,
     email TEXT UNIQUE,
     password TEXT NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE Company (
     taxId TEXT,
     tinNumber TEXT,
     taxMode TEXT DEFAULT 'independent', -- 'independent' or 'umbrella'
-    parentCompanyId INTEGER REFERENCES Company(id) ON DELETE SET NULL,
+    parentCompanyId TEXT REFERENCES Company(id) ON DELETE SET NULL,
     taxIdType TEXT DEFAULT 'TIN', -- 'TIN' or 'GH-Card'
     receiptTemplate TEXT DEFAULT 'template1',
     receiptHeader TEXT,
@@ -55,10 +55,24 @@ CREATE TABLE Company (
     updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Company Network (Parent/Child relationships)
+CREATE TABLE CompanyNetwork (
+    id TEXT PRIMARY KEY,
+    sourceCompanyId TEXT NOT NULL,
+    targetCompanyId TEXT NOT NULL,
+    relationshipType TEXT NOT NULL, -- 'subsidiary', 'partner', etc.
+    status TEXT DEFAULT 'active',
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sourceCompanyId) REFERENCES Company(id) ON DELETE CASCADE,
+    FOREIGN KEY (targetCompanyId) REFERENCES Company(id) ON DELETE CASCADE,
+    UNIQUE(sourceCompanyId, targetCompanyId)
+);
+
 -- Company allowed units (Many-to-Many relationship)
 CREATE TABLE CompanyAllowedUnits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER,
+    id TEXT PRIMARY KEY,
+    companyId TEXT,
     unit TEXT,
     FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE,
     UNIQUE(companyId, unit)
@@ -66,8 +80,8 @@ CREATE TABLE CompanyAllowedUnits (
 
 -- Company allowed categories (Many-to-Many relationship)
 CREATE TABLE CompanyAllowedCategories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER,
+    id TEXT PRIMARY KEY,
+    companyId TEXT,
     category TEXT,
     FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE,
     UNIQUE(companyId, category)
@@ -75,8 +89,8 @@ CREATE TABLE CompanyAllowedCategories (
 
 -- Settings table
 CREATE TABLE Settings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
     emailNotifications INTEGER DEFAULT 1,
     smsNotifications INTEGER DEFAULT 0,
     currencyCode TEXT REFERENCES Currency(code) DEFAULT 'GHS',
@@ -89,17 +103,17 @@ CREATE TABLE Settings (
 
 -- User access roles for settings
 CREATE TABLE UserAccessRoles (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    settingsId INTEGER NOT NULL,
-    userId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    settingsId TEXT NOT NULL,
+    userId TEXT NOT NULL,
     role TEXT DEFAULT 'sales',
     FOREIGN KEY (settingsId) REFERENCES Settings(id) ON DELETE CASCADE
 );
 
 -- Worker table
 CREATE TABLE Worker (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER,
+    id TEXT PRIMARY KEY,
+    companyId TEXT,
     adminstatus INTEGER DEFAULT 0,
     name TEXT NOT NULL,
     username TEXT,
@@ -122,8 +136,8 @@ CREATE TABLE Worker (
 
 -- Inventory table
 CREATE TABLE Inventory (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
     name TEXT NOT NULL,
     category TEXT DEFAULT 'none',
     baseUnit TEXT DEFAULT 'none',
@@ -149,16 +163,16 @@ CREATE TABLE Inventory (
 
 -- Inventory units (Many-to-Many relationship)
 CREATE TABLE InventoryUnits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    inventoryId INTEGER,
+    id TEXT PRIMARY KEY,
+    inventoryId TEXT,
     unit TEXT,
     FOREIGN KEY (inventoryId) REFERENCES Inventory(id) ON DELETE CASCADE
 );
 
 -- Unit conversions
 CREATE TABLE UnitConversion (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    inventoryId INTEGER,
+    id TEXT PRIMARY KEY,
+    inventoryId TEXT,
     fromUnit TEXT NOT NULL,
     toUnit TEXT NOT NULL,
     conversionRate REAL NOT NULL,
@@ -168,8 +182,8 @@ CREATE TABLE UnitConversion (
 
 -- Price history
 CREATE TABLE PriceChange (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    inventoryId INTEGER,
+    id TEXT PRIMARY KEY,
+    inventoryId TEXT,
     date TEXT DEFAULT CURRENT_TIMESTAMP,
     costPrice REAL,
     salesPrice REAL,
@@ -178,8 +192,8 @@ CREATE TABLE PriceChange (
 
 -- Stock transactions
 CREATE TABLE StockTransaction (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    inventoryId INTEGER,
+    id TEXT PRIMARY KEY,
+    inventoryId TEXT,
     type TEXT NOT NULL, -- 'inbound' or 'outbound'
     quantity REAL NOT NULL,
     costPrice REAL NOT NULL,
@@ -191,8 +205,8 @@ CREATE TABLE StockTransaction (
 
 -- Inventory Calculations
 CREATE TABLE InventoryCalculations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    productId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    productId TEXT NOT NULL,
     avgDailyDemands REAL NOT NULL,
     eoq REAL NOT NULL,
     reorderPoint REAL NOT NULL,
@@ -208,8 +222,8 @@ CREATE TABLE InventoryCalculations (
 
 -- Breakdown history
 CREATE TABLE BreakdownHistory (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    inventoryId INTEGER,
+    id TEXT PRIMARY KEY,
+    inventoryId TEXT,
     date TEXT DEFAULT CURRENT_TIMESTAMP,
     fromUnit TEXT,
     toUnit TEXT,
@@ -221,9 +235,9 @@ CREATE TABLE BreakdownHistory (
 
 -- Inventory-Vendor relationship (Many-to-Many)
 CREATE TABLE InventoryVendor (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    inventoryId INTEGER,
-    vendorId INTEGER,
+    id TEXT PRIMARY KEY,
+    inventoryId TEXT,
+    vendorId TEXT,
     FOREIGN KEY (inventoryId) REFERENCES Inventory(id) ON DELETE CASCADE,
     FOREIGN KEY (vendorId) REFERENCES Vendor(id) ON DELETE CASCADE,
     UNIQUE(inventoryId, vendorId)
@@ -231,8 +245,8 @@ CREATE TABLE InventoryVendor (
 
 -- Customer table
 CREATE TABLE Customer (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    belongsTo INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    belongsTo TEXT NOT NULL,
     company TEXT DEFAULT 'nocompany',
     name TEXT NOT NULL,
     address TEXT,
@@ -250,24 +264,24 @@ CREATE TABLE Customer (
 
 -- Customer phone numbers (One-to-Many)
 CREATE TABLE CustomerPhone (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    customerId INTEGER,
+    id TEXT PRIMARY KEY,
+    customerId TEXT,
     phone TEXT,
     FOREIGN KEY (customerId) REFERENCES Customer(id) ON DELETE CASCADE
 );
 
 -- Customer emails (One-to-Many)
 CREATE TABLE CustomerEmail (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    customerId INTEGER,
+    id TEXT PRIMARY KEY,
+    customerId TEXT,
     email TEXT,
     FOREIGN KEY (customerId) REFERENCES Customer(id) ON DELETE CASCADE
 );
 
 -- Vendor table
 CREATE TABLE Vendor (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
     name TEXT NOT NULL,
     contact_person TEXT NOT NULL,
     email TEXT,
@@ -290,11 +304,11 @@ CREATE TABLE Vendor (
 
 -- Receipt table
 CREATE TABLE Receipt (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
-    workerId INTEGER,
-    customerId INTEGER,
-    debtId INTEGER,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
+    workerId TEXT,
+    customerId TEXT,
+    debtId TEXT,
     total REAL NOT NULL,
     amountPaid REAL NOT NULL,
     discount REAL DEFAULT 0,
@@ -312,8 +326,8 @@ CREATE TABLE Receipt (
 
 -- Receipt details (One-to-Many)
 CREATE TABLE ReceiptDetail (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    receiptId INTEGER,
+    id TEXT PRIMARY KEY,
+    receiptId TEXT,
     name TEXT NOT NULL,
     quantity REAL NOT NULL,
     costPrice REAL NOT NULL,
@@ -330,11 +344,11 @@ CREATE TABLE ReceiptDetail (
 
 -- Debt table
 CREATE TABLE Debt (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER,
-    workerId INTEGER,
-    customerId INTEGER NOT NULL,
-    receiptId INTEGER,
+    id TEXT PRIMARY KEY,
+    companyId TEXT,
+    workerId TEXT,
+    customerId TEXT NOT NULL,
+    receiptId TEXT,
     amount REAL NOT NULL,
     status TEXT DEFAULT 'pending',
     dueDate TEXT,
@@ -349,11 +363,11 @@ CREATE TABLE Debt (
 
 -- Debt payments (One-to-Many)
 CREATE TABLE DebtPayment (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    debtId INTEGER,
+    id TEXT PRIMARY KEY,
+    debtId TEXT,
     date TEXT DEFAULT CURRENT_TIMESTAMP,
     amountPaid REAL NOT NULL,
-    workerId INTEGER,
+    workerId TEXT,
     paymentMethod TEXT DEFAULT 'cash',
     FOREIGN KEY (debtId) REFERENCES Debt(id) ON DELETE CASCADE,
     FOREIGN KEY (workerId) REFERENCES Worker(id) ON DELETE SET NULL
@@ -361,8 +375,8 @@ CREATE TABLE DebtPayment (
 
 -- Notification table
 CREATE TABLE Notification (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
     message TEXT NOT NULL,
     status TEXT DEFAULT 'unread',
     createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -372,9 +386,9 @@ CREATE TABLE Notification (
 
 -- Supplies table
 CREATE TABLE Supplies (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER,
-    supplierId INTEGER,
+    id TEXT PRIMARY KEY,
+    companyId TEXT,
+    supplierId TEXT,
     totalCost REAL,
     totalQuantity REAL,
     amountPaid REAL DEFAULT 0,
@@ -382,7 +396,7 @@ CREATE TABLE Supplies (
     balance REAL DEFAULT 0,
     status TEXT DEFAULT 'pending',
     restockDate TEXT DEFAULT CURRENT_TIMESTAMP,
-    restockedBy INTEGER NOT NULL,
+    restockedBy TEXT NOT NULL,
     createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
     updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE,
@@ -392,8 +406,8 @@ CREATE TABLE Supplies (
 
 -- Supplies details (One-to-Many)
 CREATE TABLE SuppliesDetail (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    suppliesId INTEGER,
+    id TEXT PRIMARY KEY,
+    suppliesId TEXT,
     name TEXT NOT NULL,
     quantity REAL NOT NULL,
     costPrice REAL NOT NULL,
@@ -404,9 +418,9 @@ CREATE TABLE SuppliesDetail (
 
 -- Purchases table
 CREATE TABLE Purchases (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    vendorId INTEGER NOT NULL,    -- ✅ Added comma
-    companyId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    vendorId TEXT NOT NULL,    -- ✅ Added comma
+    companyId TEXT NOT NULL,
     createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
     updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (vendorId) REFERENCES Vendor(id) ON DELETE CASCADE,  -- ✅ Added comma and fixed reference
@@ -415,8 +429,8 @@ CREATE TABLE Purchases (
 
 -- Purchases details (One-to-Many)
 CREATE TABLE PurchasesDetail (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    purchasesId INTEGER,
+    id TEXT PRIMARY KEY,
+    purchasesId TEXT,
     name TEXT NOT NULL,
     quantity REAL NOT NULL,
     costPrice REAL NOT NULL,
@@ -426,9 +440,9 @@ CREATE TABLE PurchasesDetail (
 
 -- Purchase Order table
 CREATE TABLE PurchaseOrder (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
-    vendorId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
+    vendorId TEXT NOT NULL,
     orderNumber TEXT NOT NULL,
     status TEXT DEFAULT 'pending',
     totalAmount REAL NOT NULL,
@@ -436,8 +450,8 @@ CREATE TABLE PurchaseOrder (
     amountPaid REAL DEFAULT 0,
     dueDate TEXT,
     notes TEXT,
-    orderedBy INTEGER NOT NULL,
-    receivedBy INTEGER,
+    orderedBy TEXT NOT NULL,
+    receivedBy TEXT,
     receivedAt TEXT,
     createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
     updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -450,9 +464,9 @@ CREATE TABLE PurchaseOrder (
 
 -- Purchase Order items (One-to-Many)
 CREATE TABLE PurchaseOrderItem (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    purchaseOrderId INTEGER,
-    productId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    purchaseOrderId TEXT,
+    productId TEXT NOT NULL,
     quantity REAL NOT NULL,
     unit TEXT NOT NULL,
     costPrice REAL NOT NULL,
@@ -463,16 +477,16 @@ CREATE TABLE PurchaseOrderItem (
 
 -- Vendor Payment table
 CREATE TABLE VendorPayment (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
-    vendorId INTEGER NOT NULL,
-    purchaseOrderId INTEGER,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
+    vendorId TEXT NOT NULL,
+    purchaseOrderId TEXT,
     amount REAL NOT NULL,
     paymentDate TEXT NOT NULL,
     paymentMethod TEXT NOT NULL,
     reference TEXT,
     notes TEXT,
-    processedBy INTEGER NOT NULL,
+    processedBy TEXT NOT NULL,
     createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
     updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE,
@@ -495,8 +509,8 @@ CREATE INDEX idx_vendor_payment_vendor ON VendorPayment(vendorId, companyId);
 
 -- Device table for POS management
 CREATE TABLE Device (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
     deviceId TEXT NOT NULL, -- UUID
     name TEXT,
     status TEXT DEFAULT 'offline', -- 'online', 'offline'
@@ -511,8 +525,8 @@ CREATE TABLE Device (
 
 -- Event Log for Sync
 CREATE TABLE EventLog (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
     eventType TEXT NOT NULL, -- 'COMPANY_UPDATE', 'INVENTORY_CHANGE', etc.
     payload TEXT NOT NULL, -- JSON string
     createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -549,7 +563,7 @@ INSERT OR IGNORE INTO Currency (code, name, symbol, decimals) VALUES
 
 -- Recreate Company with currencyCode FK
 CREATE TABLE Company_new (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     companyName TEXT NOT NULL UNIQUE,
     email TEXT UNIQUE,
     password TEXT NOT NULL,
@@ -600,8 +614,8 @@ ALTER TABLE Company_new RENAME TO Company;
 
 -- Recreate Settings with currencyCode FK
 CREATE TABLE Settings_new (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    companyId INTEGER NOT NULL,
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
     emailNotifications INTEGER DEFAULT 1,
     smsNotifications INTEGER DEFAULT 0,
     currencyCode TEXT REFERENCES Currency(code) DEFAULT 'GHS',

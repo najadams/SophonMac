@@ -118,7 +118,7 @@ const DBUtils = {
         const missingColumns = [];
         
         if (!columns.includes('taxMode')) missingColumns.push("ADD COLUMN taxMode TEXT DEFAULT 'independent'");
-        if (!columns.includes('parentCompanyId')) missingColumns.push("ADD COLUMN parentCompanyId INTEGER REFERENCES Company(id) ON DELETE SET NULL");
+        if (!columns.includes('parentCompanyId')) missingColumns.push("ADD COLUMN parentCompanyId TEXT REFERENCES Company(id) ON DELETE SET NULL");
         if (!columns.includes('taxIdType')) missingColumns.push("ADD COLUMN taxIdType TEXT DEFAULT 'TIN'");
         
         if (missingColumns.length === 0) return resolve();
@@ -144,6 +144,24 @@ const DBUtils = {
       });
     });
   },
+
+  // Helper to generate UUIDs
+  generateUUID() {
+    // Use crypto.randomUUID if available (Node 14.17+), otherwise fallback to uuid package
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    // Fallback to uuid package if available, or simple random string for very old nodes (unlikely)
+    try {
+      return require('uuid').v4();
+    } catch (e) {
+      console.warn('UUID package not found and crypto.randomUUID unavailable. Using weak fallback.');
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+  }
 };
 
 module.exports = DBUtils;
