@@ -13,7 +13,7 @@ COPY . .
 RUN mkdir -p data/db
 
 # Expose port
-EXPOSE 3021
+EXPOSE 80
 
 # Start the application
 CMD ["node", "index.js"]
