@@ -5,7 +5,7 @@ export const getBackendURL = () => {
   
   if (isWebDeployment) {
     // In web deployment, use environment variable or default production URL
-    return import.meta.env.VITE_API_URL || 'http://localhost:80';
+    return import.meta.env.VITE_API_URL || `http://${window.location.hostname}:80`;
   }
   
   // In Electron app, use localhost
