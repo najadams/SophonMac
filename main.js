@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, powerSaveBlocker } = require("electron");
 const path = require("path");
 const url = require("url");
 const { spawn } = require("child_process");
@@ -134,7 +134,11 @@ let frontendServer;
 let backendReady = false;
 let frontendReady = false;
 let frontendPort = 3002; // Track the actual frontend port
+let backendPort = 80; // Track the actual backend port
 let isCleaningUp = false; // Flag to prevent recursive cleanup
+let healthCheckInterval;
+let powerSaveBlockerId;
+let isRestartingBackend = false;
 
 function createWindow() {
   try {
@@ -422,8 +426,6 @@ async function startFrontendServer() {
 }
 
 // Start the backend server
-// Start the backend server
-// Start the backend server
 function startBackend() {
   logToFile("INFO", "Starting backend server...");
 
@@ -709,14 +711,15 @@ function startBackend() {
           logToFile("BACKEND", output);
           const match = output.match(/Backend ready on port (\d+)/);
           if (match) {
-            const backendPort = parseInt(match[1], 10);
+            const port = parseInt(match[1], 10);
+            backendPort = port;
             backendReady = true;
             clearTimeout(startupTimeout);
             logToFile(
               "INFO",
-              `Backend is ready and listening on port ${backendPort}`
+              `Backend is ready and listening on port ${port}`
             );
-            resolve(backendPort);
+            resolve(port);
           }
         });
       }
@@ -754,21 +757,83 @@ function startBackend() {
         clearTimeout(startupTimeout);
         const message = `Backend process exited with code ${code} and signal ${signal}`;
         logToFile("INFO", message);
-        if (code !== 0 && !backendReady) {
-          reject(new Error(`Backend process exited with code ${code}`));
-        }
-        if (code !== 0 && mainWindow) {
-          const errorMessage = `Backend server stopped unexpectedly with code ${code}`;
-          logToFile("ERROR", errorMessage);
-          mainWindow.webContents.send("backend-error", errorMessage);
-        }
+        
         backendReady = false;
+
+        // If we're not cleaning up, this is an unexpected exit
+        if (!isCleaningUp && !isRestartingBackend) {
+          logToFile("WARNING", "Backend exited unexpectedly. Attempting restart...");
+          restartBackend();
+        } else if (code !== 0 && !isCleaningUp) {
+           if (mainWindow) {
+            const errorMessage = `Backend server stopped unexpectedly with code ${code}`;
+            logToFile("ERROR", errorMessage);
+            mainWindow.webContents.send("backend-error", errorMessage);
+          }
+        }
       });
     } catch (error) {
       logToFile("ERROR", "Error setting up backend process", error);
       reject(error);
     }
   });
+}
+
+async function restartBackend() {
+  if (isRestartingBackend || isCleaningUp) return;
+  isRestartingBackend = true;
+
+  logToFile("INFO", "Restarting backend process...");
+  
+  // Kill existing process if it exists
+  if (backendProcess && !backendProcess.killed) {
+    try {
+      backendProcess.kill();
+    } catch (e) {
+      logToFile("ERROR", "Failed to kill backend process during restart", e);
+    }
+  }
+
+  // Wait a bit before restarting
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
+  try {
+    await startBackend();
+    logToFile("INFO", "Backend restarted successfully");
+  } catch (error) {
+    logToFile("ERROR", "Failed to restart backend", error);
+    // Try again after a delay
+    setTimeout(() => {
+      isRestartingBackend = false;
+      restartBackend();
+    }, 5000);
+  } finally {
+    isRestartingBackend = false;
+  }
+}
+
+function startHealthCheck() {
+  if (healthCheckInterval) clearInterval(healthCheckInterval);
+  
+  healthCheckInterval = setInterval(() => {
+    if (isCleaningUp || isRestartingBackend) return;
+
+    const healthCheckUrl = `http://localhost:${backendPort}/`;
+    http.get(healthCheckUrl, (res) => {
+      if (res.statusCode === 200) {
+        // Backend is healthy
+      } else {
+        logToFile("WARNING", `Backend health check failed with status: ${res.statusCode}`);
+        // Optionally restart if health check fails repeatedly
+      }
+    }).on('error', (err) => {
+      logToFile("WARNING", `Backend health check failed: ${err.message}`);
+      if (!backendReady && !isRestartingBackend) {
+        logToFile("WARNING", "Backend appears down, triggering restart");
+        restartBackend();
+      }
+    });
+  }, 30000); // Check every 30 seconds
 }
 
 // Single instance lock - prevent multiple instances
@@ -793,6 +858,10 @@ app.on("ready", async () => {
   try {
     logToFile("INFO", "Electron app ready event triggered");
 
+    // Prevent app from being suspended
+    powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+    logToFile("INFO", `Power save blocker started with ID: ${powerSaveBlockerId}`);
+
     // Log system information
     logToFile("INFO", `Platform: ${process.platform}`);
     logToFile("INFO", `Architecture: ${process.arch}`);
@@ -809,11 +878,13 @@ app.on("ready", async () => {
       // Start backend in parallel
       try {
         logToFile("INFO", "Starting backend server...");
-        const backendPort = await startBackend();
+        const port = await startBackend();
+        backendPort = port;
         logToFile(
           "INFO",
           `Backend server started and is listening on port ${backendPort}`
         );
+        startHealthCheck();
       } catch (backendError) {
         logToFile(
           "ERROR",
@@ -834,11 +905,13 @@ app.on("ready", async () => {
       // Start backend in parallel - don't block window creation
       try {
         logToFile("INFO", "Starting backend server...");
-        const backendPort = await startBackend();
+        const port = await startBackend();
+        backendPort = port;
         logToFile(
           "INFO",
           `Backend server started and is listening on port ${backendPort}`
         );
+        startHealthCheck();
       } catch (backendError) {
         logToFile(
           "ERROR",
@@ -896,6 +969,9 @@ app.on("activate", function () {
 // Handle app will quit
 app.on("will-quit", (event) => {
   logToFile("INFO", "App will quit event triggered");
+  if (powerSaveBlockerId !== undefined && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
+    powerSaveBlocker.stop(powerSaveBlockerId);
+  }
 });
 
 // Clean up backend process when app is quitting
@@ -915,6 +991,8 @@ function cleanupAndQuit() {
   }
 
   isCleaningUp = true;
+  if (healthCheckInterval) clearInterval(healthCheckInterval);
+  
   logToFile("INFO", "Starting cleanup process...");
 
   let cleanupTasks = 0;
