@@ -322,6 +322,7 @@ const Settings = () => {
                 company.enableStockValidationNotification !== undefined
                   ? company.enableStockValidationNotification
                   : true,
+              preventOverselling: Boolean(company.preventOverselling) || false,
             }}
             onSubmit={async (values, { setSubmitting, setErrors }) => {
               setSubmitting(true);
@@ -544,6 +545,26 @@ const Settings = () => {
                             display="block">
                             Show notifications when sales quantity exceeds
                             available stock
+                          </Typography>
+                        </Grid>
+                        
+                        <Grid item xs={12}>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                name="preventOverselling"
+                                checked={values.preventOverselling}
+                                onChange={handleChange}
+                                color="primary"
+                              />
+                            }
+                            label="Prevent Overselling"
+                          />
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            display="block">
+                            Block sales when quantity exceeds available stock
                           </Typography>
                         </Grid>
                       </Grid>

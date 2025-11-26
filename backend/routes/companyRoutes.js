@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../data/db/db");
 const EventService = require("../services/eventService");
 const bcrypt = require('bcrypt');
+const { CLOSING } = require("ws");
 
 // Get Counts
 const countData = async (req, res) => {
@@ -457,6 +458,7 @@ const updateCompanyDetails = async (req, res) => {
   try {
     const { company } = req.params;
     const updates = req.body;
+    console.table(req.body)
 
     // Handle allowedUnits and allowedCategories separately
     const { allowedUnits, allowedCategories, ...otherUpdates } = updates;
@@ -497,9 +499,29 @@ const updateCompanyDetails = async (req, res) => {
     const filteredUpdates = {};
     Object.keys(otherUpdates).forEach((key) => {
       if (allowedFields.includes(key)) {
-        filteredUpdates[key] = otherUpdates[key];
+        let value = otherUpdates[key];
+        
+        // Sanitize value for SQLite
+        if (value === undefined) {
+          value = null;
+        } else if (typeof value === 'boolean') {
+          // Convert boolean to integer (0 or 1) for SQLite
+          value = value ? 1 : 0;
+        } else if (typeof value === 'object' && value !== null && !Buffer.isBuffer(value)) {
+          // If it's an object (and not null/buffer), try to stringify it
+          // This handles cases where frontend might send an object for a text field
+          try {
+            value = JSON.stringify(value);
+          } catch (e) {
+            console.warn(`Could not stringify value for ${key}:`, e);
+            value = String(value);
+          }
+        }
+        
+        filteredUpdates[key] = value;
       }
     });
+    console.table(filteredUpdates)
 
     // Update main Company table if there are valid fields
     if (Object.keys(filteredUpdates).length > 0) {
@@ -513,6 +535,11 @@ const updateCompanyDetails = async (req, res) => {
         SET ${setClause}, updatedAt = CURRENT_TIMESTAMP 
         WHERE id = ?
       `;
+
+      console.log('SQL:', sql);
+      console.log('Values:', values);
+      console.log('Values types:', values.map((v, i) => `[${i}] ${typeof v}: ${v}`));
+
 
       await new Promise((resolve, reject) => {
         db.run(sql, values, function (err) {

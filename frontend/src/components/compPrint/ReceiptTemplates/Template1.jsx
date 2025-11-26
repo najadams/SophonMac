@@ -28,9 +28,8 @@ const Template1 = React.forwardRef(({ data }, ref) => {
       style={{
         fontFamily: "Arial, sans-serif",
         margin: 0,
-        padding: "20px",
-        maxWidth: "80mm",
-        margin: "0 auto",
+        padding: "0px",
+        margin: "0",
         backgroundColor: "#ffffff",
       }}>
       {/* Header Section with Logo */}

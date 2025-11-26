@@ -62,6 +62,7 @@ const EditSales = () => {
   const workerId = worker.id;
   const companyId = useSelector((state) => state.companyState.data.id);
   const company = useSelector((state) => state.companyState.data);
+  const preventOverselling = company.preventOverselling || false;
   const allowedUnits = company?.allowedUnits || [];
   const allowedCategories = company?.allowedCategories || [];
   const [error, setError] = useState(null);
@@ -263,6 +264,40 @@ const EditSales = () => {
     const balance = Math.ceil(values.total - values.amountPaid - values.discount);
 
     try {
+      // Validate stock levels if preventOverselling is enabled
+      if (preventOverselling) {
+        const stockErrors = [];
+        values.products.forEach((product, index) => {
+          if (product.name) {
+            const selectedProduct = productOptions.find(p => p.name === product.name);
+            if (selectedProduct) {
+              const currentUnit = product.unit || selectedProduct.baseUnit || 'none';
+              const atomicQuantityNeeded = calculateQuantityInAtomicUnits(
+                product.quantity,
+                currentUnit,
+                selectedProduct
+              );
+              const availableStock = selectedProduct.onhand || 0;
+              
+              if (atomicQuantityNeeded > availableStock) {
+                const unitDisplay = selectedProduct.atomicUnit && selectedProduct.atomicUnit !== 'none' 
+                  ? selectedProduct.atomicUnit 
+                  : selectedProduct.baseUnit;
+                stockErrors.push(
+                  `${capitalizeFirstLetter(product.name)}: Insufficient stock. Available: ${availableStock} ${unitDisplay}`
+                );
+              }
+            }
+          }
+        });
+        
+        if (stockErrors.length > 0) {
+          setError(`Cannot complete sale:\n${stockErrors.join('\n')}`);
+          setSubmitting(false);
+          return;
+        }
+      }
+      
       // Validate product details
       const errors = validateReceiptDetail(values);
       if (Object.keys(errors).length > 0) {
@@ -913,6 +948,25 @@ const EditSales = () => {
                                       }
 
                                       const newQuantity = parseFloat(value);
+                                      
+                                      // Check stock if preventOverselling is enabled
+                                      if (preventOverselling && selectedProduct) {
+                                        const availableStock = selectedProduct.onhand || 0;
+                                        const atomicQuantityNeeded = calculateQuantityInAtomicUnits(
+                                          newQuantity,
+                                          currentUnit,
+                                          selectedProduct
+                                        );
+                                        
+                                        if (atomicQuantityNeeded > availableStock) {
+                                          setDetailErrors((prev) => ({
+                                            ...prev,
+                                            [`products.${index}.quantity`]:
+                                              `Insufficient stock. Available: ${availableStock} ${selectedProduct.atomicUnit || selectedProduct.baseUnit}`,
+                                          }));
+                                          return;
+                                        }
+                                      }
                                       const atomicQuantity =
                                         calculateQuantityInAtomicUnits(
                                           newQuantity,
