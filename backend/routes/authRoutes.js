@@ -135,7 +135,7 @@ router.post('/account', (req, res) => {
     return res.status(400).json({ error: 'Worker name and password are required' });
   }
   
-  db.get('SELECT w.* FROM Worker w JOIN Company c ON w.companyId = c.id WHERE w.name = ? AND w.companyId = ?', [name, companyId], async (err, worker) => {
+  db.get('SELECT w.* FROM Worker w JOIN Company c ON w.companyId = c.id WHERE (w.name = ? OR w.username = ?) AND w.companyId = ?', [name, name, companyId], async (err, worker) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }

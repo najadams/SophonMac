@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../data/db/db');
 const bcrypt = require('bcrypt');
 const { verifyToken, isCompany, isSuperAdmin, belongsToCompany } = require('../middleware/authMiddleware');
+const dbUtils = require('../utils/dbUtils');
 
 // Get all workers (protected - company or super_admin only)
 router.get('/', verifyToken, (req, res) => {
@@ -79,15 +80,17 @@ router.post('/', verifyToken, async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     
+    const workerId = dbUtils.generateUUID();
+    
     db.run(
-      'INSERT INTO Worker (name, username, contact, email, password, role, companyId) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, username, contact, email, hashedPassword, workerRole, companyId],
+      'INSERT INTO Worker (id, name, username, contact, email, password, role, companyId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [workerId, name, username, contact, email, hashedPassword, workerRole, companyId],
       function(err) {
         if (err) {
           return res.status(500).json({ error: err.message });
         }
         res.status(201).json({ 
-          id: this.lastID,
+          id: workerId,
           name,
           username,
           contact,
@@ -184,7 +187,7 @@ router.delete('/:id', verifyToken, (req, res) => {
   }
   
   // Prevent deleting yourself
-  if (req.user.role === 'worker' && req.user.id === parseInt(workerId)) {
+  if (req.user.role === 'worker' && req.user.id === workerId) {
     return res.status(400).json({ error: 'You cannot delete your own account' });
   }
   
