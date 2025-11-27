@@ -419,6 +419,7 @@ const VendorDetails = () => {
   const { id: vendorId } = useParams();
   const navigate = useNavigate();
   const companyId = useSelector((state) => state.companyState.data.id);
+  const currentUser = useSelector((state) => state.userState.currentUser);
   const [tabValue, setTabValue] = useState(0);
   const [expandedSupply, setExpandedSupply] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -600,11 +601,11 @@ const VendorDetails = () => {
         },
         body: JSON.stringify({
           companyId,
-          vendorId: parseInt(vendorId),
+          vendorId: vendorId,
           amount,
           paymentMethod,
           notes: `Payment for supply #${selectedSupplyForPayment.id}`,
-          processedBy: 1, // You might want to get this from user context
+          processedBy: currentUser?.id, // You might want to get this from user context
         }),
       });
 
@@ -619,7 +620,7 @@ const VendorDetails = () => {
       const updatePayload = {
         amountPaid: newAmountPaid,
         balance: newBalance,
-        workerId: 1 // Required by backend - you might want to get this from user context
+        workerId: currentUser?.id // Required by backend - you might want to get this from user context
       };
       
       // Add status if payment is complete

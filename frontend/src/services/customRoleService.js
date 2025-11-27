@@ -73,7 +73,7 @@ class CustomRoleService {
       // Prefer Redux store, fallback to localStorage. If not found, return empty.
       const storeCompanyId = window.__REDUX_STORE__?.getState?.().companyState?.data?.id;
       const localCompanyId = localStorage.getItem('companyId');
-      const companyId = storeCompanyId || (localCompanyId ? Number(localCompanyId) : null);
+      const companyId = storeCompanyId || localCompanyId || null;
 
       if (!companyId) {
         // No company context available yet (not logged in or data not loaded)

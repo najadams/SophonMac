@@ -947,10 +947,10 @@ export const tableActions = {
   },
   fetchSuppliesByVendor: async (vendorId, companyId) => {
     try {
-      const response = await axios.get(`api/supplies/${companyId}`);
+      const response = await axios.get(`api/vendors/${companyId}/${vendorId}/supplies`);
       if (response.status === 200) {
-        // Filter supplies by vendor ID
-        return response.data.filter(supply => supply.supplierId === parseInt(vendorId));
+        
+        return response.data;
       }
     } catch (error) {
       throw new Error(error.response?.data?.message || "Failed to fetch vendor supplies");

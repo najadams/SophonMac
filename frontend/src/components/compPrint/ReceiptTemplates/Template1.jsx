@@ -41,7 +41,7 @@ const Template1 = React.forwardRef(({ data }, ref) => {
           width: "100%",
           marginBottom: "20px",
           borderBottom: "2px solid #000",
-          paddingBottom: "15px",
+          paddingBottom: "5px",
         }}>
         {company.logo && (
           <img
@@ -52,7 +52,7 @@ const Template1 = React.forwardRef(({ data }, ref) => {
         )}
         <h2
           style={{
-            fontSize: "24px",
+            fontSize: "20px",
             fontWeight: "bold",
             margin: "0 0 10px 0",
             color: "#000",
@@ -126,8 +126,8 @@ const Template1 = React.forwardRef(({ data }, ref) => {
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          marginBottom: "20px",
-          fontSize: "14px",
+          marginBottom: "15px",
+          fontSize: "12px",
         }}>
         <thead>
           <tr style={{ backgroundColor: "#f5f5f5" }}>

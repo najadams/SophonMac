@@ -1,4 +1,5 @@
-import React, { useState,useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Formik, Form, Field, useField } from "formik";
 import * as Yup from "yup";
 import {
@@ -134,6 +135,7 @@ const MyTextField = ({ label, icon, ...props }) => {
 
 const CreateUser = () => {
   const companyId = useSelector((state) => state.companyState.data.id);
+  const location = useLocation();
   const workerRole = useSelector((state) => state.userState.currentUser.role);
   const [showAlert, setShowAlert] = useState(false);
   const [error, setError] = useState("");
@@ -172,7 +174,7 @@ const CreateUser = () => {
     };
 
     loadCustomRoles();
-  }, []);
+  }, [location.pathname]);
 
   const handlePermissionToggle = (pagePath) => {
     setSelectedPermissions(prev => 
