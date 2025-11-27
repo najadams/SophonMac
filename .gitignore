@@ -59,3 +59,4 @@ backend/minimal_schema.sql
 backend/setup_supabase_direct.js
 backend/supabase_schema_setup.sql
 backend/data/db/database.sqlite.backup
+backend/supabase_schema_setup.sql.bak
