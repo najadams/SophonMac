@@ -67,7 +67,6 @@ router.get('/:companyId/:supplyId', (req, res) => {
 router.post('/:companyId', (req, res) => {
   try {
     const { companyId } = req.params;
-    console.log(req.body)
     const { supplierName, products, total, amountPaid, discount, balance, workerId } = req.body;
     
     if (!workerId) {

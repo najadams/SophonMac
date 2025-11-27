@@ -9,7 +9,6 @@ const { JWT_SECRET } = require('../middleware/authMiddleware');
 // Company Registration
 router.post('/register', async (req, res) => {
   const { companyName, email, password } = req.body;
-  console.log("from register ", req.body)
   if (!companyName || !email || !password) {
     return res.status(400).json({ error: 'Company name, email, and password are required' });
   }
@@ -31,13 +30,11 @@ router.post('/register', async (req, res) => {
       
       // Create the company
       const companyId = dbUtils.generateUUID();
-      console.log("from register ", companyId)
       db.run(
         'INSERT INTO Company (id, companyName, email, password) VALUES (?, ?, ?, ?)',
         [companyId, companyName, email, hashedPassword],
         function(err) {
           if (err) {
-            console.log(err.message)
             return res.status(500).json({ error: err.message });
           }
           
@@ -144,6 +141,7 @@ router.post('/account', (req, res) => {
     }
     
     if (!worker) {
+      console.log(worker)
       return res.status(401).json({ message: 'Invalid worker name or password' });
     }
 

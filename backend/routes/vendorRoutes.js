@@ -90,4 +90,27 @@ router.delete('/:id', (req, res) => {
   });
 });
 
+// Get supplies for a vendor
+router.get('/:companyId/:id/supplies', (req, res) => {
+  const vendorId = req.params.id;
+  const query = `
+    SELECT 
+      s.*,
+      v.name as vendorName,
+      w.name as workerName
+    FROM Supplies s
+    LEFT JOIN Vendor v ON s.supplierId = v.id
+    LEFT JOIN Worker w ON s.restockedBy = w.id
+    WHERE s.supplierId = ?
+    ORDER BY s.createdAt DESC
+  `;
+  
+  db.all(query, [vendorId], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
+
 module.exports = router;
