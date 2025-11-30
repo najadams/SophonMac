@@ -346,10 +346,25 @@ const newReceipts = async (req, res) => {
     // Begin transaction
     db.exec("BEGIN");
 
-    const [company, name] = customerName
-      .split(" - ")
-      .map((str) => str?.toLowerCase().trim());
-      const companyName = company === "nocompany" ? null : company;
+    // Parse customer name and company
+    let companyName = null;
+    let name = customerName.trim().toLowerCase();
+
+    if (customerName.includes(" - ")) {
+      const parts = customerName.split(" - ");
+      // If there are more than 2 parts, we assume the last part is the name and the rest is company
+      // But based on the reproduction script, it seems it's "Company - Name"
+      // Let's stick to the previous logic but make it robust
+      if (parts.length >= 2) {
+        const potentialCompany = parts[0].trim().toLowerCase();
+        const potentialName = parts.slice(1).join(" - ").trim().toLowerCase();
+        
+        if (potentialCompany !== "nocompany") {
+          companyName = potentialCompany;
+        }
+        name = potentialName;
+      }
+    }
 
     // Fetch customer using callback-based API
     const customer = await new Promise((resolve, reject) => {
@@ -357,10 +372,10 @@ const newReceipts = async (req, res) => {
       let params;
       
       if (companyName === null) {
-        // For customers with no company name
+        // For customers with no company name or explicit 'nocompany'
         customerQuery = `
         SELECT * FROM Customer 
-        WHERE LOWER(name) = ? AND belongsTo = ? AND (company IS NULL OR company = '')
+        WHERE LOWER(name) = ? AND belongsTo = ? AND (company IS NULL OR company = '' OR company = 'nocompany')
         `;
         params = [name, companyId];
       } else {

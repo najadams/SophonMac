@@ -339,57 +339,62 @@ router.get('/inventory', (req, res) => {
 
 // Get customer purchases for specific product
 router.get('/product-customers', (req, res) => {
-  const { companyId, productName, startDate, endDate } = req.query;
+  try {
+    const { companyId, productName, startDate, endDate } = req.query;
 
-  if (!companyId || !productName) {
-    return res.status(400).json({ error: 'Company ID and product name are required' });
-  }
-
-  // Default to today if no dates provided
-  const today = new Date().toISOString().split('T')[0];
-  const start = startDate || today;
-  const end = endDate || today;
-
-  const customerPurchasesQuery = `
-    SELECT 
-      c.id as customerId,
-      c.name as customerName,
-      c.company as customerCompany,
-      SUM(rd.quantity) as totalQuantity,
-      SUM(rd.quantity * rd.salesPrice) as totalAmount,
-      COUNT(DISTINCT r.id) as purchaseCount,
-      MAX(r.createdAt) as lastPurchaseDate
-    FROM 
-      ReceiptDetail rd
-    JOIN 
-      Receipt r ON rd.receiptId = r.id
-    JOIN 
-      Customer c ON r.customerId = c.id
-    WHERE 
-      r.companyId = ? 
-      AND rd.name = ?
-      AND DATE(r.createdAt) BETWEEN ? AND ?
-      AND (r.flagged = 0 OR r.flagged IS NULL)
-    GROUP BY 
-      c.id, c.name, c.company
-    ORDER BY 
-      totalQuantity DESC
-  `;
-
-  db.all(customerPurchasesQuery, [companyId, productName, start, end], (err, rows) => {
-    if (err) {
-      console.error('Error fetching customer purchases:', err);
-      return res.status(500).json({ error: 'Failed to fetch customer purchases' });
+    if (!companyId || !productName) {
+      return res.status(400).json({ error: 'Company ID and product name are required' });
     }
 
-    res.json({
-      productName,
-      customers: rows || [],
-      totalCustomers: rows.length,
-      totalQuantity: rows.reduce((sum, customer) => sum + customer.totalQuantity, 0),
-      totalRevenue: rows.reduce((sum, customer) => sum + customer.totalAmount, 0)
+    // Default to today if no dates provided, or handle empty strings
+    const today = new Date().toISOString().split('T')[0];
+    const start = (startDate && startDate !== 'undefined' && startDate !== 'null') ? startDate : today;
+    const end = (endDate && endDate !== 'undefined' && endDate !== 'null') ? endDate : today;
+
+    const customerPurchasesQuery = `
+      SELECT 
+        c.id as customerId,
+        c.name as customerName,
+        c.company as customerCompany,
+        SUM(rd.quantity) as totalQuantity,
+        SUM(rd.quantity * rd.salesPrice) as totalAmount,
+        COUNT(DISTINCT r.id) as purchaseCount,
+        MAX(r.createdAt) as lastPurchaseDate
+      FROM 
+        ReceiptDetail rd
+      JOIN 
+        Receipt r ON rd.receiptId = r.id
+      JOIN 
+        Customer c ON r.customerId = c.id
+      WHERE 
+        r.companyId = ? 
+        AND rd.name = ?
+        AND DATE(r.createdAt) BETWEEN ? AND ?
+        AND (r.flagged = 0 OR r.flagged IS NULL)
+      GROUP BY 
+        c.id, c.name, c.company
+      ORDER BY 
+        totalQuantity DESC
+    `;
+
+    db.all(customerPurchasesQuery, [companyId, productName, start, end], (err, rows) => {
+      if (err) {
+        console.error('Error fetching customer purchases:', err);
+        return res.status(500).json({ error: 'Failed to fetch customer purchases', details: err.message });
+      }
+
+      res.json({
+        productName,
+        customers: rows || [],
+        totalCustomers: rows.length,
+        totalQuantity: rows.reduce((sum, customer) => sum + customer.totalQuantity, 0),
+        totalRevenue: rows.reduce((sum, customer) => sum + customer.totalAmount, 0)
+      });
     });
-  });
+  } catch (error) {
+    console.error('Unhandled error in product-customers route:', error);
+    res.status(500).json({ error: 'Internal Server Error', details: error.message });
+  }
 });
 
 // Get debts report
