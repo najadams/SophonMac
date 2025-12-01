@@ -919,6 +919,31 @@ const updateReceipt = async (req, res) => {
       }
     }
 
+    // Check for lockReceiptsOlderThanDay setting
+    const settings = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT lockReceiptsOlderThanDay FROM Settings WHERE companyId = ?`,
+        [companyId],
+        (err, row) => {
+          if (err) return reject(err);
+          resolve(row);
+        }
+      );
+    });
+
+    if (settings && settings.lockReceiptsOlderThanDay) {
+      const receiptDate = new Date(receipt.createdAt);
+      const now = new Date();
+      const oneDayInMillis = 24 * 60 * 60 * 1000;
+
+      if (now - receiptDate > oneDayInMillis) {
+        return res.status(403).json({
+          message: "Editing receipts older than 24 hours is restricted by company settings.",
+          restricted: true
+        });
+      }
+    }
+
     let [company, name] = customerName.split(" - ");
     name = name.toLowerCase();
     company = company?.toLowerCase().trim();
