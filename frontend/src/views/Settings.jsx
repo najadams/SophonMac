@@ -298,6 +298,7 @@ const Settings = () => {
               enableAuditLogs: Boolean(company.enableAuditLogs) !== false,
               enableUserActivityLogs: Boolean(company.enableUserActivityLogs) !== false,
               enableSystemLogs: Boolean(company.enableSystemLogs) !== false,
+              lockReceiptsOlderThanDay: Boolean(company.lockReceiptsOlderThanDay),
               enableSecurityLogs: Boolean(company.enableSecurityLogs) !== false,
               enableDataExport: Boolean(company.enableDataExport) !== false,
               enableDataImport: Boolean(company.enableDataImport) !== false,
@@ -685,6 +686,25 @@ const Settings = () => {
                             </Select>
                           </FormControl>
                         </Grid>
+                        <Grid item xs={12}>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                name="lockReceiptsOlderThanDay"
+                                checked={values.lockReceiptsOlderThanDay}
+                                onChange={handleChange}
+                                color="primary"
+                              />
+                            }
+                            label="Prevent editing receipts older than a day"
+                          />
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            display="block">
+                            Restrict editing of receipts created more than 24 hours ago
+                          </Typography>
+                        </Grid>
                         <Grid item xs={12} md={6}>
                           <FormControlLabel
                             control={
@@ -697,6 +717,7 @@ const Settings = () => {
                             label="Enable Barcode Scanning"
                           />
                         </Grid>
+                       
                       </Grid>
                     </CardContent>
                   </StyledCard>

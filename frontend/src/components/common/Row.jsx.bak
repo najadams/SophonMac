@@ -83,18 +83,6 @@ function Row({ row, onFlagChange, setValue }) {
   const printRef = useRef();
   const [printValues, setPrintValues] = useState(null);
   const companyId = useSelector((state) => state.companyState.data.id);
-  const company = useSelector((state) => state.companyState.data);
-  const lockReceiptsOlderThanDay = Boolean(company.lockReceiptsOlderThanDay);
-
-  // Check if receipt is older than 24 hours
-  const isReceiptOlderThanDay = (receiptDate) => {
-    const receiptTime = new Date(receiptDate).getTime();
-    const now = new Date().getTime();
-    const oneDayInMillis = 24 * 60 * 60 * 1000;
-    return now - receiptTime > oneDayInMillis;
-  };
-
-  const canEditReceipt = !lockReceiptsOlderThanDay || !isReceiptOlderThanDay(row.date);
   const queryClient = useQueryClient();
 
   const formatDate = (date) => {
@@ -247,7 +235,7 @@ function Row({ row, onFlagChange, setValue }) {
                   <OutlinedFlagIcon fontSize="small" sx={{ ml: 1 }} />
                 )}
               </MenuItem>
-              {canEditReceipt && <MenuItem onClick={handleEdit}>Edit</MenuItem>}
+              <MenuItem onClick={handleEdit}>Edit</MenuItem>
             </Menu>
           </TableCell>
         </StyledTableRow>
