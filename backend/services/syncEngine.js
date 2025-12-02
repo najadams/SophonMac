@@ -466,7 +466,8 @@ class SyncEngine extends EventEmitter {
         VALUES (?, ?, ?, ?, ?)
       `);
       
-      stmt.run([tableName, recordId, operation, JSON.stringify(data), syncId], function(err) {
+      const dataStr = data === undefined ? null : JSON.stringify(data);
+    stmt.run([tableName, recordId, operation, dataStr, syncId], function(err) {
         if (err) {
           console.error('Error adding to Supabase outbox:', err);
           reject(err);
@@ -672,7 +673,21 @@ class SyncEngine extends EventEmitter {
             const { error } = await this.supabase.from(pgTableName).upsert(recordToUpload);
             
             if (error) {
-              console.error(`Error uploading ${tableName} record ${row.id}:`, error);
+              // Handle UNIQUE constraint violations
+              if (error.code === '23505') { // PostgreSQL unique violation code
+                if (tableName === 'Company' && error.message.includes('companyName')) {
+                  console.warn(`⚠️  Company name "${row.companyName}" already exists in Supabase. Skipping upload.`);
+                  console.warn(`   Suggestion: Rename the local company or merge with the existing one.`);
+                  // Mark as synced to prevent repeated attempts
+                  await this.markRecordSynced(tableName, row.id);
+                } else {
+                  console.warn(`⚠️  Duplicate record in ${tableName} (${row.id}):`, error.message);
+                  // Mark as synced to prevent repeated attempts
+                  await this.markRecordSynced(tableName, row.id);
+                }
+              } else {
+                console.error(`Error uploading ${tableName} record ${row.id}:`, error);
+              }
               continue;
             }
 
@@ -822,7 +837,18 @@ class SyncEngine extends EventEmitter {
   updateLocalRecord(tableName, record, resolve, reject) {
     const columns = Object.keys(record).filter(key => key !== 'id');
     const setClause = columns.map(col => `${col} = ?`).join(', ');
-    const values = columns.map(col => record[col]);
+    const values = columns.map(col => {
+      const val = record[col];
+      if (val === undefined) return null;
+      // Convert booleans to integers for SQLite
+      if (typeof val === 'boolean') {
+        return val ? 1 : 0;
+      }
+      if (val !== null && typeof val === 'object' && !Buffer.isBuffer(val)) {
+        return JSON.stringify(val);
+      }
+      return val;
+    });
     values.push(record.sync_id);
 
     db.run(`
@@ -837,16 +863,55 @@ class SyncEngine extends EventEmitter {
 
   // Insert local record from Supabase
   insertLocalRecord(tableName, record, resolve, reject) {
-    const columns = Object.keys(record).filter(key => key !== 'id');
+    // Include all fields including id
+    const columns = Object.keys(record);
     const placeholders = columns.map(() => '?').join(', ');
-    const values = columns.map(col => record[col]);
+    const values = columns.map(col => {
+      const val = record[col];
+      if (val === undefined) return null;
+      // Convert booleans to integers for SQLite
+      if (typeof val === 'boolean') {
+        return val ? 1 : 0;
+      }
+      // Convert objects to JSON strings, but not Buffers or null
+      if (val !== null && typeof val === 'object' && !Buffer.isBuffer(val)) {
+        return JSON.stringify(val);
+      }
+      return val;
+    });
+
+    // Debug: Check for invalid types
+    values.forEach((val, idx) => {
+      const type = typeof val;
+      if (val !== null && type !== 'string' && type !== 'number' && type !== 'bigint' && !Buffer.isBuffer(val)) {
+        console.error(`Invalid type for column ${columns[idx]} in ${tableName}:`, type, val);
+      }
+    });
 
     db.run(`
       INSERT INTO ${tableName} (${columns.join(', ')}, is_synced, last_synced_at) 
       VALUES (${placeholders}, 1, CURRENT_TIMESTAMP)
     `, values, function(err) {
-      if (err) reject(err);
-      else resolve();
+      if (err) {
+        // Check if it's a foreign key constraint error
+        if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+          console.warn(`Skipping ${tableName} record due to missing foreign key reference:`, {
+            table: tableName,
+            columns: columns,
+            values: values,
+            record: record
+          });
+          // Resolve instead of reject to continue syncing other records
+          resolve();
+        } else {
+          console.error(`Error inserting into ${tableName}:`, err.message);
+          console.error('Columns:', columns);
+          console.error('Values:', values);
+          reject(err);
+        }
+      } else {
+        resolve();
+      }
     });
   }
 
