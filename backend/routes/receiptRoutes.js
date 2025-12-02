@@ -1277,13 +1277,14 @@ const updateReceipt = async (req, res) => {
           });
         } else {
           // Create new debt
-          const newDebtId = await new Promise((resolve, reject) => {
+          const newDebtId = dbUtils.generateUUID();
+          await new Promise((resolve, reject) => {
             db.run(
-              `INSERT INTO Debt (companyId, workerId, customerId, receiptId, amount, status) VALUES (?, ?, ?, ?, ?, 'pending')`,
-              [companyId, receipt.workerId, customerId, receipt.id, balance],
+              `INSERT INTO Debt (id, companyId, workerId, customerId, receiptId, amount, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+              [newDebtId, companyId, receipt.workerId, customerId, receipt.id, balance],
               function (err) {
                 if (err) return reject(err);
-                resolve(this.lastID);
+                resolve();
               }
             );
           });
