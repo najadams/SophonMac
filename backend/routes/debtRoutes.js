@@ -188,6 +188,7 @@ router.get('/debt/:id', (req, res) => {
 // Get payments for a specific debt
 router.get('/debt/:id/payments', (req, res) => {
   const { id } = req.params;
+  console.log("testing payment routes in debt routes", id)
   
   const query = `
     SELECT dp.*, 
@@ -236,6 +237,7 @@ router.post('/', (req, res) => {
 // Update a debt
 router.put('/debt/:id', (req, res) => {
   const { amount, due_date, description, status, customer_id, company_id } = req.body;
+  console.table(req.body)
   
   if (!amount || !customer_id || !company_id) {
     return res.status(400).json({ error: 'Amount, customer ID, and company ID are required' });

@@ -416,6 +416,25 @@ router.post("/", async (req, res) => {
   }
 
   try {
+    // Check if company name already exists
+    const existingCompany = await new Promise((resolve, reject) => {
+      db.get(
+        "SELECT id, companyName FROM Company WHERE companyName = ?",
+        [name],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (existingCompany) {
+      return res.status(409).json({ 
+        error: "Company name already exists",
+        message: `A company with the name "${name}" already exists. Please choose a different name.`
+      });
+    }
+
     const pwd = password || 'password123';
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(pwd, salt);
@@ -426,6 +445,13 @@ router.post("/", async (req, res) => {
       [newCompanyId, name, address, phone, email, hashedPassword, parentCompanyId || null],
       function (err) {
         if (err) {
+          // Handle other database errors
+          if (err.message.includes('UNIQUE constraint failed')) {
+            return res.status(409).json({ 
+              error: "Duplicate entry",
+              message: "A company with this name or email already exists."
+            });
+          }
           return res.status(500).json({ error: err.message });
         }
         
