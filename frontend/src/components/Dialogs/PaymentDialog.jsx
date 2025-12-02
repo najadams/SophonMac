@@ -55,7 +55,7 @@ const PaymentDialog = ({ open, onClose, selectedDebt, onSubmit }) => {
     try {
       setSubmitting(true);
       await onSubmit(paymentAmount, paymentMethod);
-      setSuccess('Payment processed successfully!');
+      // setSuccess('Payment processed successfully!');
       setTimeout(() => {
         onClose();
         setPaymentAmount(0);
