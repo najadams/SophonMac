@@ -675,16 +675,41 @@ class SyncEngine extends EventEmitter {
             if (error) {
               // Handle UNIQUE constraint violations
               if (error.code === '23505') { // PostgreSQL unique violation code
+                const conflict = {
+                  table: tableName,
+                  recordId: row.id,
+                  type: 'duplicate',
+                  timestamp: new Date().toISOString()
+                };
+
                 if (tableName === 'Company' && error.message.includes('companyName')) {
-                  console.warn(`⚠️  Company name "${row.companyName}" already exists in Supabase. Skipping upload.`);
-                  console.warn(`   Suggestion: Rename the local company or merge with the existing one.`);
-                  // Mark as synced to prevent repeated attempts
-                  await this.markRecordSynced(tableName, row.id);
+                  conflict.message = `Company name "${row.companyName}" already exists in Supabase`;
+                  conflict.suggestions = [
+                    { action: 'rename', label: 'Rename local company', description: 'Keep both companies with different names' },
+                    { action: 'skip', label: 'Skip upload', description: 'Keep local company separate, don\'t sync to cloud' },
+                    { action: 'merge', label: 'Use cloud version', description: 'Delete local and use the existing cloud company' }
+                  ];
+                  conflict.data = {
+                    localName: row.companyName,
+                    localId: row.id
+                  };
+                  
+                  console.warn(`⚠️  Company name "${row.companyName}" already exists in Supabase.`);
                 } else {
+                  conflict.message = `Duplicate ${tableName} record`;
+                  conflict.suggestions = [
+                    { action: 'skip', label: 'Skip upload', description: 'Keep local record separate' },
+                    { action: 'overwrite', label: 'Force update', description: 'Update the cloud record with local data' }
+                  ];
                   console.warn(`⚠️  Duplicate record in ${tableName} (${row.id}):`, error.message);
-                  // Mark as synced to prevent repeated attempts
-                  await this.markRecordSynced(tableName, row.id);
                 }
+
+                // Emit conflict event for frontend to handle
+                this.emit('syncConflict', conflict);
+                
+                // Don't mark as synced yet - let user decide
+                // Store conflict in a local table for user review
+                await this.storeSyncConflict(conflict);
               } else {
                 console.error(`Error uploading ${tableName} record ${row.id}:`, error);
               }
@@ -935,6 +960,53 @@ class SyncEngine extends EventEmitter {
       `, [recordId], (err) => {
         if (err) reject(err);
         else resolve();
+      });
+    });
+  }
+
+  // Store sync conflict for user review
+  async storeSyncConflict(conflict) {
+    return new Promise((resolve, reject) => {
+      // Create SyncConflicts table if it doesn't exist
+      db.run(`
+        CREATE TABLE IF NOT EXISTS SyncConflicts (
+          id TEXT PRIMARY KEY,
+          tableName TEXT NOT NULL,
+          recordId TEXT NOT NULL,
+          conflictType TEXT NOT NULL,
+          message TEXT NOT NULL,
+          suggestions TEXT NOT NULL,
+          data TEXT,
+          status TEXT DEFAULT 'pending',
+          resolvedAt TEXT,
+          createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `, (err) => {
+        if (err && !err.message.includes('already exists')) {
+          console.error('Error creating SyncConflicts table:', err);
+        }
+
+        // Insert the conflict
+        const conflictId = require('../utils/dbUtils').generateUUID();
+        db.run(`
+          INSERT INTO SyncConflicts (id, tableName, recordId, conflictType, message, suggestions, data, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+        `, [
+          conflictId,
+          conflict.table,
+          conflict.recordId,
+          conflict.type,
+          conflict.message,
+          JSON.stringify(conflict.suggestions),
+          JSON.stringify(conflict.data || {}),
+        ], (err) => {
+          if (err) {
+            console.error('Error storing sync conflict:', err);
+            reject(err);
+          } else {
+            resolve(conflictId);
+          }
+        });
       });
     });
   }
