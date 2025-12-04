@@ -179,12 +179,15 @@ const SyncStatus = ({ companyId }) => {
 
   // Get sync status color and icon
   const getSyncStatusDisplay = () => {
-    if (!syncStatus) {
-      return { color: 'default', icon: <CloudOff />, text: 'Unknown' };
+    // Check browser online status first
+    const browserOnline = navigator.onLine;
+    
+    if (!browserOnline) {
+      return { color: 'warning', icon: <CloudOff />, text: 'Offline' };
     }
 
-    if (!isOnline) {
-      return { color: 'warning', icon: <CloudOff />, text: 'Offline' };
+    if (!syncStatus) {
+      return { color: 'default', icon: <CloudOff />, text: 'Unknown' };
     }
 
     if (syncStatus.supabaseSyncInProgress) {
@@ -197,13 +200,14 @@ const SyncStatus = ({ companyId }) => {
       const diffMinutes = (now - lastSync) / (1000 * 60);
       
       if (diffMinutes < 5) {
-        return { color: 'success', icon: <CloudDone />, text: 'Synced' };
+        return { color: 'success', icon: <CloudDone />, text: 'Online' };
       } else if (diffMinutes < 30) {
         return { color: 'warning', icon: <Warning />, text: 'Stale' };
       }
     }
 
-    return { color: 'error', icon: <CloudOff />, text: 'Not Synced' };
+    // If browser is online but no sync status, show Online instead of Not Synced
+    return { color: 'success', icon: <CloudDone />, text: 'Online' };
   };
 
   const statusDisplay = getSyncStatusDisplay();
