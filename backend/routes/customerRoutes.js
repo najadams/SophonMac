@@ -518,6 +518,7 @@ router.get('/:customerId/receipts', (req, res) => {
 // Get customer debts
 router.get('/:customerId/debts', (req, res) => {
   const { customerId } = req.params;
+  console.log(customerId);
   const query = `
     SELECT d.*, 
            r.total as receiptTotal,
@@ -576,6 +577,7 @@ router.get('/:customerId/debts', (req, res) => {
     });
     
     const debts = Array.from(debtsMap.values());
+    console.log(debts);
     res.json({ debts });
   });
 });

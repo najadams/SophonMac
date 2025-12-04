@@ -205,7 +205,7 @@ const CustomerInfo = () => {
         [field]: valueToSave
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/customers/${customerId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/customers/${displayCustomer.belongsTo}/${customerId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

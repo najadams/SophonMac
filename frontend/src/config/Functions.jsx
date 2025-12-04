@@ -467,15 +467,8 @@ export const tableActions = {
         index: index + 1,
         company: item.company ? item.company : "nocompany",
         name: item.name,
-        phone:
-          Array.isArray(item.phone) &&
-          item.phone.length > 0 &&
-          item.phone[0] !== ""
-            ? item.phone[0] // Show only the first phone number
-            : item.phone || null,
-        //     email: Array.isArray(item.email) && item.email.length > 0 && item.email[0] !== ""
-        // ? item.email[0]  // Show only the first email
-        // : item.email || null,
+        phone: Array.isArray(item.phone) ? item.phone : [],
+        email: Array.isArray(item.email) ? item.email : [],
       }));
 
       return data;

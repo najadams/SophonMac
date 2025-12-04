@@ -181,6 +181,8 @@ app.get('/', (req, res) => {
             }
           } else {
             // Fallback: start discovery without DB
+            // Initialize with defaults to ensure instanceId is generated
+            await networkManager.networkDiscovery.initialize(port, 'offline', 'Offline');
             networkManager.startNetworkDiscovery(true);
             console.log('Networking discovery started (DB unavailable)');
           }
@@ -253,6 +255,7 @@ function registerRoutes(withDb) {
       app.use('/api/notifications', notificationRoutes);
       app.use('/api/reports', reportRoutes);
       app.use('/api/sync', syncRoutes);
+      app.use('/api/conflicts', require('./routes/conflictRoutes'));
       app.use('/api/currencies', currencyRoutes);
       app.use('/api/backup', backupRoutes);
       app.use('/api/tax', require('./routes/taxRoutes'));
@@ -263,6 +266,11 @@ function registerRoutes(withDb) {
       // Minimal route set without DB already includes /api/network above
       console.log('Registered minimal network routes (DB unavailable)');
     }
+    
+    // Catch-all for API routes to ensure JSON 404 response
+    app.all('/api/*', (req, res) => {
+      res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+    });
   } catch (routeErr) {
     console.warn('Route registration error:', routeErr.message);
   }

@@ -684,7 +684,10 @@ const newReceipts = async (req, res) => {
         const updateInventory = `
           UPDATE Inventory 
           SET onhand = ROUND(onhand - ?, 10), 
-              atomicUnitQuantity = ROUND(COALESCE(atomicUnitQuantity, 0) - ?, 10), 
+              atomicUnitQuantity = CASE 
+                WHEN (COALESCE(atomicUnitQuantity, 0) - ?) <= 0 THEN NULL
+                ELSE ROUND(COALESCE(atomicUnitQuantity, 0) - ?, 10)
+              END, 
               lastBreakdownDate = ?, 
               updatedAt = datetime('now') 
           WHERE id = ?
@@ -693,6 +696,7 @@ const newReceipts = async (req, res) => {
           updateInventory,
           [
             quantityToDeduct,
+            atomicQuantityToDeduct,
             atomicQuantityToDeduct,
             new Date().toISOString(),
             inventoryItem.id,
@@ -707,45 +711,23 @@ const newReceipts = async (req, res) => {
 
     // Handle debt creation if balance > 0
     if (checkDebt && finalBalance > 0) {
-      // Check if debt already exists for this receipt to prevent duplicates
-      const existingDebt = await new Promise((resolve, reject) => {
-        db.get(
-          `SELECT id FROM Debt WHERE receiptId = ?`,
-          [receiptId],
-          (err, row) => (err ? reject(err) : resolve(row))
+      // Create new debt for this customer
+      const debtId = await new Promise((resolve, reject) => {
+        const newDebtId = dbUtils.generateUUID();
+        const insertDebt = `
+          INSERT INTO Debt (
+            id, companyId, workerId, customerId, amount, status
+          ) VALUES (?, ?, ?, ?, ?, 'pending')
+        `;
+        db.run(
+          insertDebt,
+          [newDebtId, companyId, workerId || null, customer.id, finalBalance],
+          function (err) {
+            if (err) reject(err);
+            else resolve(newDebtId);
+          }
         );
       });
-
-      let debtId;
-      if (existingDebt) {
-        // Update existing debt
-        await new Promise((resolve, reject) => {
-          db.run(
-            `UPDATE Debt SET customerId = ?, amount = ?, status = 'pending' WHERE receiptId = ?`,
-            [customer.id, finalBalance, receiptId],
-            (err) => (err ? reject(err) : resolve())
-          );
-        });
-        debtId = existingDebt.id;
-      } else {
-        // Create new debt
-        debtId = await new Promise((resolve, reject) => {
-          const newDebtId = dbUtils.generateUUID();
-          const insertDebt = `
-            INSERT INTO Debt (
-              id, companyId, workerId, customerId, receiptId, amount, status
-            ) VALUES (?, ?, ?, ?, ?, ?, 'pending')
-          `;
-          db.run(
-            insertDebt,
-            [newDebtId, companyId, workerId || null, customer.id, receiptId, finalBalance],
-            function (err) {
-              if (err) reject(err);
-              else resolve(newDebtId);
-            }
-          );
-        });
-      }
 
       // Update receipt with debt ID
       await new Promise((resolve, reject) => {
@@ -768,9 +750,7 @@ const newReceipts = async (req, res) => {
       const existingDebt = await new Promise((resolve, reject) => {
         const debtQuery = `
           SELECT d.* FROM Debt d
-          LEFT JOIN Receipt r ON d.receiptId = r.id
           WHERE d.customerId = ? AND d.companyId = ? AND d.status = ? AND d.createdAt < ?
-          AND (r.flagged = 0 OR r.flagged IS NULL OR r.id IS NULL)
         `;
         db.get(
           debtQuery,
@@ -1280,8 +1260,8 @@ const updateReceipt = async (req, res) => {
           const newDebtId = dbUtils.generateUUID();
           await new Promise((resolve, reject) => {
             db.run(
-              `INSERT INTO Debt (id, companyId, workerId, customerId, receiptId, amount, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-              [newDebtId, companyId, receipt.workerId, customerId, receipt.id, balance],
+              `INSERT INTO Debt (id, companyId, workerId, customerId, amount, status) VALUES (?, ?, ?, ?, ?, 'pending')`,
+              [newDebtId, companyId, receipt.workerId, customerId, balance],
               function (err) {
                 if (err) return reject(err);
                 resolve();

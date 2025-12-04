@@ -40,9 +40,10 @@ router.post('/register', async (req, res) => {
           
           // Create a default super_admin worker account
           const workerId = dbUtils.generateUUID();
+
           db.run(
             'INSERT INTO Worker (id, name, password, role,adminstatus, companyId) VALUES (?, ?,?, ?, ?, ?)',
-            [workerId, `admin`, hashedPassword, 'super_admin', 1, companyId],
+            [workerId, `admin`, hashedPassword, 'admin', 1, companyId],
             function(err) {
               if (err) {
                 return res.status(500).json({ error: err.message });
@@ -130,7 +131,7 @@ router.post('/login', (req, res) => {
 // Worker Login
 router.post('/account', (req, res) => {
   const { name, password, companyId } = req.body;
-  console.log(companyId)
+  console.log(req.body)
   if (!name || !password) {
     return res.status(400).json({ error: 'Worker name and password are required' });
   }

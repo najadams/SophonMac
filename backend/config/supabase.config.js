@@ -25,7 +25,7 @@ const supabaseConfig = {
     // Conflict resolution strategy
     conflictResolution: 'last_write_wins', // 'last_write_wins', 'server_wins', 'manual'
     
-    // Tables to sync (in dependency order)
+    // Tables to sync (in dependency order - parents before children)
     syncTables: [
       'Company',
       'Settings', 
@@ -33,14 +33,14 @@ const supabaseConfig = {
       'Customer',
       'Vendor',
       'Inventory',
-      'Debt',
-      'DebtPayment',
-      'Receipt',
-      'ReceiptDetail',
-      'Supplies',
-      'SuppliesDetail',
-      'PurchaseOrder',
-      'PurchaseOrderItem',
+      'Receipt',          // Must come before ReceiptDetail and Debt
+      'ReceiptDetail',    // Depends on Receipt
+      'Debt',             // Depends on Receipt (receiptId)
+      'DebtPayment',      // Depends on Debt
+      'Supplies',         // Must come before SuppliesDetail
+      'SuppliesDetail',   // Depends on Supplies
+      'PurchaseOrder',    // Must come before PurchaseOrderItem
+      'PurchaseOrderItem',// Depends on PurchaseOrder
       'VendorPayment',
       'Notification'
     ],

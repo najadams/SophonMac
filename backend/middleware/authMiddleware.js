@@ -15,7 +15,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-should-be-in-env-v
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
-  console.log(token)
   
   if (!token) {
     return res.status(401).json({ error: 'Access denied. No token provided.' });

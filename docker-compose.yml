@@ -6,11 +6,11 @@ services:
     container_name: pos-backend
     restart: unless-stopped
     ports:
-      - "3021:3021"
+      - "80:80"
     volumes:
       - ./backend/data:/app/data
     environment:
-      - PORT=3021
+      - PORT=80
       - NODE_ENV=production
       # Configure these in your environment or .env file
       - UMBRELLA_CORE_URL=${UMBRELLA_CORE_URL:-http://host.docker.internal:3000/api}

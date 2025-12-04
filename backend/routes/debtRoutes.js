@@ -22,28 +22,29 @@ router.get('/:companyId', (req, res) => {
     SELECT d.*, 
            c.name as customerName,
            c.company as customerCompany,
-           cp.phone as contact,
-           r.createdAt as date
+           GROUP_CONCAT(cp.phone) as contact,
+           d.createdAt as date
     FROM Debt d
     LEFT JOIN Customer c ON d.customerId = c.id
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
-    LEFT JOIN Receipt r ON d.receiptId = r.id
-    WHERE d.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND d.amount > 0
+    WHERE d.companyId = ? AND d.amount > 0
   `;
   
   const params = [companyId];
   
   if (date) {
-    query += ` AND DATE(r.createdAt) >= DATE(?)`;
+    query += ` AND DATE(d.createdAt) >= DATE(?)`;
     params.push(date);
   }
   
-  query += ` ORDER BY r.createdAt DESC`;
+  query += ` GROUP BY d.id ORDER BY d.createdAt DESC`;
   
   db.all(query, params, (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
+    // Transform contact string back to array if needed, or keep as comma-separated string
+    // For consistency with other routes, let's keep it as is or handle it in frontend
     res.json(rows);
   });
 });
@@ -56,14 +57,14 @@ router.get('/:companyId/all', (req, res) => {
     SELECT d.*, 
            c.name as customerName,
            c.company as customerCompany,
-           cp.phone as contact,
-           r.createdAt as date
+           GROUP_CONCAT(cp.phone) as contact,
+           d.createdAt as date
     FROM Debt d
     LEFT JOIN Customer c ON d.customerId = c.id
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
-    LEFT JOIN Receipt r ON d.receiptId = r.id
-    WHERE d.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND d.amount > 0
-    ORDER BY r.createdAt DESC
+    WHERE d.companyId = ? AND d.amount > 0
+    GROUP BY d.id
+    ORDER BY d.createdAt DESC
   `;
   
   db.all(query, [companyId], (err, rows) => {
@@ -188,20 +189,17 @@ router.get('/debt/:id', (req, res) => {
 // Get payments for a specific debt
 router.get('/debt/:id/payments', (req, res) => {
   const { id } = req.params;
-  console.log("testing payment routes in debt routes", id)
+  console.log(id);
   
   const query = `
     SELECT dp.*, 
            d.amount as debtAmount,
            d.status as debtStatus,
-           w.name as workerName,
-           r.total as receiptTotal,
-           r.createdAt as receiptDate
+           w.name as workerName
     FROM DebtPayment dp
     JOIN Debt d ON dp.debtId = d.id
     LEFT JOIN Worker w ON dp.workerId = w.id
-    LEFT JOIN Receipt r ON d.receiptId = r.id
-    WHERE dp.debtId = ? AND (r.flagged = 0 OR r.flagged IS NULL)
+    WHERE dp.debtId = ?
     ORDER BY dp.date DESC
   `;
   
@@ -215,16 +213,16 @@ router.get('/debt/:id/payments', (req, res) => {
 
 // Create a new debt
 router.post('/', (req, res) => {
-  const { amount, due_date, description, status, customer_id, company_id } = req.body;
+  const { amount, dueDate, description, status, customerId, companyId } = req.body;
   
-  if (!amount || !customer_id || !company_id) {
+  if (!amount || !customerId || !companyId) {
     return res.status(400).json({ error: 'Amount, customer ID, and company ID are required' });
   }
   
   const debtId = dbUtils.generateUUID();
   db.run(
-    'INSERT INTO Debt (id, amount, due_date, description, status, customer_id, company_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [debtId, amount, due_date, description, status || 'pending', customer_id, company_id],
+    'INSERT INTO Debt (id, amount, dueDate, notes, status, customerId, companyId) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [debtId, amount, dueDate, description, status || 'pending', customerId, companyId],
     function(err) {
       if (err) {
         return res.status(500).json({ error: err.message });
@@ -236,16 +234,16 @@ router.post('/', (req, res) => {
 
 // Update a debt
 router.put('/debt/:id', (req, res) => {
-  const { amount, due_date, description, status, customer_id, company_id } = req.body;
+  const { amount, dueDate, description, status, customerId, companyId } = req.body;
   console.table(req.body)
   
-  if (!amount || !customer_id || !company_id) {
+  if (!amount || !customerId || !companyId) {
     return res.status(400).json({ error: 'Amount, customer ID, and company ID are required' });
   }
   
   db.run(
-    'UPDATE Debt SET amount = ?, due_date = ?, description = ?, status = ?, customer_id = ?, company_id = ? WHERE id = ?',
-    [amount, due_date, description, status, customer_id, company_id, req.params.id],
+    'UPDATE Debt SET amount = ?, dueDate = ?, notes = ?, status = ?, customerId = ?, companyId = ? WHERE id = ?',
+    [amount, dueDate, description, status, customerId, companyId, req.params.id],
     function(err) {
       if (err) {
         return res.status(500).json({ error: err.message });

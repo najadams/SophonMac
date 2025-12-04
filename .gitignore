@@ -6,9 +6,8 @@ frontend/build
 frontend/dist
 node_modules
 frontend/.DS_Store
-frontend/
- pos-backup-company-1-2025-11-15T10-29-51-400Z.json
- backend/db/imports/*
+frontend/pos-backup-company-1-2025-11-15T10-29-51-400Z.json
+backend/db/imports/*
 frontend/.gitignore
 all_customers.json
 api_response.json
@@ -30,7 +29,7 @@ dist/*.zip
 dist/*
 frontend/dist
 backend/data/db/database.db
- backend/data/db/imports/** */
+backend/data/db/imports/** */
 backend/data/db/database.sqlite
 logs/*
 troubleshoot.js

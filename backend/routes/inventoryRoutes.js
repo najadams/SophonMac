@@ -106,8 +106,8 @@ const newProduct = async (req, res) => {
       reorderPoint: reorderPoint || 0,
       minimumStock: minimumStock || 0,
       description: description || "",
-      sku: sku || "",
-      barcode: barcode || "",
+      sku: sku && sku.trim() !== "" ? sku.trim() : null,
+      barcode: barcode && barcode.trim() !== "" ? barcode.trim() : null,
       deleted: 0,
       allowsUnitBreakdown:
         unitConversions && unitConversions.length > 0 ? 1 : 0,
@@ -255,6 +255,23 @@ const newProduct = async (req, res) => {
     });
   } catch (error) {
     console.error("Error adding product:", error);
+    
+    // Handle UNIQUE constraint violations
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (error.message.includes('barcode')) {
+        return res.status(400).json({
+          message: "A product with this barcode already exists in your company",
+          error: "DUPLICATE_BARCODE"
+        });
+      }
+      if (error.message.includes('sku')) {
+        return res.status(400).json({
+          message: "A product with this SKU already exists in your company",
+          error: "DUPLICATE_SKU"
+        });
+      }
+    }
+    
     res.status(500).json({
       message: "Internal Server Error",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
@@ -493,8 +510,8 @@ const updateProduct = async (req, res) => {
       ...(reorderPoint !== undefined && { reorderPoint: reorderPoint || 0 }),
       ...(minimumStock !== undefined && { minimumStock: minimumStock || 0 }),
       ...(description !== undefined && { description: description || "" }),
-      ...(sku !== undefined && { sku: sku || "" }),
-      ...(barcode !== undefined && { barcode: barcode || "" }),
+      ...(sku !== undefined && { sku: sku && sku.trim() !== "" ? sku.trim() : null }),
+      ...(barcode !== undefined && { barcode: barcode && barcode.trim() !== "" ? barcode.trim() : null }),
     };
 
     // Handle unit conversions update

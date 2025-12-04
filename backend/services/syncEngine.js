@@ -2,6 +2,7 @@ const EventEmitter = require('events');
 const { randomUUID } = require('crypto');
 const db = require('../data/db/db');
 const { createSupabaseServiceClient, supabaseConfig } = require('../config/supabase.config');
+const bcrypt = require('bcrypt');
 
 class SyncEngine extends EventEmitter {
   constructor(websocketServer, networkDiscovery) {
@@ -573,6 +574,135 @@ class SyncEngine extends EventEmitter {
     });
   }
 
+  // Verify company credentials and merge if they match
+  async verifyAndMergeCompany(localCompany) {
+    try {
+      // Query Supabase for existing company by email
+      const { data: remoteCompany, error } = await this.supabase
+        .from('Company')
+        .select('*')
+        .eq('email', localCompany.email)
+        .single();
+
+      if (error || !remoteCompany) {
+        return { matched: false, reason: 'Company not found in Supabase' };
+      }
+
+      // Verify password match using bcrypt
+      const passwordMatch = await bcrypt.compare(localCompany.password, remoteCompany.password);
+
+      if (!passwordMatch) {
+        return { matched: false, reason: 'Password does not match' };
+      }
+
+      // Verify company name matches
+      if (localCompany.companyName !== remoteCompany.companyName) {
+        return { matched: false, reason: 'Company name does not match' };
+      }
+
+      // Credentials match! Adopt the remote company ID
+      console.log(`Company credentials matched! Merging local company ${localCompany.id} with remote ${remoteCompany.id}`);
+      
+      await this.adoptRemoteCompanyId(localCompany.id, remoteCompany);
+
+      return { matched: true, remoteCompany };
+    } catch (error) {
+      console.error('Error verifying company credentials:', error);
+      return { matched: false, reason: error.message };
+    }
+  }
+
+  // Adopt remote company ID and download all related data
+  async adoptRemoteCompanyId(localCompanyId, remoteCompany) {
+    return new Promise((resolve, reject) => {
+      db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+
+        try {
+          // Update local Company record with remote ID and sync_id
+          db.run(`
+            UPDATE Company 
+            SET id = ?, 
+                sync_id = ?, 
+                is_synced = 1, 
+                last_synced_at = CURRENT_TIMESTAMP,
+                updatedAt = ?
+            WHERE id = ?
+          `, [remoteCompany.id, remoteCompany.sync_id, remoteCompany.updatedAt, localCompanyId], (err) => {
+            if (err) throw err;
+          });
+
+          // Update all related records with new companyId
+          const tablesToUpdate = [
+            'Settings', 'Worker', 'Inventory', 'Receipt', 'Debt', 
+            'Supplies', 'PurchaseOrder', 'VendorPayment', 'Notification', 
+            'Purchases', 'Vendor'
+          ];
+
+          tablesToUpdate.forEach(table => {
+            db.run(`UPDATE ${table} SET companyId = ? WHERE companyId = ?`, 
+              [remoteCompany.id, localCompanyId], (err) => {
+                if (err) console.warn(`Warning: Failed to update ${table}:`, err.message);
+              });
+          });
+
+          // Update Customer table (uses belongsTo instead of companyId)
+          db.run(`UPDATE Customer SET belongsTo = ? WHERE belongsTo = ?`, 
+            [remoteCompany.id, localCompanyId], (err) => {
+              if (err) console.warn('Warning: Failed to update Customer:', err.message);
+            });
+
+          db.run('COMMIT', async (err) => {
+            if (err) {
+              db.run('ROLLBACK');
+              reject(err);
+            } else {
+              console.log(`Successfully adopted remote company ID: ${remoteCompany.id}`);
+              
+              // Broadcast success to clients
+              this.wsServer.broadcastToCompany(remoteCompany.id, 'syncSuccess', {
+                type: 'company_merged',
+                message: `Company matched and synced successfully`,
+                companyId: remoteCompany.id,
+                timestamp: new Date().toISOString()
+              });
+
+              // Trigger download of all remote data for this company
+              await this.downloadAllCompanyData(remoteCompany.id);
+              
+              resolve();
+            }
+          });
+        } catch (error) {
+          db.run('ROLLBACK');
+          reject(error);
+        }
+      });
+    });
+  }
+
+  // Download all data for a company from Supabase
+  async downloadAllCompanyData(companyId) {
+    try {
+      console.log(`Downloading all data for company ${companyId}...`);
+      
+      for (const tableName of supabaseConfig.syncSettings.syncTables) {
+        if (tableName === 'Company') continue; // Already synced
+        
+        try {
+          const downloaded = await this.downloadChangesFromSupabase(tableName, companyId);
+          console.log(`Downloaded ${downloaded} ${tableName} records`);
+        } catch (error) {
+          console.error(`Error downloading ${tableName}:`, error.message);
+        }
+      }
+      
+      console.log('Company data download complete');
+    } catch (error) {
+      console.error('Error downloading company data:', error);
+    }
+  }
+
   // Upload local changes to Supabase
   async uploadChangesToSupabase(tableName, companyId) {
     return new Promise((resolve, reject) => {
@@ -675,6 +805,24 @@ class SyncEngine extends EventEmitter {
             if (error) {
               // Handle UNIQUE constraint violations
               if (error.code === '23505') { // PostgreSQL unique violation code
+                // Special handling for Company table - try to verify and merge first
+                if (tableName === 'Company' && (error.message.includes('companyName') || error.message.includes('email'))) {
+                  console.log('Duplicate company detected, verifying credentials...');
+                  
+                  const verifyResult = await this.verifyAndMergeCompany(row);
+                  
+                  if (verifyResult.matched) {
+                    // Credentials matched! Company was merged successfully
+                    console.log('Company credentials matched and merged successfully');
+                    uploadedCount++; // Count as uploaded since we merged
+                    continue; // Skip to next record
+                  }
+                  
+                  // Credentials didn't match, show conflict
+                  console.log('Company credentials did not match:', verifyResult.reason);
+                }
+                
+                // Create conflict for user resolution
                 const conflict = {
                   table: tableName,
                   recordId: row.id,
@@ -694,14 +842,31 @@ class SyncEngine extends EventEmitter {
                     localId: row.id
                   };
                   
-                  console.warn(`⚠️  Company name "${row.companyName}" already exists in Supabase.`);
+                  // Broadcast to connected clients
+                  this.wsServer.broadcastToCompany(this.companyId, 'syncConflict', conflict);
+                } else if (tableName === 'Company' && error.message.includes('email')) {
+                  conflict.message = `Company email "${row.email}" already exists in Supabase`;
+                  conflict.suggestions = [
+                    { action: 'change_email', label: 'Change local email', description: 'Update the email address for this company' },
+                    { action: 'skip', label: 'Skip upload', description: 'Keep local company separate, don\'t sync to cloud' },
+                    { action: 'merge', label: 'Use cloud version', description: 'Delete local and use the existing cloud company' }
+                  ];
+                  conflict.data = {
+                    localEmail: row.email,
+                    localId: row.id
+                  };
+                  
+                  // Broadcast to connected clients
+                  this.wsServer.broadcastToCompany(this.companyId, 'syncConflict', conflict);
                 } else {
                   conflict.message = `Duplicate ${tableName} record`;
                   conflict.suggestions = [
                     { action: 'skip', label: 'Skip upload', description: 'Keep local record separate' },
                     { action: 'overwrite', label: 'Force update', description: 'Update the cloud record with local data' }
                   ];
-                  console.warn(`⚠️  Duplicate record in ${tableName} (${row.id}):`, error.message);
+                  
+                  // Broadcast to connected clients
+                  this.wsServer.broadcastToCompany(this.companyId, 'syncConflict', conflict);
                 }
 
                 // Emit conflict event for frontend to handle
@@ -711,7 +876,15 @@ class SyncEngine extends EventEmitter {
                 // Store conflict in a local table for user review
                 await this.storeSyncConflict(conflict);
               } else {
-                console.error(`Error uploading ${tableName} record ${row.id}:`, error);
+                // Broadcast general upload error to clients
+                this.wsServer.broadcastToCompany(this.companyId, 'syncError', {
+                  type: 'upload_error',
+                  table: tableName,
+                  recordId: row.id,
+                  message: `Failed to upload ${tableName} record: ${error.message}`,
+                  error: error.message,
+                  timestamp: new Date().toISOString()
+                });
               }
               continue;
             }

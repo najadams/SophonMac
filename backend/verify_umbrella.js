@@ -1,6 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 
-const BASE_URL = 'http://localhost:3021/api';
+const BASE_URL = 'http://localhost:80/api';
 
 async function post(url, data) {
   const res = await fetch(url, {
