@@ -125,8 +125,8 @@ class SyncService {
       return { text: 'Syncing...', color: 'info' };
     }
 
-    if (status.lastSupabaseSync) {
-      const lastSync = new Date(status.lastSupabaseSync);
+    if (status.lastSupabaseSyncTime) {
+      const lastSync = new Date(status.lastSupabaseSyncTime);
       const now = new Date();
       const diffMinutes = (now - lastSync) / (1000 * 60);
       

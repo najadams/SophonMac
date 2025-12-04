@@ -194,8 +194,8 @@ const SyncStatus = ({ companyId }) => {
       return { color: 'info', icon: <CloudSync className="animate-spin" />, text: 'Syncing...' };
     }
 
-    if (syncStatus.lastSupabaseSync) {
-      const lastSync = new Date(syncStatus.lastSupabaseSync);
+    if (syncStatus.lastSupabaseSyncTime) {
+      const lastSync = new Date(syncStatus.lastSupabaseSyncTime);
       const now = new Date();
       const diffMinutes = (now - lastSync) / (1000 * 60);
       
@@ -273,8 +273,8 @@ const SyncStatus = ({ companyId }) => {
             <Box sx={{ mb: 2 }}>
               <Typography variant="h6" gutterBottom>Sync Statistics</Typography>
               <Typography variant="body2">
-                Last Sync: {syncStatus.lastSupabaseSync 
-                  ? new Date(syncStatus.lastSupabaseSync).toLocaleString()
+                Last Sync: {syncStatus.lastSupabaseSyncTime 
+                  ? new Date(syncStatus.lastSupabaseSyncTime).toLocaleString()
                   : 'Never'
                 }
               </Typography>
