@@ -348,7 +348,7 @@ const PaymentDialog = ({ open, onClose, selectedDebt, onSubmit }) => {
                   }}
                 >
                   <MenuItem value="cash">Cash</MenuItem>
-                  <MenuItem value="momo">Mobile Money</MenuItem>
+                  <MenuItem value="mobile_money">Mobile Money</MenuItem>
                   <MenuItem value="card">Check</MenuItem>
                   <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
                 </Select>
