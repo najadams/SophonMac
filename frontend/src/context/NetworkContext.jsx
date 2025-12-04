@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import networkService from '../services/networkService';
 import { toast } from 'react-toastify';
+import syncNotifications from '../utils/syncNotifications.jsx';
 
 const NetworkContext = createContext();
 
@@ -108,6 +109,8 @@ export const NetworkProvider = ({ children }) => {
     networkService.on('dataSync', handleDataSync);
     networkService.on('syncComplete', handleSyncComplete);
     networkService.on('syncConflict', handleSyncConflict);
+    networkService.on('syncError', handleSyncError);
+    networkService.on('syncSuccess', handleSyncSuccess);
     networkService.on('networkMessage', handleNetworkMessage);
     networkService.on('connectionFailed', handleConnectionFailed);
   };
@@ -119,6 +122,8 @@ export const NetworkProvider = ({ children }) => {
     networkService.off('dataSync', handleDataSync);
     networkService.off('syncComplete', handleSyncComplete);
     networkService.off('syncConflict', handleSyncConflict);
+    networkService.off('syncError', handleSyncError);
+    networkService.off('syncSuccess', handleSyncSuccess);
     networkService.off('networkMessage', handleNetworkMessage);
     networkService.off('connectionFailed', handleConnectionFailed);
   };
@@ -169,10 +174,25 @@ export const NetworkProvider = ({ children }) => {
 
   const handleSyncConflict = (conflict) => {
     console.log('Sync conflict detected:', conflict);
-    toast.warning('Data conflict detected - please check network manager', {
-      position: 'bottom-right',
-      autoClose: 5000
-    });
+    syncNotifications.showConflict(conflict);
+  };
+
+  const handleSyncError = (error) => {
+    console.log('Sync error received:', error);
+    syncNotifications.showError(error);
+  };
+
+  const handleSyncSuccess = (success) => {
+    console.log('Sync success received:', success);
+    syncNotifications.showSuccess(success.message);
+    
+    // If company was merged, might need to refresh the app state
+    if (success.type === 'company_merged') {
+      // Optionally trigger a page reload or state refresh
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    }
   };
 
   const handleNetworkMessage = (message) => {

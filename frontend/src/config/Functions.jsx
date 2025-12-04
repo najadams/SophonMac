@@ -1,5 +1,6 @@
 import axios from "./index";
 import { API_BASE_URL } from "./constants";
+import { CleaningServices } from "@mui/icons-material";
 export const formatNumber = (num) => new Intl.NumberFormat().format(num);
 export function toSignificantFigures(num, sigFigs = 2) {
   if (num === 0) return 0;
@@ -133,8 +134,8 @@ export const validateFields = (newProduct, setErrors, noOnhand = true) => {
     newErrors.salesPrice = "Sales Price must be a positive number";
   if (!newProduct.costPrice || newProduct.costPrice <= 0)
     newErrors.costPrice = "Cost Price must be a positive number";
-  if (newProduct.costPrice >= newProduct.salesPrice)
-    newErrors.salesPrice = "Sales Price must be greater than Cost"
+  if (Number(newProduct.costPrice) >= Number(newProduct.salesPrice))
+    newErrors.salesPrice = "Sales Price must be greater than Cost";
   if ((!newProduct.onhand || newProduct.onhand < 0) && noOnhand)
     newErrors.onhand = "Available Quantity must be at least 0";
 
@@ -813,12 +814,13 @@ export const tableActions = {
     try {
       const response = await axios.get(`/api/receipts/receipt/${receiptId}`);
       const data = response.data;
+      console.log(data)
       
       // Transform the data to match ReceiptDialog expectations
       return {
         customerName: data.customer?.name || 'Unknown Customer',
         workerName: data.worker?.name || 'Unknown Worker',
-        date: data.date,
+        date: data.createdAt,
         detail: data.details || [],
         discount: data.discount || 0,
         total: data.total,

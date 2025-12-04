@@ -14,9 +14,7 @@ import {
   useMediaQuery,
   Button,
   Snackbar,
-  TextField,
   Typography,
-  CircularProgress,
 } from "@mui/material";
 import PaymentDialog from "../components/Dialogs/PaymentDialog";
 
@@ -465,13 +463,13 @@ const Debt = () => {
                     contact={debt.contact}
                     onClick={() => handleCardClick(debt)}
                     additionalInfo={`Debt Date: ${new Date(
-                      debt.date
+                      debt.createdAt
                     ).toLocaleDateString()}`}
                   />
                 ) : (
                   <UsersCard
                     top={debt.date && !isNaN(new Date(debt.date).getTime()) 
-                      ? new Date(debt.date).toLocaleDateString()
+                      ? new Date(debt.createdAt).toLocaleDateString()
                       : "Invalid Date"
                     }
                     main={`₵${debt.amount}`}

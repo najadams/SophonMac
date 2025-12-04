@@ -115,6 +115,18 @@ class NetworkService {
       this.emit('syncConflict', conflict);
     });
 
+    // Sync errors
+    this.socket.on('syncError', (error) => {
+      console.log('Sync error received:', error);
+      this.emit('syncError', error);
+    });
+
+    // Sync success
+    this.socket.on('syncSuccess', (success) => {
+      console.log('Sync success received:', success);
+      this.emit('syncSuccess', success);
+    });
+
     // Network messages
     this.socket.on('network_message', (message) => {
       console.log('Network message received:', message);
