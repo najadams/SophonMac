@@ -476,7 +476,7 @@ router.get('/:customerId/receipts', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    
+
     // Group receipt details by receipt ID
     const receiptsMap = new Map();
     rows.forEach(row => {
@@ -518,7 +518,8 @@ router.get('/:customerId/receipts', (req, res) => {
 // Get customer debts
 router.get('/:customerId/debts', (req, res) => {
   const { customerId } = req.params;
-  console.log(customerId);
+  console.log("customerId from debts", customerId)
+
   const query = `
     SELECT d.*, 
            r.total as receiptTotal,
@@ -530,7 +531,7 @@ router.get('/:customerId/debts', (req, res) => {
            dp.paymentMethod,
            pw.name as paymentWorkerName
     FROM Debt d
-    LEFT JOIN Receipt r ON d.receiptId = r.id
+    LEFT JOIN Receipt r ON r.debtId = d.id
     LEFT JOIN Worker w ON d.workerId = w.id
     LEFT JOIN DebtPayment dp ON d.id = dp.debtId
     LEFT JOIN Worker pw ON dp.workerId = pw.id
@@ -595,7 +596,7 @@ router.get('/:customerId/payments', (req, res) => {
     FROM DebtPayment dp
     JOIN Debt d ON dp.debtId = d.id
     LEFT JOIN Worker w ON dp.workerId = w.id
-    LEFT JOIN Receipt r ON d.receiptId = r.id
+    LEFT JOIN Receipt r ON r.debtId = d.id
     WHERE d.customerId = ? AND (r.flagged = 0 OR r.flagged IS NULL)
     ORDER BY dp.date DESC
   `;
