@@ -441,6 +441,58 @@ class SyncEngine extends EventEmitter {
 
   // ===== SUPABASE SYNC METHODS =====
 
+  /**
+   * Convert PascalCase table name to snake_case for Supabase
+   * Examples: Company -> company, ReceiptDetail -> receipt_detail, DebtPayment -> debt_payment
+   */
+  getSupabaseTableName(tableName) {
+    // Convert PascalCase to snake_case
+    return tableName
+      .replace(/([A-Z])/g, '_$1')  // Add underscore before capital letters
+      .toLowerCase()                // Convert to lowercase
+      .replace(/^_/, '');           // Remove leading underscore
+  }
+
+  /**
+   * Convert camelCase column name to snake_case for Supabase
+   * Examples: updatedAt -> updated_at, companyId -> company_id
+   */
+  getSupabaseColumnName(columnName) {
+    // Convert camelCase to snake_case
+    return columnName
+      .replace(/([A-Z])/g, '_$1')  // Add underscore before capital letters
+      .toLowerCase();               // Convert to lowercase
+  }
+
+  /**
+   * Convert object keys from camelCase to snake_case for Supabase upload
+   */
+  convertObjectToSnakeCase(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    
+    const converted = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const snakeKey = this.getSupabaseColumnName(key);
+      converted[snakeKey] = value;
+    }
+    return converted;
+  }
+
+  /**
+   * Convert object keys from snake_case to camelCase for local database
+   */
+  convertObjectToCamelCase(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    
+    const converted = {};
+    for (const [key, value] of Object.entries(obj)) {
+      // Convert snake_case to camelCase
+      const camelKey = key.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
+      converted[camelKey] = value;
+    }
+    return converted;
+  }
+
   // Check internet connectivity
   async checkSupabaseConnectivity() {
     if (!this.isSupabaseEnabled) {
@@ -449,7 +501,7 @@ class SyncEngine extends EventEmitter {
     }
     
     try {
-      const { data, error } = await this.supabase.from('Company').select('id').limit(1);
+      const { data, error } = await this.supabase.from(this.getSupabaseTableName('Company')).select('id').limit(1);
       this.isOnline = !error;
       return this.isOnline;
     } catch (error) {
@@ -513,8 +565,8 @@ class SyncEngine extends EventEmitter {
     const { table_name, operation, data, sync_id } = item;
     const parsedData = JSON.parse(data || '{}');
     
-    // Use original table name (Supabase tables are mixed case)
-    const pgTableName = table_name;
+    // Convert table name to snake_case for Supabase
+    const pgTableName = this.getSupabaseTableName(table_name);
 
     try {
       let result;
@@ -579,7 +631,7 @@ class SyncEngine extends EventEmitter {
     try {
       // Query Supabase for existing company by email
       const { data: remoteCompany, error } = await this.supabase
-        .from('Company')
+        .from(this.getSupabaseTableName('Company'))
         .select('*')
         .eq('email', localCompany.email)
         .single();
@@ -706,8 +758,8 @@ class SyncEngine extends EventEmitter {
   // Upload local changes to Supabase
   async uploadChangesToSupabase(tableName, companyId) {
     return new Promise((resolve, reject) => {
-      // Use original table name (Supabase tables are mixed case)
-      const pgTableName = tableName;
+      // Convert table name to snake_case for Supabase
+      const pgTableName = this.getSupabaseTableName(tableName);
       
       // Different filtering logic for Company table vs other tables
       let query, params;
@@ -799,6 +851,9 @@ class SyncEngine extends EventEmitter {
               if ('displayUnit' in recordToUpload) delete recordToUpload.displayUnit;
               if ('onhandPrecision' in recordToUpload) delete recordToUpload.onhandPrecision;
             }
+
+            // Convert all camelCase keys to snake_case for Supabase
+            recordToUpload = this.convertObjectToSnakeCase(recordToUpload);
 
             const { error } = await this.supabase.from(pgTableName).upsert(recordToUpload);
             
@@ -906,8 +961,8 @@ class SyncEngine extends EventEmitter {
   // Download changes from Supabase
   async downloadChangesFromSupabase(tableName, companyId) {
     try {
-      // Use original table name (Supabase tables are mixed case)
-      const pgTableName = tableName;
+      // Convert table name to snake_case for Supabase
+      const pgTableName = this.getSupabaseTableName(tableName);
       
       // Get last sync time for this table
       // Get last sync time for this table
@@ -938,10 +993,10 @@ class SyncEngine extends EventEmitter {
           
           if (tablesWithCompanyId.includes(tableName)) {
             // Use camelCase for Supabase (matches schema)
-            query = query.eq('companyId', companyId);
+            query = query.eq(this.getSupabaseColumnName('companyId'), companyId);
           } else if (tablesWithBelongsTo.includes(tableName)) {
             // Customer table uses 'belongsTo'
-            query = query.eq('belongsTo', companyId);
+            query = query.eq(this.getSupabaseColumnName('belongsTo'), companyId);
           }
           // For tables without companyId, don't filter by company
         }
@@ -954,7 +1009,7 @@ class SyncEngine extends EventEmitter {
         // or we could use 'id' if we tracked last synced ID, but we track time.
         if (!tablesWithoutUpdatedAt.includes(tableName)) {
            // Use updatedAt for Supabase (matches schema)
-           query = query.gt('updatedAt', lastSync);
+           query = query.gt(this.getSupabaseColumnName('updatedAt'), lastSync);
         }
       }
 
