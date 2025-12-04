@@ -518,7 +518,6 @@ router.get('/:customerId/receipts', (req, res) => {
 // Get customer debts
 router.get('/:customerId/debts', (req, res) => {
   const { customerId } = req.params;
-  console.log("customerId from debts", customerId)
 
   const query = `
     SELECT d.*, 
@@ -578,7 +577,6 @@ router.get('/:customerId/debts', (req, res) => {
     });
     
     const debts = Array.from(debtsMap.values());
-    console.log(debts);
     res.json({ debts });
   });
 });
@@ -646,44 +644,41 @@ router.get('/:customerId/summary', (req, res) => {
   const { customerId } = req.params;
   
   // Get customer basic info with calculated totals
-  const summaryQuery = `
+    const summaryQuery = `
     SELECT 
       c.*,
-      GROUP_CONCAT(cp.phone) as phone,
-      GROUP_CONCAT(ce.email) as email,
-      COALESCE(SUM(CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.total ELSE 0 END), 0) as totalPurchases,
-      COALESCE(SUM(CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.amountPaid ELSE 0 END), 0) + 
-      COALESCE(
-        (
-          SELECT SUM(dp.amountPaid)
-          FROM DebtPayment dp
-          JOIN Debt d ON dp.debtId = d.id
-          LEFT JOIN Receipt r_payment ON d.receiptId = r_payment.id
-          WHERE d.customerId = c.id
-            AND (r_payment.flagged = 0 OR r_payment.flagged IS NULL)
-        ), 0
-      ) as totalPaid,
-      COUNT(DISTINCT CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.id END) as totalReceipts,
-      COALESCE(
-        (
-          SELECT SUM(d.amount)
-          FROM Debt d
-          LEFT JOIN Receipt r_inner ON d.receiptId = r_inner.id
-          WHERE d.customerId = c.id 
-            AND d.status = 'pending' 
-            AND (r_inner.flagged = 0 OR r_inner.flagged IS NULL)
-        ), 0
-      ) as totalDebt,
-      COUNT(DISTINCT CASE WHEN d.status = 'pending' AND (r2.flagged = 0 OR r2.flagged IS NULL) THEN d.id END) as pendingDebts,
-      MAX(CASE WHEN (r.flagged = 0 OR r.flagged IS NULL) THEN r.createdAt END) as lastPurchaseDate
+      (SELECT GROUP_CONCAT(phone) FROM CustomerPhone WHERE customerId = c.id) as phone,
+      (SELECT GROUP_CONCAT(email) FROM CustomerEmail WHERE customerId = c.id) as email,
+      COALESCE((SELECT SUM(total) FROM Receipt WHERE customerId = c.id AND (flagged = 0 OR flagged IS NULL)), 0) as totalPurchases,
+      COALESCE((SELECT SUM(amountPaid) FROM Receipt WHERE customerId = c.id AND (flagged = 0 OR flagged IS NULL)), 0) + 
+      COALESCE((
+        SELECT SUM(dp.amountPaid)
+        FROM DebtPayment dp
+        JOIN Debt d ON dp.debtId = d.id
+        LEFT JOIN Receipt r ON r.debtId = d.id
+        WHERE d.customerId = c.id
+          AND (r.flagged = 0 OR r.flagged IS NULL)
+      ), 0) as totalPaid,
+      (SELECT COUNT(*) FROM Receipt WHERE customerId = c.id AND (flagged = 0 OR flagged IS NULL)) as totalReceipts,
+      COALESCE((
+        SELECT SUM(d.amount)
+        FROM Debt d
+        LEFT JOIN Receipt r ON r.debtId = d.id
+        WHERE d.customerId = c.id 
+          AND d.status = 'pending' 
+          AND (r.flagged = 0 OR r.flagged IS NULL)
+      ), 0) as totalDebt,
+      (
+        SELECT COUNT(*) 
+        FROM Debt d 
+        LEFT JOIN Receipt r ON r.debtId = d.id
+        WHERE d.customerId = c.id 
+          AND d.status = 'pending' 
+          AND (r.flagged = 0 OR r.flagged IS NULL)
+      ) as pendingDebts,
+      (SELECT MAX(createdAt) FROM Receipt WHERE customerId = c.id AND (flagged = 0 OR flagged IS NULL)) as lastPurchaseDate
     FROM Customer c
-    LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
-    LEFT JOIN CustomerEmail ce ON c.id = ce.customerId
-    LEFT JOIN Receipt r ON c.id = r.customerId
-    LEFT JOIN Debt d ON c.id = d.customerId
-    LEFT JOIN Receipt r2 ON d.receiptId = r2.id
     WHERE c.id = ?
-    GROUP BY c.id
   `;
   
   db.get(summaryQuery, [customerId], (err, customer) => {
