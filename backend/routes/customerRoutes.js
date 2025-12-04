@@ -34,9 +34,9 @@ router.get('/', (req, res) => {
 
 
 // PATCH endpoint for updating customer (handles arrays for phone and email)
-router.patch("/:compnayId/:id", (req, res) => {
-  const customerId = parseInt(req.params.id, 10);
-  const belongsTo = parseInt(req.params.compnayId, 10);
+router.patch("/:companyId/:id", (req, res) => {
+  const customerId = req.params.id;
+  const belongsTo = req.params.companyId;
   const {
     name,
     company = "nocompany",
@@ -46,7 +46,6 @@ router.patch("/:compnayId/:id", (req, res) => {
     phone = [],
     email = [],
   } = req.body;
-  console.log(req.body)
 
   if (!customerId || !name || !belongsTo) {
     return res
@@ -694,8 +693,8 @@ router.get('/:customerId/summary', (req, res) => {
     }
     
     // Transform phone and email to arrays
-    customer.phone = customer.phone ? customer.phone.split(',') : [];
-    customer.email = customer.email ? customer.email.split(',') : [];
+    customer.phone = customer.phone ? [...new Set(customer.phone.split(','))] : [];
+    customer.email = customer.email ? [...new Set(customer.email.split(','))] : [];
     
     res.json({ customer });
   });
