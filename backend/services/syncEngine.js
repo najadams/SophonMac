@@ -23,6 +23,7 @@ class SyncEngine extends EventEmitter {
     this.supabaseSyncInProgress = false;
     this.lastSupabaseSyncTime = null;
     this.supabaseSyncInterval = null;
+    this.tableSchemas = new Map(); // Cache for table schemas
     
     if (!this.isSupabaseEnabled) {
       console.log('Supabase sync disabled - no configuration found');
@@ -1042,6 +1043,15 @@ class SyncEngine extends EventEmitter {
   // Apply remote change from Supabase to local database
   async applySupabaseChange(tableName, record) {
     return new Promise((resolve, reject) => {
+      // Convert snake_case keys from Supabase to camelCase for local database
+      const localRecord = this.convertObjectToCamelCase(record);
+      
+      // Ensure sync_id is preserved as snake_case (as used in local DB)
+      if (localRecord.syncId && !localRecord.sync_id) {
+        localRecord.sync_id = localRecord.syncId;
+        delete localRecord.syncId;
+      }
+
       // Check if record exists locally
       // Determine which timestamp column to use
       const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
@@ -1053,7 +1063,7 @@ class SyncEngine extends EventEmitter {
       }
       query += ` FROM ${tableName} WHERE sync_id = ?`;
 
-      db.get(query, [record.sync_id], (err, row) => {
+      db.get(query, [localRecord.sync_id], (err, row) => {
         if (err) {
           reject(err);
           return;
@@ -1062,7 +1072,7 @@ class SyncEngine extends EventEmitter {
         if (row) {
           // Check for conflict - Last Write Wins
           // Supabase record keys match local keys because we upserted them that way
-          const remoteTime = new Date(record.updatedAt || record.created_at || 0).getTime();
+          const remoteTime = new Date(localRecord.updatedAt || localRecord.createdAt || 0).getTime();
           
           let localTime = 0;
           if (row.updatedAt) {
@@ -1072,99 +1082,166 @@ class SyncEngine extends EventEmitter {
 
           if (remoteTime > localTime) {
             // Remote is newer, update local
-            this.updateLocalRecord(tableName, record, resolve, reject);
+            this.updateLocalRecord(tableName, localRecord, resolve, reject);
           } else {
             // Local is newer or equal, keep local
-            console.log(`Conflict resolved: Keeping local version of ${tableName} ${row.id} (Local: ${row.updatedAt}, Remote: ${record.updatedAt})`);
+            console.log(`Conflict resolved: Keeping local version of ${tableName} ${row.id} (Local: ${row.updatedAt}, Remote: ${localRecord.updatedAt})`);
             resolve();
           }
         } else {
           // Insert new record
-          this.insertLocalRecord(tableName, record, resolve, reject);
+          this.insertLocalRecord(tableName, localRecord, resolve, reject);
         }
       });
     });
   }
 
   // Update local record from Supabase
-  updateLocalRecord(tableName, record, resolve, reject) {
-    const columns = Object.keys(record).filter(key => key !== 'id');
-    const setClause = columns.map(col => `${col} = ?`).join(', ');
-    const values = columns.map(col => {
-      const val = record[col];
-      if (val === undefined) return null;
-      // Convert booleans to integers for SQLite
-      if (typeof val === 'boolean') {
-        return val ? 1 : 0;
-      }
-      if (val !== null && typeof val === 'object' && !Buffer.isBuffer(val)) {
-        return JSON.stringify(val);
-      }
-      return val;
-    });
-    values.push(record.sync_id);
+  // Update local record from Supabase
+  async updateLocalRecord(tableName, record, resolve, reject) {
+    try {
+      // Get valid columns for this table
+      const validColumns = await this.getTableColumns(tableName);
+      
+      // Exclude id and createdAt from updates
+      // createdAt should be immutable, and some local tables might not have it
+      // Also exclude sync metadata fields that are camelCased but should be snake_case or handled explicitly
+      const columns = Object.keys(record).filter(key => 
+        key !== 'id' && 
+        key !== 'createdAt' && 
+        key !== 'isSynced' && 
+        key !== 'lastSyncedAt' && 
+        key !== 'syncId' && 
+        key !== 'syncVersion' &&
+        validColumns.includes(key) // Only include columns that exist in local DB
+      );
+      
+      const setClause = columns.map(col => `${col} = ?`).join(', ');
+      const values = columns.map(col => {
+        const val = record[col];
+        if (val === undefined) return null;
+        // Convert booleans to integers for SQLite
+        if (typeof val === 'boolean') {
+          return val ? 1 : 0;
+        }
+        if (val !== null && typeof val === 'object' && !Buffer.isBuffer(val)) {
+          return JSON.stringify(val);
+        }
+        return val;
+      });
+      values.push(record.sync_id);
 
-    db.run(`
-      UPDATE ${tableName} 
-      SET ${setClause}, is_synced = 1, last_synced_at = CURRENT_TIMESTAMP 
-      WHERE sync_id = ?
-    `, values, function(err) {
-      if (err) reject(err);
-      else resolve();
-    });
+      db.run(`
+        UPDATE ${tableName} 
+        SET ${setClause}, is_synced = 1, last_synced_at = CURRENT_TIMESTAMP 
+        WHERE sync_id = ?
+      `, values, function(err) {
+        if (err) reject(err);
+        else resolve();
+      });
+    } catch (error) {
+      reject(error);
+    }
   }
 
   // Insert local record from Supabase
-  insertLocalRecord(tableName, record, resolve, reject) {
-    // Include all fields including id
-    const columns = Object.keys(record);
-    const placeholders = columns.map(() => '?').join(', ');
-    const values = columns.map(col => {
-      const val = record[col];
-      if (val === undefined) return null;
-      // Convert booleans to integers for SQLite
-      if (typeof val === 'boolean') {
-        return val ? 1 : 0;
-      }
-      // Convert objects to JSON strings, but not Buffers or null
-      if (val !== null && typeof val === 'object' && !Buffer.isBuffer(val)) {
-        return JSON.stringify(val);
-      }
-      return val;
-    });
+  async insertLocalRecord(tableName, record, resolve, reject) {
+    try {
+      // Get valid columns for this table
+      const validColumns = await this.getTableColumns(tableName);
 
-    // Debug: Check for invalid types
-    values.forEach((val, idx) => {
-      const type = typeof val;
-      if (val !== null && type !== 'string' && type !== 'number' && type !== 'bigint' && !Buffer.isBuffer(val)) {
-        console.error(`Invalid type for column ${columns[idx]} in ${tableName}:`, type, val);
+      // Define tables that don't have createdAt/updatedAt
+      const tablesWithoutTimestamp = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+      
+      let columns = Object.keys(record);
+    
+      // Filter out timestamp columns for tables that don't have them
+      if (tablesWithoutTimestamp.includes(tableName)) {
+        columns = columns.filter(col => col !== 'createdAt' && col !== 'updatedAt');
       }
-    });
 
-    db.run(`
-      INSERT INTO ${tableName} (${columns.join(', ')}, is_synced, last_synced_at) 
-      VALUES (${placeholders}, 1, CURRENT_TIMESTAMP)
-    `, values, function(err) {
-      if (err) {
-        // Check if it's a foreign key constraint error
-        if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-          console.warn(`Skipping ${tableName} record due to missing foreign key reference:`, {
-            table: tableName,
-            columns: columns,
-            values: values,
-            record: record
-          });
-          // Resolve instead of reject to continue syncing other records
-          resolve();
-        } else {
-          console.error(`Error inserting into ${tableName}:`, err.message);
-          console.error('Columns:', columns);
-          console.error('Values:', values);
-          reject(err);
+      // Filter out sync metadata fields that are camelCased
+      columns = columns.filter(col => 
+        col !== 'isSynced' && 
+        col !== 'lastSyncedAt' && 
+        col !== 'syncId' && 
+        col !== 'syncVersion' &&
+        validColumns.includes(col) // Only include columns that exist in local DB
+      );
+
+      const placeholders = columns.map(() => '?').join(', ');
+      const values = columns.map(col => {
+        const val = record[col];
+        if (val === undefined) return null;
+        // Convert booleans to integers for SQLite
+        if (typeof val === 'boolean') {
+          return val ? 1 : 0;
         }
-      } else {
-        resolve();
-      }
+        // Convert objects to JSON strings, but not Buffers or null
+        if (val !== null && typeof val === 'object' && !Buffer.isBuffer(val)) {
+          return JSON.stringify(val);
+        }
+        return val;
+      });
+
+      // Debug: Check for invalid types
+      values.forEach((val, idx) => {
+        const type = typeof val;
+        if (val !== null && type !== 'string' && type !== 'number' && type !== 'bigint' && !Buffer.isBuffer(val)) {
+          console.error(`Invalid type for column ${columns[idx]} in ${tableName}:`, type, val);
+        }
+      });
+
+      db.run(`
+        INSERT INTO ${tableName} (${columns.join(', ')}, is_synced, last_synced_at) 
+        VALUES (${placeholders}, 1, CURRENT_TIMESTAMP)
+      `, values, function(err) {
+        if (err) {
+          // Check if it's a foreign key constraint error
+          if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+            console.warn(`Skipping ${tableName} record due to missing foreign key reference:`, {
+              table: tableName,
+              columns: columns,
+              values: values,
+              record: record
+            });
+            // Resolve instead of reject to continue syncing other records
+            resolve();
+          } else {
+            console.error(`Error inserting into ${tableName}:`, err.message);
+            console.error('Columns:', columns);
+            console.error('Values:', values);
+            reject(err);
+          }
+        } else {
+          resolve();
+        }
+      });
+    } catch (error) {
+      reject(error);
+    }
+  }
+
+  // Get table columns from SQLite
+  async getTableColumns(tableName) {
+    if (this.tableSchemas.has(tableName)) {
+      return this.tableSchemas.get(tableName);
+    }
+
+    return new Promise((resolve, reject) => {
+      db.all(`PRAGMA table_info(${tableName})`, [], (err, rows) => {
+        if (err) {
+          console.error(`Error getting schema for ${tableName}:`, err);
+          // Fallback to empty array to avoid crash, but will likely cause other issues
+          // Better to reject so we know something is wrong
+          reject(err);
+          return;
+        }
+        
+        const columns = rows.map(row => row.name);
+        this.tableSchemas.set(tableName, columns);
+        resolve(columns);
+      });
     });
   }
 
