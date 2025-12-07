@@ -41,8 +41,8 @@ const validationSchema = Yup.object().shape({
       /^[a-zA-Z0-9\s-.]+$/,
       "Only letters, numbers, spaces, periods, and hyphens are allowed"
     ),
-  category: Yup.string(),
-  baseUnit: Yup.string(),
+  category: Yup.string().nullable(),
+  baseUnit: Yup.string().nullable(),
   unitConversions: Yup.array()
     .of(
       Yup.object().shape({
@@ -88,9 +88,9 @@ const validationSchema = Yup.object().shape({
     .min(0, "Minimum stock cannot be negative")
     .max(1000000, "Minimum stock is too high")
     .typeError("Minimum stock must be a number"),
-  description: Yup.string(),
-  sku: Yup.string(),
-  barcode: Yup.string(),
+  description: Yup.string().nullable(),
+  sku: Yup.string().nullable(),
+  barcode: Yup.string().nullable(),
 });
 
 const ProductForm = ({ data, editMutation, onClose, onProductUpdate }) => {
