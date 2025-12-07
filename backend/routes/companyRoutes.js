@@ -402,7 +402,41 @@ router.get("/:id", (req, res) => {
     if (!row) {
       return res.status(404).json({ error: "Company not found" });
     }
-    res.json(row);
+
+    // Fetch allowedUnits
+    db.all(
+      "SELECT unit FROM CompanyAllowedUnits WHERE companyId = ?",
+      [req.params.id],
+      (err, units) => {
+        if (err) {
+          console.error("Error fetching units:", err);
+          // Don't fail the whole request, just return empty array
+        }
+
+        const allowedUnits = units ? units.map((u) => u.unit) : [];
+
+        // Fetch allowedCategories
+        db.all(
+          "SELECT category FROM CompanyAllowedCategories WHERE companyId = ?",
+          [req.params.id],
+          (err, categories) => {
+            if (err) {
+              console.error("Error fetching categories:", err);
+            }
+
+            const allowedCategories = categories
+              ? categories.map((c) => c.category)
+              : [];
+
+            res.json({
+              ...row,
+              allowedUnits,
+              allowedCategories,
+            });
+          }
+        );
+      }
+    );
   });
 });
 

@@ -174,24 +174,37 @@ router.post('/login', (req, res) => {
       
       // Extract category names from the result
       const allowedCategories = categories.map(row => row.category);
-      
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: company.id, role: 'company' },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-      
-      res.json({
-        message: 'Login successful',
-        token,
-        company: {
-          id: company.id,
-          name: company.name,
-          email: company.email,
-          allowedCategories: allowedCategories,
-          ...company
+
+      // Fetch allowed units for the company
+      db.all('SELECT unit FROM CompanyAllowedUnits WHERE companyId = ?', [company.id], (err, units) => {
+        if (err) {
+           // Log error but proceed? Or fail? Better to fail safely or log. 
+           // Let's just return empty if error for now to allow login, or simpler: handle error.
+           console.error("Error fetching units during login:", err);
+           // proceed with empty units
         }
+        
+        const allowedUnits = units ? units.map(row => row.unit) : [];
+        
+        // Generate JWT token
+        const token = jwt.sign(
+          { id: company.id, role: 'company' },
+          JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+        
+        res.json({
+          message: 'Login successful',
+          token,
+          company: {
+            id: company.id,
+            name: company.name,
+            email: company.email,
+            allowedCategories: allowedCategories,
+            allowedUnits: allowedUnits,
+            ...company
+          }
+        });
       });
     });
   });
