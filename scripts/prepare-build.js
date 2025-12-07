@@ -36,6 +36,20 @@ try {
   process.exit(1);
 }
 
+// 1.5 Generate .env file for backend
+console.log("📝 Generating backend .env file...");
+// We pull from VITE_ prefixed vars (common in this stack) or standard vars
+const envContent = `
+SUPABASE_URL=${process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''}
+SUPABASE_ANON_KEY=${process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''}
+`;
+try {
+  fs.writeFileSync(path.join(backendDir, ".env"), envContent.trim());
+  console.log("✅ .env file created");
+} catch (error) {
+  console.error("❌ Failed to create .env file:", error.message);
+}
+
 // 2. Verify critical modules
 console.log("🔍 Verifying critical modules...");
 const criticalModules = [

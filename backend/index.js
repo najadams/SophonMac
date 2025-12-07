@@ -27,14 +27,11 @@ if (!isBackendProcess) {
 }
 
 // Handle dotenv loading - only load in development mode
-if (process.env.NODE_ENV !== 'production') {
-  try {
-    require('dotenv').config();
-  } catch (error) {
-    console.warn('Could not load dotenv in development mode:', error.message);
-  }
-} else {
-  console.log('Running in production mode, skipping dotenv');
+// Handle dotenv loading
+try {
+  require('dotenv').config();
+} catch (error) {
+  console.warn('Could not load dotenv:', error.message);
 }
 
 const express = require('express');
