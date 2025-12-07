@@ -203,7 +203,7 @@ function AppAppBar({ mode, toggleColorMode }) {
                       color="primary"
                       variant="contained"
                       component="a"
-                      href="/login"
+                      href="/register"
                       sx={{ width: "100%" }}>
                       Sign up
                     </Button>
