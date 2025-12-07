@@ -14,6 +14,9 @@ api_response.json
 backend/data/db/database.db
 backend/nohup.out
 backend/.env
+backend/reset_sync.js
+backend/verify_tables_names.js
+backend/column_conversion_check.js
 
 
 test*
@@ -59,3 +62,6 @@ backend/setup_supabase_direct.js
 backend/supabase_schema_setup.sql
 backend/data/db/database.sqlite.backup
 backend/supabase_schema_setup.sql.bak
+backend/verify_table_names.js
+backend/check_supabase_data.js
+backend/reset_sync_flags.js
