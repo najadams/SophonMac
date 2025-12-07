@@ -331,7 +331,7 @@ router.post('/:companyId', (req, res) => {
           if (!vendor && vendorName) {
             const newVendorId = dbUtils.generateUUID();
             db.run(
-              `INSERT INTO Vendor (id, companyId, name, contact_person, createdAt, updatedAt) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+              `INSERT INTO Vendor (id, companyId, name, contactPerson, createdAt, updatedAt) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
               [newVendorId, companyId, vendorName, contactPerson],
               function(vendorInsertErr) {
                 if (vendorInsertErr && !hasError) {

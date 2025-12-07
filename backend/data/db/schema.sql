@@ -304,7 +304,7 @@ CREATE TABLE Vendor (
     id TEXT PRIMARY KEY,
     companyId TEXT NOT NULL,
     name TEXT NOT NULL,
-    contact_person TEXT NOT NULL,
+    contactPerson TEXT NOT NULL,
     email TEXT,
     address TEXT,
     phone TEXT,

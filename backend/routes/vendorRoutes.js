@@ -39,7 +39,7 @@ router.post('/:companyId', (req, res) => {
 
     const vendorId = dbUtils.generateUUID();
     db.run(
-      "INSERT INTO Vendor (id, name, phone, contact_person, companyId) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO Vendor (id, name, phone, contactPerson, companyId) VALUES (?, ?, ?, ?, ?)",
       [vendorId, companyName, contact, supplierName, companyId],
       function (err) {
         if (err) {
@@ -56,15 +56,15 @@ router.post('/:companyId', (req, res) => {
 
 // Update a vendor
 router.put('/:id', (req, res) => {
-  const { name, address, phone, email, contact_person, companyId } = req.body;
+  const { name, address, phone, email, contactPerson, companyId } = req.body;
   
   if (!name || !companyId) {
     return res.status(400).json({ error: 'Vendor name and company ID are required' });
   }
   
   db.run(
-    'UPDATE Vendor SET name = ?, address = ?, phone = ?, email = ?, contact_person = ?, companyId = ? WHERE id = ?',
-    [name, address, phone, email, contact_person, companyId, req.params.id],
+    'UPDATE Vendor SET name = ?, address = ?, phone = ?, email = ?, contactPerson = ?, companyId = ? WHERE id = ?',
+    [name, address, phone, email, contactPerson, companyId, req.params.id],
     function(err) {
       if (err) {
         return res.status(500).json({ error: err.message });
