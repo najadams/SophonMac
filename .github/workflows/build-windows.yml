@@ -80,10 +80,10 @@ jobs:
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         
     - name: Upload Windows build artifacts
-      if: "!startsWith(github.ref, 'refs/tags/')"
+      if: "${{ !startsWith(github.ref, 'refs/tags/') }}"
       uses: actions/upload-artifact@v4
       with:
-        name: windows-build
+        name: Sophon-POS-Windows-Build
         path: |
           dist/*.exe
           dist/*.zip
