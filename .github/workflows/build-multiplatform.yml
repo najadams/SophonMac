@@ -75,6 +75,10 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         BUNDLED_NODE_VERSION: ${{ env.BUNDLED_NODE_VERSION }}
+        VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         
     - name: Upload build artifacts
       if: "!startsWith(github.ref, 'refs/tags/')"
