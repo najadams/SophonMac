@@ -890,7 +890,7 @@ export const tableActions = {
       if (response.status === 200) {
         return response.data?.map((data) =>
           capitalizeFirstLetter(
-            `${data?.name || "None"} - ${data?.contact_person}`
+            `${data?.name || "None"} - ${data?.contact_person || "None"}`
           )
         );
       }
