@@ -12,7 +12,12 @@ import {
   DialogContentText,
   DialogTitle,
   Alert,
+  FormControlLabel,
+  Switch,
+  Box,
+  Chip,
 } from "@mui/material";
+import { Receipt as ReceiptIcon } from "@mui/icons-material";
 import { Autocomplete } from "@mui/material";
 import { Input } from "@mui/material";
 import * as Yup from "yup";
@@ -25,6 +30,7 @@ import {
 import { useSelector } from "react-redux";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useQuery } from "react-query";
+import VATTokenDialog from "../Dialogs/VATTokenDialog";
 
 const validationSchema = Yup.object().shape({
   products: Yup.array().of(
@@ -53,6 +59,12 @@ const ReceiveInventory = ({ Products, handleProductUpdate, setProducts }) => {
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
   const matchesMobile = useMediaQuery("(max-width:600px)");
   const [loading, setLoading] = useState(false);
+  
+  // VAT Token states
+  const [mintVatToken, setMintVatToken] = useState(false);
+  const [vatToken, setVatToken] = useState(null);
+  const [vatTokenDialogOpen, setVatTokenDialogOpen] = useState(false);
+  const taxRate = useSelector((state) => state.companyState.data?.taxRate || 0);
 
   const [supplierOptions, setSupplierOptions] = useState([
     {
@@ -95,7 +107,24 @@ const ReceiveInventory = ({ Products, handleProductUpdate, setProducts }) => {
       } else {
         setLoading(true);
         setSubmitting(true);
-        await tableActions.restock({ ...values, balance, workerId }, companyId);
+        
+        // Include VAT token minting in the request if enabled
+        const restockData = {
+          ...values,
+          balance,
+          workerId,
+          mintVatToken: mintVatToken && taxRate > 0,
+          vatKeyPassword: mintVatToken ? 'sophon-vat-key' : undefined, // TODO: Use secure key management
+        };
+        
+        const response = await tableActions.restock(restockData, companyId);
+        
+        // Check if VAT token was minted
+        if (response.vatToken) {
+          setVatToken(response.vatToken);
+          setVatTokenDialogOpen(true);
+        }
+        
         const newProductsData = updateValuesAfterRestock(
           productOptions,
           values
@@ -110,6 +139,7 @@ const ReceiveInventory = ({ Products, handleProductUpdate, setProducts }) => {
         setOpen(true);
         setTimeout(() => {
           resetForm();
+          setMintVatToken(false); // Reset VAT token option
         }, 1000);
       }
     } catch (error) {
@@ -583,6 +613,46 @@ const ReceiveInventory = ({ Products, handleProductUpdate, setProducts }) => {
               }}
             </Field>
 
+            {/* VAT Token Toggle - Only show if company has tax rate configured */}
+            {taxRate > 0 && (
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 2, 
+                my: 2, 
+                p: 2, 
+                borderRadius: 1,
+                bgcolor: mintVatToken ? 'rgba(0, 121, 107, 0.08)' : 'transparent',
+                border: mintVatToken ? '1px solid #00796B' : '1px solid #e0e0e0'
+              }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={mintVatToken}
+                      onChange={(e) => setMintVatToken(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <ReceiptIcon fontSize="small" sx={{ color: mintVatToken ? '#00796B' : 'inherit' }} />
+                      <Typography variant="body2">
+                        Generate VAT Token
+                      </Typography>
+                    </Box>
+                  }
+                />
+                {mintVatToken && (
+                  <Chip 
+                    size="small" 
+                    label={`${taxRate}% VAT`} 
+                    color="primary" 
+                    variant="outlined" 
+                  />
+                )}
+              </Box>
+            )}
+
             <div className="bottom_left">
               <Button
                 variant="contained"
@@ -592,12 +662,22 @@ const ReceiveInventory = ({ Products, handleProductUpdate, setProducts }) => {
                 }}
                 disabled={loading || isSubmitting} // Disable button when loading or submitting
               >
-                {loading ? <CircularProgress /> : "Restock"}
+                {loading ? <CircularProgress /> : mintVatToken ? "Restock & Generate Token" : "Restock"}
               </Button>
             </div>
           </Form>
         )}
       </Formik>
+      
+      {/* VAT Token Dialog */}
+      <VATTokenDialog
+        open={vatTokenDialogOpen}
+        onClose={() => {
+          setVatTokenDialogOpen(false);
+          setVatToken(null);
+        }}
+        token={vatToken}
+      />
       {/* Dialog for adding new products */}
       <Dialog
         open={newProductDialogOpen}

@@ -257,6 +257,7 @@ function registerRoutes(withDb) {
       app.use('/api/tax', require('./routes/taxRoutes'));
       app.use('/api/transfers', require('./routes/transferRoutes'));
       app.use('/api/devices', require('./routes/deviceRoutes'));
+      app.use('/api/vat-tokens', require('./routes/vatTokenRoutes'));
       console.log('Registered full route set with DB');
     } else {
       // Minimal route set without DB already includes /api/network above

@@ -991,6 +991,79 @@ export const tableActions = {
       throw new Error(error.response?.data?.message || "An error occurred");
     }
   },
+
+  // VAT Token Functions
+  fetchVATToken: async (tokenId) => {
+    try {
+      const response = await axios.get(`/api/vat-tokens/${tokenId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching VAT token:", error);
+      throw error;
+    }
+  },
+
+  fetchVATTokenByBatch: async (batchId) => {
+    try {
+      const response = await axios.get(`/api/vat-tokens/batch/${batchId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching VAT token for batch:", error);
+      throw error;
+    }
+  },
+
+  mintVATToken: async (companyId, batchId, products, totalCost, vatRate, encryptionPassword) => {
+    try {
+      const response = await axios.post(`/api/vat-tokens/mint-for-supply`, {
+        companyId,
+        supplyId: batchId,
+        products,
+        totalCost,
+        vatRate,
+        currencyCode: 'GHS',
+        encryptionPassword,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error minting VAT token:", error);
+      throw error;
+    }
+  },
+
+  verifyVATToken: async (qrData, tokenHash, verifierId) => {
+    try {
+      const response = await axios.post(`/api/vat-tokens/verify`, {
+        qrData,
+        tokenHash,
+        verifierId,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error verifying VAT token:", error);
+      throw error;
+    }
+  },
+
+  exportVATToken: async (tokenId) => {
+    try {
+      const response = await axios.get(`/api/vat-tokens/export/${tokenId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error exporting VAT token:", error);
+      throw error;
+    }
+  },
+
+  fetchCompanyVATTokens: async (companyId, limit = 50, offset = 0) => {
+    try {
+      const response = await axios.get(`/api/vat-tokens/company/${companyId}?limit=${limit}&offset=${offset}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching company VAT tokens:", error);
+      throw error;
+    }
+  },
   fetchSalesData: async (companyId, dateRange) => {
     try {
       const params = {};

@@ -3,6 +3,138 @@ const router = express.Router();
 const db = require('../data/db/db');
 const dbUtils = require('../utils/dbUtils');
 
+// VAT Token integration (optional)
+let vatCryptoService = null;
+try {
+  vatCryptoService = require('../services/vatCryptoService').vatCryptoService;
+} catch (e) {
+  console.warn('VAT Crypto Service not available:', e.message);
+}
+
+/**
+ * Mint a VAT token for a supply batch (if configured)
+ * @param {string} companyId - Company ID
+ * @param {string} supplyId - Supply batch ID
+ * @param {number} totalCost - Total cost of supply
+ * @param {Array} products - Products in the supply
+ * @param {string} encryptionPassword - Key encryption password
+ * @param {Function} callback - Callback with (error, tokenData)
+ */
+async function mintVATTokenForSupply(companyId, supplyId, totalCost, products, encryptionPassword, callback) {
+  if (!vatCryptoService || !encryptionPassword) {
+    return callback(null, null); // No VAT token minting
+  }
+  
+  try {
+    // Get company tax rate
+    const company = await new Promise((resolve, reject) => {
+      db.get('SELECT taxRate, tinNumber FROM Company WHERE id = ?', [companyId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    
+    if (!company || !company.taxRate || company.taxRate <= 0) {
+      return callback(null, null); // No VAT configured
+    }
+    
+    // Get or create keypair
+    let keyPair = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM VATKeyPair WHERE companyId = ? AND status = ?', [companyId, 'active'], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    
+    if (!keyPair) {
+      // Generate new keypair
+      const newKeyPair = await vatCryptoService.generateKeyPair(encryptionPassword);
+      const keyId = dbUtils.generateUUID();
+      
+      await new Promise((resolve, reject) => {
+        db.run(
+          `INSERT INTO VATKeyPair (id, companyId, publicKey, privateKeyEncrypted, keyFingerprint, algorithm, authority, status)
+           VALUES (?, ?, ?, ?, ?, ?, 'SKA', 'active')`,
+          [keyId, companyId, newKeyPair.publicKey, newKeyPair.privateKeyEncrypted, newKeyPair.fingerprint, newKeyPair.algorithm],
+          (err) => err ? reject(err) : resolve()
+        );
+      });
+      
+      keyPair = {
+        id: keyId,
+        publicKey: newKeyPair.publicKey,
+        privateKeyEncrypted: newKeyPair.privateKeyEncrypted,
+        keyFingerprint: newKeyPair.fingerprint,
+        authority: 'SKA'
+      };
+    }
+    
+    // Calculate VAT
+    const vatRate = company.taxRate;
+    const vatAmount = totalCost - (totalCost / (1 + (vatRate / 100)));
+    const totalQuantity = products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+    const productName = products.map(p => p.name).join(', ').substring(0, 100) || 'Supply Batch';
+    
+    // Mint token
+    const tokenId = vatCryptoService.generateTokenId();
+    const productGlobalSku = vatCryptoService.generateProductGlobalSku(companyId, productName, supplyId);
+    const issuedAt = new Date().toISOString();
+    
+    const tokenData = {
+      tokenId,
+      batchId: supplyId,
+      productGlobalSku,
+      companyId,
+      tinNumber: company.tinNumber || '',
+      quantity: totalQuantity,
+      grossAmount: totalCost,
+      vatRate,
+      vatAmount: parseFloat(vatAmount.toFixed(2)),
+      currencyCode: 'GHS',
+      issuedAt,
+      previousTokenId: null
+    };
+    
+    const token = vatCryptoService.mintToken(
+      tokenData,
+      keyPair.privateKeyEncrypted,
+      encryptionPassword,
+      keyPair.keyFingerprint,
+      keyPair.authority
+    );
+    
+    // Store token
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO VATToken (
+          id, tokenHash, batchId, productGlobalSku, originCompanyId, originTransactionId,
+          quantity, grossAmount, vatAmount, vatRate, currencyCode,
+          tokenPayload, signature, signerKeyFingerprint, authority,
+          previousTokenId, status, issuedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'valid', ?)`,
+        [
+          tokenId, token.proof.hash, supplyId, productGlobalSku, companyId, null,
+          totalQuantity, totalCost, parseFloat(vatAmount.toFixed(2)), vatRate, 'GHS',
+          JSON.stringify(token.payload), token.proof.signature, keyPair.keyFingerprint, keyPair.authority,
+          null, issuedAt
+        ],
+        (err) => err ? reject(err) : resolve()
+      );
+    });
+    
+    callback(null, {
+      tokenId,
+      tokenHash: token.proof.hash,
+      vatAmount: parseFloat(vatAmount.toFixed(2)),
+      qrData: vatCryptoService.exportForQR(token)
+    });
+    
+  } catch (error) {
+    console.error('Error minting VAT token for supply:', error);
+    callback(null, null); // Don't fail the supply creation, just skip token
+  }
+}
+
 // Get all supplies for a company
 router.get('/:companyId', (req, res) => {
   const { companyId } = req.params;
@@ -67,7 +199,7 @@ router.get('/:companyId/:supplyId', (req, res) => {
 router.post('/:companyId', (req, res) => {
   try {
     const { companyId } = req.params;
-    const { supplierName, products, total, amountPaid, discount, balance, workerId } = req.body;
+    const { supplierName, products, total, amountPaid, discount, balance, workerId, mintVatToken, vatKeyPassword } = req.body;
     
     if (!workerId) {
       return res.status(400).json({ error: 'Worker ID is required' });
@@ -309,18 +441,37 @@ router.post('/:companyId', (req, res) => {
                     
                     console.log('Transaction committed successfully');
                     
-                    res.status(201).json({ 
-                      id: suppliesId,
-                      message: 'Supply record created, inventory updated, and stock transactions recorded successfully',
-                      itemsCount: products.length,
-                      totalCost,
-                      totalQuantity,
-                      amountPaid: paidAmount,
-                      discount: discountAmount,
-                      balance: balanceAmount,
-                      status: paymentStatus,
-                      vendorId: supplierId
-                    });
+                    // Optionally mint VAT token
+                    if (mintVatToken && vatKeyPassword) {
+                      mintVATTokenForSupply(companyId, suppliesId, totalCost, products, vatKeyPassword, (tokenErr, tokenData) => {
+                        res.status(201).json({ 
+                          id: suppliesId,
+                          message: 'Supply record created, inventory updated, and stock transactions recorded successfully',
+                          itemsCount: products.length,
+                          totalCost,
+                          totalQuantity,
+                          amountPaid: paidAmount,
+                          discount: discountAmount,
+                          balance: balanceAmount,
+                          status: paymentStatus,
+                          vendorId: supplierId,
+                          vatToken: tokenData
+                        });
+                      });
+                    } else {
+                      res.status(201).json({ 
+                        id: suppliesId,
+                        message: 'Supply record created, inventory updated, and stock transactions recorded successfully',
+                        itemsCount: products.length,
+                        totalCost,
+                        totalQuantity,
+                        amountPaid: paidAmount,
+                        discount: discountAmount,
+                        balance: balanceAmount,
+                        status: paymentStatus,
+                        vendorId: supplierId
+                      });
+                    }
                   });
                 }
               }
