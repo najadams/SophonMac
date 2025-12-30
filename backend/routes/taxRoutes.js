@@ -340,4 +340,19 @@ router.get('/advice', (req, res) => {
     }
 });
 
+// Phase 6: Filing Return
+router.get('/filing-return', (req, res) => {
+    const { start, end } = req.query;
+    if (!start || !end) return res.status(400).json({ error: 'Start and End dates required' });
+    
+    try {
+        const complianceService = require('../services/taxComplianceService');
+        const filingPack = complianceService.generateFilingReturn(start, end);
+        res.json(filingPack);
+    } catch (error) {
+        console.error('Filing Gen Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
