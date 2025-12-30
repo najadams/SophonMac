@@ -39,7 +39,7 @@ class NetworkManager extends EventEmitter {
     this.setupEventListeners();
     
     // Gossip Protocol: Message Cache (to prevent broadcast storms)
-    this.messageCache = new Set();
+    this.messageCache = new Map();
     this.MESSAGE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
     this.startCacheCleanup();
   }
@@ -64,10 +64,7 @@ class NetworkManager extends EventEmitter {
    * @param {string} messageId 
    */
   markMessageSeen(messageId) {
-    this.messageCache.add(messageId);
-    // Also store timestamp for cleanup? 
-    // Set is simple key storage. We might need Map<id, timestamp> for proper cleanup.
-    // Switching to Map for TTL support.
+    this.messageCache.set(messageId, Date.now());
   }
   
   // Re-implementing with Map for proper TTL

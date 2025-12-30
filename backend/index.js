@@ -175,6 +175,15 @@ app.get('/', (req, res) => {
             } else {
               console.warn('Failed to initialize networking system');
             }
+            
+             // Initialize GRA Queue Service
+             try {
+               const graQueueService = require('./services/graQueueService');
+               graQueueService.startPolling(60000); // Poll every minute
+               console.log('GRA Queue Service started');
+             } catch (graErr) {
+               console.warn('Failed to start GRA Queue:', graErr.message);
+             }
           } else {
             // Fallback: start discovery without DB
             // Initialize with defaults to ensure instanceId is generated
@@ -258,6 +267,8 @@ function registerRoutes(withDb) {
       app.use('/api/transfers', require('./routes/transferRoutes'));
       app.use('/api/devices', require('./routes/deviceRoutes'));
       app.use('/api/vat-tokens', require('./routes/vatTokenRoutes'));
+      app.use('/api/governance', require('./routes/governanceRoutes'));
+      app.use('/api/analytics', require('./routes/analyticsRoutes'));
       console.log('Registered full route set with DB');
     } else {
       // Minimal route set without DB already includes /api/network above

@@ -65,3 +65,6 @@ backend/verify_table_names.js
 backend/check_supabase_data.js
 backend/reset_sync_flags.js
 .DS_Store
+backend/__tests__/audit.test.js
+backend/__tests__
+

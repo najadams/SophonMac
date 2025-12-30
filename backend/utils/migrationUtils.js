@@ -184,8 +184,69 @@ module.exports = {
   runCustomRolesMigration,
   runNetworkingMigrations,
   columnExists,
-  runCurrencyNormalizationMigration
+  runCurrencyNormalizationMigration,
+  runGovernanceMigration,
+  runGRAMigration
 };
+
+// Run GRA Integration table migration
+async function runGRAMigration() {
+  try {
+    const tableExists = await new Promise((resolve, reject) => {
+        getDb().get("SELECT name FROM sqlite_master WHERE type='table' AND name='TaxSubmissionQueue'", (err, row) => {
+          if (err) reject(err); else resolve(!!row);
+        });
+      });
+
+    if (!tableExists) {
+      console.log('Running GRA migration...');
+      const filePath = path.join(__dirname, '../migrations/add_gra_tables.sql');
+      const migrationSQL = fs.readFileSync(filePath, 'utf8');
+
+      await new Promise((resolve, reject) => {
+        getDb().exec(migrationSQL, (err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+      console.log('GRA migration completed successfully!');
+    } else {
+        console.log('GRA migration already applied.');
+    }
+  } catch (error) {
+    console.error('Error running GRA migration:', error);
+    throw error;
+  }
+}
+
+// Run Governance table migration
+async function runGovernanceMigration() {
+  try {
+    // Check if RootKeyHistory table exists
+    const tableExists = await new Promise((resolve, reject) => {
+        getDb().get("SELECT name FROM sqlite_master WHERE type='table' AND name='RootKeyHistory'", (err, row) => {
+          if (err) reject(err); else resolve(!!row);
+        });
+      });
+
+    if (!tableExists) {
+      console.log('Running Governance migration...');
+      const filePath = path.join(__dirname, '../migrations/add_governance_tables.sql');
+      const migrationSQL = fs.readFileSync(filePath, 'utf8');
+
+      await new Promise((resolve, reject) => {
+        getDb().exec(migrationSQL, (err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+      console.log('Governance migration completed successfully!');
+    } else {
+        console.log('Governance migration already applied.');
+    }
+  } catch (error) {
+    console.error('Error running Governance migration:', error);
+    throw error;
+  }
+}
 
 // Normalize currency handling: reference table and FK columns
 async function runCurrencyNormalizationMigration() {

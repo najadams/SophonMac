@@ -33,6 +33,97 @@ const TOKEN_VERSION = '1';
 class VATCryptoService {
   constructor() {
     this.algorithm = 'Ed25519';
+    this.trustedKeyCache = new Map(); // keyFingerprint -> { publicKey, authority, status }
+  }
+
+  // ===========================================================================
+  // TRUST KEY CACHE
+  // ===========================================================================
+
+  /**
+   * Load trusted keys from database into memory cache
+   * @param {Object} db - SQLite database connection
+   */
+  loadTrustedKeys(db) {
+    try {
+      const stmt = db.prepare(`SELECT keyFingerprint, publicKey, authority, status FROM TrustedPublicKey WHERE status = 'active'`);
+      const keys = stmt.all();
+      
+      this.trustedKeyCache.clear();
+      keys.forEach(key => {
+        this.trustedKeyCache.set(key.keyFingerprint, {
+          publicKey: key.publicKey,
+          authority: key.authority,
+          status: key.status
+        });
+      });
+      
+      console.log(`Loaded ${keys.length} trusted keys into cache`);
+    } catch (error) {
+      console.error('Failed to load trusted keys:', error);
+    }
+  }
+
+  /**
+   * Get a trusted key from cache or DB
+   * @param {string} fingerprint 
+   * @param {Object} db - Optional DB connection for fallback
+   * @returns {{publicKey: string, authority: string}|null}
+   */
+  getTrustedKey(fingerprint, db = null) {
+    // 1. Check Cache
+    if (this.trustedKeyCache.has(fingerprint)) {
+      return this.trustedKeyCache.get(fingerprint);
+    }
+
+    // 2. Fallback to DB if provided (and update cache)
+    if (db) {
+      try {
+        const stmt = db.prepare(`SELECT keyFingerprint, publicKey, authority, status FROM TrustedPublicKey WHERE keyFingerprint = ?`);
+        const key = stmt.get(fingerprint);
+        
+        if (key) {
+          const keyData = {
+            publicKey: key.publicKey,
+            authority: key.authority,
+            status: key.status
+          };
+          
+          if (key.status === 'active') {
+             this.trustedKeyCache.set(fingerprint, keyData);
+          }
+          
+          return keyData;
+        }
+      } catch (error) {
+        console.error(`Error fetching trusted key ${fingerprint}:`, error);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Add or update a trusted key
+   */
+  addTrustedKey(fingerprint, publicKey, authority = 'SKA', status = 'active') {
+    this.trustedKeyCache.set(fingerprint, {
+      publicKey,
+      authority,
+      status
+    });
+  }
+
+  /**
+   * Revoke a trusted key in the cache
+   * @param {string} fingerprint
+   */
+  revokeKey(fingerprint) {
+    if (this.trustedKeyCache.has(fingerprint)) {
+      const keyData = this.trustedKeyCache.get(fingerprint);
+      this.trustedKeyCache.set(fingerprint, { ...keyData, status: 'revoked' });
+      console.log(`Key ${fingerprint} revoked in cache`);
+    }
   }
 
   // ===========================================================================
@@ -251,9 +342,24 @@ class VATCryptoService {
         return { valid: false, reason: 'Key fingerprint mismatch' };
       }
 
-      return { valid: true, authority: proof.authority };
     } catch (error) {
       return { valid: false, reason: `Verification error: ${error.message}` };
+    }
+  }
+
+  /**
+   * Verify a trust certificate (Authority Key -> Target Key)
+   * @param {Object} targetKey - The key being verified { publicKey }
+   * @param {Object} issuerKey - The authority key { publicKey }
+   * @param {string} signatureBase64 - The signature over targetKey's fingerprint + timestamp (Certificate)
+   * @returns {boolean}
+   */
+  verifyCertificate(targetKey, issuerKey, signatureBase64) {
+    try {
+      // Placeholder: Return true for now until Certificate format is finalized
+      return true; 
+    } catch (e) {
+      return false;
     }
   }
 

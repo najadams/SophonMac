@@ -17,6 +17,13 @@ const dbUtils = require('../utils/dbUtils');
 const { vatCryptoService, AUTHORITY_PRECEDENCE } = require('../services/vatCryptoService');
 const syncEngine = require('../services/syncEngine').default || require('../services/networkManager').syncEngine; // Access singleton if possible, or via NetworkManager
 
+// Initialize Trust Cache
+try {
+  vatCryptoService.loadTrustedKeys(db);
+} catch (err) {
+  console.warn('Failed to initialize trust cache:', err.message);
+}
+
 // Middleware to check if critical fiscal data is synced
 const requireSyncedData = (dataType, maxAgeMs = 24 * 60 * 60 * 1000) => {
   return (req, res, next) => {
@@ -173,6 +180,46 @@ router.get('/keypair/:companyId', (req, res) => {
   } catch (error) {
     console.error('Error fetching keypair:', error);
     res.status(500).json({ error: 'Failed to fetch keypair: ' + error.message });
+  }
+});
+
+/**
+ * POST /api/vat-tokens/keypair/revoke
+ * Revoke a keypair (and trusted public key if exists)
+ */
+router.post('/keypair/revoke', async (req, res) => {
+  try {
+    const { companyId, keyFingerprint, reason } = req.body;
+    
+    if (!keyFingerprint) {
+      return res.status(400).json({ error: 'keyFingerprint is required' });
+    }
+
+    const updates = [];
+
+    // 1. Revoke in VATKeyPair table
+    const updateKp = db.prepare(`UPDATE VATKeyPair SET status = 'revoked', updatedAt = CURRENT_TIMESTAMP WHERE keyFingerprint = ?`);
+    const kpResult = updateKp.run(keyFingerprint);
+    if (kpResult.changes > 0) updates.push('VATKeyPair');
+
+    // 2. Revoke in TrustedPublicKey table
+    const updateTrusted = db.prepare(`UPDATE TrustedPublicKey SET status = 'revoked' WHERE keyFingerprint = ?`);
+    const trustedResult = updateTrusted.run(keyFingerprint);
+    if (trustedResult.changes > 0) updates.push('TrustedPublicKey');
+
+    // 3. Update In-Memory Cache
+    vatCryptoService.revokeKey(keyFingerprint);
+
+    if (updates.length === 0) {
+      return res.status(404).json({ error: 'Key not found' });
+    }
+
+    console.log(`Revoked key ${keyFingerprint} in: ${updates.join(', ')}`);
+    res.json({ success: true, message: 'Key revoked successfully', updates });
+
+  } catch (error) {
+    console.error('Error revoking keypair:', error);
+    res.status(500).json({ error: 'Failed to revoke keypair: ' + error.message });
   }
 });
 
@@ -520,6 +567,34 @@ router.get('/company/:companyId', (req, res) => {
 // =============================================================================
 
 /**
+ * POST /api/vat-tokens/revoke
+ * Revoke a specific VAT token
+ */
+router.post('/revoke', (req, res) => {
+  try {
+    const { tokenId, reason } = req.body;
+    
+    if (!tokenId) {
+      return res.status(400).json({ error: 'tokenId is required' });
+    }
+    
+    const stmt = db.prepare(`UPDATE VATToken SET status = 'revoked', updatedAt = CURRENT_TIMESTAMP WHERE id = ?`);
+    const result = stmt.run(tokenId);
+    
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Token not found' });
+    }
+    
+    console.log(`Token ${tokenId} revoked. Reason: ${reason || 'Not specified'}`);
+    res.json({ success: true, message: 'Token revoked successfully' });
+    
+  } catch (error) {
+    console.error('Error revoking token:', error);
+    res.status(500).json({ error: 'Failed to revoke token: ' + error.message });
+  }
+});
+
+/**
  * POST /api/vat-tokens/verify
  * Verify a token (works for both online and offline-scanned tokens)
  */
@@ -574,8 +649,12 @@ router.post('/verify', (req, res) => {
     const keyFingerprint = tokenToVerify.proof.signerKeyFingerprint || tokenToVerify.proof.k;
     
     // First try VATKeyPair table
+    // First try VATKeyPair table (Local Company Keys)
     let publicKey = null;
-    const keyPairStmt = db.prepare(`SELECT publicKey, status FROM VATKeyPair WHERE keyFingerprint = ?`);
+    let authority = 'SKA';
+    
+    // Check local keys first
+    const keyPairStmt = db.prepare(`SELECT publicKey, status, authority FROM VATKeyPair WHERE keyFingerprint = ?`);
     const keyPairRow = keyPairStmt.get(keyFingerprint);
     
     if (keyPairRow) {
@@ -583,16 +662,17 @@ router.post('/verify', (req, res) => {
         return res.json({ valid: false, reason: 'Signing key has been revoked' });
       }
       publicKey = keyPairRow.publicKey;
+      authority = keyPairRow.authority;
     } else {
-      // Try TrustedPublicKey cache
-      const trustedStmt = db.prepare(`SELECT publicKey, status FROM TrustedPublicKey WHERE keyFingerprint = ?`);
-      const trustedRow = trustedStmt.get(keyFingerprint);
+      // Try Trusted Public Key Cache (with DB fallback)
+      const trustedKey = vatCryptoService.getTrustedKey(keyFingerprint, db);
       
-      if (trustedRow) {
-        if (trustedRow.status === 'revoked') {
+      if (trustedKey) {
+        if (trustedKey.status === 'revoked') {
           return res.json({ valid: false, reason: 'Signing key has been revoked' });
         }
-        publicKey = trustedRow.publicKey;
+        publicKey = trustedKey.publicKey;
+        authority = trustedKey.authority;
       }
     }
     
@@ -634,10 +714,32 @@ router.post('/verify', (req, res) => {
       quantity: tokenToVerify.payload.q
     });
     
-  } catch (error) {
-    console.error('Error verifying token:', error);
     res.status(500).json({ valid: false, reason: 'Verification error: ' + error.message });
   }
+});
+
+/**
+ * GET /api/vat-tokens/:tokenId/audit
+ * Get verification history for a token
+ */
+router.get('/:tokenId/audit', (req, res) => {
+    try {
+        const { tokenId } = req.params;
+        
+        const stmt = db.prepare(`
+            SELECT v.*, c.companyName as verifierName
+            FROM VATTokenVerification v
+            LEFT JOIN Company c ON v.verifierId = c.id
+            WHERE v.tokenId = ?
+            ORDER BY v.verifiedAt DESC
+        `);
+        
+        const history = stmt.all(tokenId);
+        res.json(history);
+    } catch (error) {
+        console.error('Error fetching audit trail:', error);
+        res.status(500).json({ error: 'Failed to fetch audit trail' });
+    }
 });
 
 // =============================================================================
