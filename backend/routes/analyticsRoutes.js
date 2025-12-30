@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const analyticsService = require('../services/analyticsService');
 
+// Initial Dashboard Stats
 router.get('/liability', (req, res) => {
     try {
         const data = analyticsService.getCurrentLiability();
@@ -11,6 +12,7 @@ router.get('/liability', (req, res) => {
     }
 });
 
+// Forecasting Endpoints (Phase 5)
 router.get('/forecast', (req, res) => {
     try {
         const months = req.query.months ? parseInt(req.query.months) : 3;

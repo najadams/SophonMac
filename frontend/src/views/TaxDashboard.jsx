@@ -46,6 +46,8 @@ const TaxDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(null);
   const [advice, setAdvice] = useState([]);
+  const [forecastData, setForecastData] = useState([]);
+  const [reserveRec, setReserveRec] = useState(null);
   const [period, setPeriod] = useState('this_month');
   const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
 
@@ -86,8 +88,29 @@ const TaxDashboard = () => {
 
       // Fetch Advice
       const adviceParams = {}; // Could pass companyId if needed, but endpoint is general or uses query
-      const adviceResp = await axios.get(`${API_BASE_URL}/api/tax/advice`);
       setAdvice(adviceResp.data);
+
+      // Fetch Forecast & Reserve (Phase 5)
+      try {
+           const forecastResp = await axios.get(`${API_BASE_URL}/api/analytics/forecast`);
+           const reserveResp = await axios.get(`${API_BASE_URL}/api/analytics/reserve`);
+           
+           setReserveRec(reserveResp.data);
+
+           // Transform for Chart: Merge history and forecast
+           if (forecastResp.data.cashFlow.available) {
+               const history = forecastResp.data.cashFlow.history || [];
+               const future = forecastResp.data.cashFlow.forecast || [];
+               
+               const chartData = [
+                   ...history.map(h => ({ name: h.month, actual: h.value, projected: null })),
+                   ...future.map(f => ({ name: `+${f.monthOffset}m`, actual: null, projected: f.predictedCash }))
+               ];
+               setForecastData(chartData);
+           }
+      } catch (err) {
+          console.warn('Forecast fetch failed', err);
+      }
 
     } catch (error) {
       console.error('Error fetching tax summary:', error);
