@@ -15,6 +15,37 @@ const router = express.Router();
 const db = require('../data/db/db');
 const dbUtils = require('../utils/dbUtils');
 const { vatCryptoService, AUTHORITY_PRECEDENCE } = require('../services/vatCryptoService');
+const syncEngine = require('../services/syncEngine').default || require('../services/networkManager').syncEngine; // Access singleton if possible, or via NetworkManager
+
+// Middleware to check if critical fiscal data is synced
+const requireSyncedData = (dataType, maxAgeMs = 24 * 60 * 60 * 1000) => {
+  return (req, res, next) => {
+    // Skip if offline mode is explicitly allowed by policy (future config)
+    // For now, strict mode
+    
+    // In a real app we'd get the actual singleton instance
+    // For this prototype, we'll assume we can access it via global or import
+    // Ideally this should be injected
+    
+    const lastSync = syncEngine?.getLastSyncTime ? syncEngine.getLastSyncTime(dataType) : 0;
+    const now = Date.now();
+    
+    if (now - lastSync > maxAgeMs) {
+       // Check if we are Master - Master is always source of truth
+       if (syncEngine?.isMaster) {
+           return next();
+       }
+       
+       console.warn(`Blocking fiscal action: ${dataType} out of sync. Last sync: ${new Date(lastSync).toISOString()}`);
+       return res.status(403).json({
+         error: 'FISCAL_SYNC_REQUIRED',
+         message: `Cannot perform this action: ${dataType} data is stale. Please sync with network/master first.`
+       });
+    }
+    
+    next();
+  };
+};
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -147,7 +178,7 @@ router.get('/keypair/:companyId', (req, res) => {
  * POST /api/vat-tokens/mint
  * Mint a new VAT token for a supply batch
  */
-router.post('/mint', async (req, res) => {
+router.post('/mint', requireSyncedData('tax_rates'), async (req, res) => {
   try {
     const {
       companyId,

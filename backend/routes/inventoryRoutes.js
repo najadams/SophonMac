@@ -543,10 +543,13 @@ const updateProduct = async (req, res) => {
             } else {
               // Emit Events based on what changed
               if (onhand !== undefined) {
+                const delta = onhand - existingProduct.onhand;
                 EventService.emit(companyId || existingProduct.companyId, 'INVENTORY_CHANGE', {
                   id: productId,
                   name: name || existingProduct.name,
-                  onhand: onhand
+                  onhand: onhand,
+                  delta: delta, // Added delta for conflict resolution
+                  operation: 'delta_stock'
                 });
               }
               

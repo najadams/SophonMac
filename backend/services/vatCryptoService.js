@@ -379,10 +379,10 @@ class VATCryptoService {
    * @returns {string} Compact JSON string for QR
    */
   exportForQR(token) {
-    // Compact version includes full payload + proof for offline verification
+    // Compact version includes full payload + signature/key info
+    // We remove the hash (h) to save space, as it can be recomputed
     return JSON.stringify({
       p: token.payload,  // payload
-      h: token.proof.hash,
       s: token.proof.signature,
       k: token.proof.signerKeyFingerprint,
       a: token.proof.authority
@@ -396,14 +396,19 @@ class VATCryptoService {
    */
   importFromQR(qrData) {
     const compact = JSON.parse(qrData);
+    
+    // Recompute hash from payload to verify integrity/reconstruct proof
+    const payloadString = this.canonicalize(compact.p);
+    const recomputedHash = this.computeHash(payloadString);
+
     return {
       payload: compact.p,
       proof: {
-        hash: compact.h,
+        hash: recomputedHash, // Recomputed, not trusted from input
         signature: compact.s,
         signerKeyFingerprint: compact.k,
         authority: compact.a,
-        signerKeyId: null  // Can be derived from fingerprint if needed
+        signerKeyId: null
       }
     };
   }

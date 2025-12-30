@@ -23,11 +23,17 @@ class SyncEngine extends EventEmitter {
     this.supabaseSyncInProgress = false;
     this.lastSupabaseSyncTime = null;
     this.supabaseSyncInterval = null;
+    this.supabaseSyncInterval = null;
     this.tableSchemas = new Map(); // Cache for table schemas
     
     if (!this.isSupabaseEnabled) {
       console.log('Supabase sync disabled - no configuration found');
     }
+  }
+
+  getLastSyncTime(type) {
+    if (!type) return this.lastSyncTimestamp;
+    return this.lastSyncTimestamp[type] || 0;
   }
 
   initialize(companyId, isMaster = false) {
@@ -158,6 +164,11 @@ class SyncEngine extends EventEmitter {
   }
 
   detectConflict(record) {
+    // Delta operations don't conflict, they stack.
+    if (record.operation === 'delta_stock') {
+        return undefined; 
+    }
+
     // Check if we have a more recent change for the same data
     const existingRecord = this.syncQueue.find(r => 
       r.type === record.type && 
@@ -340,6 +351,12 @@ class SyncEngine extends EventEmitter {
         'UPDATE Inventory SET onhand=?, updatedAt=? WHERE id=? AND companyId=?',
         [data.onhand, data.updatedAt, data.id, data.companyId]
       );
+    } else if (operation === 'delta_stock') {
+       // Delta Sync: Apply valid signed delta to current stock
+       this.executeQuery(
+        'UPDATE Inventory SET onhand = onhand + ?, updatedAt=? WHERE id=? AND companyId=?',
+        [data.delta, data.updatedAt, data.id, data.companyId]
+       );
     }
   }
 

@@ -132,3 +132,21 @@ CREATE INDEX IF NOT EXISTS idx_trustedkey_company ON TrustedPublicKey(companyId)
 CREATE INDEX IF NOT EXISTS idx_vatkeypair_company ON VATKeyPair(companyId);
 CREATE INDEX IF NOT EXISTS idx_vatkeypair_fingerprint ON VATKeyPair(keyFingerprint);
 CREATE INDEX IF NOT EXISTS idx_vatverification_token ON VATTokenVerification(tokenId);
+
+-- =============================================================================
+-- TRIGGERS (Double-Spend Protection)
+-- =============================================================================
+
+-- Ensure total referenced quantity does not exceed token quantity
+CREATE TRIGGER IF NOT EXISTS trg_prevent_double_spend
+BEFORE INSERT ON VATTokenReference
+BEGIN
+    SELECT RAISE(ABORT, 'Double-Spend Detected: Insufficient remaining quantity on token')
+    WHERE (
+        SELECT COALESCE(SUM(quantity), 0) + NEW.quantity 
+        FROM VATTokenReference 
+        WHERE tokenId = NEW.tokenId
+    ) > (
+        SELECT quantity FROM VATToken WHERE id = NEW.tokenId
+    );
+END;
