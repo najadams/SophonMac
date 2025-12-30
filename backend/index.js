@@ -122,9 +122,23 @@ app.get('/', (req, res) => {
     }
 
     // Run networking migrations only if DB is available
-    if (DB_AVAILABLE && migrationUtils && migrationUtils.runNetworkingMigrations) {
+    if (DB_AVAILABLE && migrationUtils) {
       try {
-        await migrationUtils.runNetworkingMigrations();
+        if (migrationUtils.runNetworkingMigrations) {
+          await migrationUtils.runNetworkingMigrations();
+        }
+        if (migrationUtils.runGovernanceMigration) {
+          await migrationUtils.runGovernanceMigration();
+        }
+        if (migrationUtils.runGRAMigration) {
+          await migrationUtils.runGRAMigration();
+        }
+        if (migrationUtils.runTaxIntelligenceMigration) { // Phase 4
+          await migrationUtils.runTaxIntelligenceMigration();
+        }
+        if (migrationUtils.runTaxConfigHistoryMigration) { // Phase 4 Hardening
+           await migrationUtils.runTaxConfigHistoryMigration();
+        }
       } catch (migErr) {
         console.warn('Networking migrations failed:', migErr.message);
       }

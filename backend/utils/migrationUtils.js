@@ -186,7 +186,9 @@ module.exports = {
   columnExists,
   runCurrencyNormalizationMigration,
   runGovernanceMigration,
-  runGRAMigration
+  runGRAMigration,
+  runTaxIntelligenceMigration,
+  runTaxConfigHistoryMigration
 };
 
 // Run GRA Integration table migration
@@ -217,6 +219,88 @@ async function runGRAMigration() {
     throw error;
   }
 }
+
+// Run Tax Intelligence migration (Phase 4)
+async function runTaxIntelligenceMigration() {
+    try {
+      const db = getDb();
+      // Check for TaxConfig table
+      const tableExists = await new Promise((resolve, reject) => {
+          db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='TaxConfig'", (err, row) => {
+            if (err) reject(err); else resolve(!!row);
+          });
+        });
+  
+      if (!tableExists) {
+        console.log('Running Tax Intelligence migration...');
+        const filePath = path.join(__dirname, '../migrations/add_vat_intelligence.sql');
+        const migrationSQL = fs.readFileSync(filePath, 'utf8');
+  
+        // Split by semicolon to handle multiple statements (CREATE + ALTER)
+        const statements = migrationSQL.split(';').filter(s => s.trim());
+
+        for (const stmt of statements) {
+            await new Promise((resolve, reject) => {
+                db.exec(stmt, (err) => {
+                    // Ignore "duplicate column" errors for idempotency on ALTER TABLE
+                    if (err && !err.message.includes('duplicate column')) reject(err); 
+                    else resolve();
+                });
+            });
+        }
+        console.log('Tax Intelligence migration completed successfully!');
+      } else {
+        console.log('Tax Intelligence migration already applied.');
+      }
+    } catch (error) {
+      console.error('Error running Tax Intelligence migration:', error);
+      throw error;
+    }
+}
+
+// Run Tax Config History Migration (Phase 4 Hardening)
+async function runTaxConfigHistoryMigration() {
+    try {
+        const db = getDb();
+        // Check if effectiveFrom column exists
+        const colExists = await new Promise((resolve, reject) => {
+            db.all("PRAGMA table_info(TaxConfig)", (err, rows) => {
+                if (err) reject(err);
+                else {
+                    const hasCol = rows.some(r => r.name === 'effectiveFrom');
+                    resolve(hasCol);
+                }
+            });
+        });
+
+        if (!colExists) {
+            console.log('Running Tax Config History migration...');
+            const filePath = path.join(__dirname, '../migrations/update_tax_config_history.sql');
+            const migrationSQL = fs.readFileSync(filePath, 'utf8');
+
+             // Split by semicolon to handle multiple statements
+            const statements = migrationSQL.split(';').filter(s => s.trim());
+
+            for (const stmt of statements) {
+                await new Promise((resolve, reject) => {
+                    db.exec(stmt, (err) => {
+                        if (err) reject(err); else resolve();
+                    });
+                });
+            }
+            console.log('Tax Config History migration applied.');
+        }
+    } catch (error) {
+        console.warn('Tax Config History migration failed:', error.message);
+    }
+}      } else {
+        console.log('Tax Intelligence migration already applied.');
+      }
+    } catch (error) {
+      console.error('Error running Tax Intelligence migration:', error);
+      throw error;
+    }
+  }
 
 // Run Governance table migration
 async function runGovernanceMigration() {

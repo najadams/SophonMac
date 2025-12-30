@@ -91,10 +91,14 @@ router.get('/summary', async (req, res) => {
     const salesData = await getSalesForCompanies(companyIdsToAggregate);
     const totalSales = salesData.totalSales || 0;
     
-    // Calculate VAT
-    const outputVat = totalSales - (totalSales / (1 + (taxRate / 100)));
-    const inputVat = 0; // Placeholder
-    const netVatLiability = outputVat - inputVat;
+    // Calculate VAT using Tax Intelligence Service
+    const taxIntelligence = require('../services/taxIntelligenceService');
+    // Ensure we use the full dates for the period
+    const position = taxIntelligence.calculateNetPosition(start, end);
+
+    const outputVat = position.outputVat;
+    const inputVat = position.inputVat;
+    const netVatLiability = position.netPayable;
 
     res.json({
       period: { startDate: start, endDate: end },
@@ -102,15 +106,16 @@ router.get('/summary', async (req, res) => {
         taxRate: taxRate,
         taxMode: settings.taxMode,
         taxId: settings.taxId,
-        childCount: childIds.length
+        childCount: childIds.length,
+        vatScheme: position.scheme // Return scheme for UI context
       },
       summary: {
         totalSales: totalSales,
         outputVat: parseFloat(outputVat.toFixed(2)),
         inputVat: parseFloat(inputVat.toFixed(2)),
         netLiability: parseFloat(netVatLiability.toFixed(2)),
-        reportedByParent: false, // Deprecated concept in Network Model, but kept for schema
-        parentCompanyId: null // Deprecated
+        reportedByParent: false, 
+        parentCompanyId: null 
       }
     });
 
@@ -298,6 +303,41 @@ router.post('/filing/group', async (req, res) => {
     console.error('Error generating group filing report:', error);
     res.status(500).json({ error: 'Failed to generate group filing report' });
   }
+});
+
+const taxIntelligence = require('../services/taxIntelligenceService');
+
+// -- Intelligent Tax Assistant Routes --
+
+// Update Tax Configuration
+router.post('/config', (req, res) => {
+    try {
+        const { scheme, threshold, frequency } = req.body;
+        const result = taxIntelligence.configureScheme(scheme, threshold, frequency);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get Tax Configuration
+router.get('/config', (req, res) => {
+    try {
+        const config = taxIntelligence.getConfig();
+        res.json(config);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get Tax Advice/Alerts
+router.get('/advice', (req, res) => {
+    try {
+        const alerts = taxIntelligence.getAdvice();
+        res.json(alerts);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 module.exports = router;

@@ -8,26 +8,21 @@ class AnalyticsService {
      * @returns {Object} { totalCollected, totalPaid, netLiability }
      */
     getCurrentLiability() {
-        // Mock query for now, assuming standard Transaction/Purchase tables
-        // Real implementation requires robust schema knowledge of tax fields
-        // defaulting to simple aggregation if fields exist, or 0
         try {
-            const result = db.prepare(`
-                SELECT 
-                    SUM(vatAmount) as totalCollected
-                FROM 'Transaction'
-                WHERE status = 'completed'
-            `).get();
+            // Get Dates (Current Month)
+            const date = new Date();
+            const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+            const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
 
-            // We don't strictly track input VAT in a standardized way yet in this simplified schema
-            // So we'll assume 0 input tax for this iteration unless we add it
-            const totalCollected = result.totalCollected || 0;
-            const totalPaid = 0; 
-            
+            // enhanced logic using TaxIntelligence
+            const taxIntelligence = require('./taxIntelligenceService');
+            const position = taxIntelligence.calculateNetPosition(firstDay, lastDay);
+
             return {
-                totalCollected,
-                totalPaid,
-                netLiability: totalCollected - totalPaid
+                totalCollected: position.outputVat,
+                totalPaid: position.inputVat,
+                netLiability: position.netPayable,
+                scheme: position.scheme
             };
         } catch (e) {
             console.error('Error fetching liability:', e);

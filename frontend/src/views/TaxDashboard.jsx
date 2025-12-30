@@ -20,14 +20,23 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TableHead,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
   TableRow,
-  Chip
+  Chip,
+  Alert,
+  AlertTitle,
+  Collapse
 } from '@mui/material';
 import {
   Description as DescriptionIcon,
   AccountBalance as AccountBalanceIcon,
   TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon
+  TrendingDown as TrendingDownIcon,
+  NotificationImportant as AlertIcon
 } from '@mui/icons-material';
 
 import { API_BASE_URL } from '../config/constants';
@@ -36,6 +45,7 @@ const TaxDashboard = () => {
   const company = useSelector((state) => state.companyState.company);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState(null);
+  const [advice, setAdvice] = useState([]);
   const [period, setPeriod] = useState('this_month');
   const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
 
@@ -73,6 +83,12 @@ const TaxDashboard = () => {
       });
 
       setSummary(response.data);
+
+      // Fetch Advice
+      const adviceParams = {}; // Could pass companyId if needed, but endpoint is general or uses query
+      const adviceResp = await axios.get(`${API_BASE_URL}/api/tax/advice`);
+      setAdvice(adviceResp.data);
+
     } catch (error) {
       console.error('Error fetching tax summary:', error);
       toast.error('Failed to load tax summary');
@@ -176,6 +192,23 @@ const TaxDashboard = () => {
           </Button>
         </Box>
       </Box>
+
+      {/* Smart Alerts Section */}
+      {advice.length > 0 && (
+        <Box mb={4}>
+            {advice.map((alert, index) => (
+                <Alert 
+                    key={index} 
+                    severity={alert.severity || 'warning'} 
+                    icon={<AlertIcon />}
+                    sx={{ mb: 1 }}
+                >
+                    <AlertTitle>{alert.title}</AlertTitle>
+                    {alert.message}
+                </Alert>
+            ))}
+        </Box>
+      )}
 
       {/* Status Banner */}
       <Paper 
