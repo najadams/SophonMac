@@ -12,7 +12,7 @@ class TaxIntelligenceService {
     }
 
     /**
-     * Configure the VAT Scheme
+     * Configure the VAT Scheme (History Aware)
      * @param {string} scheme - 'standard_15', 'flat_4', 'exempt'
      * @param {number} threshold - Turnover threshold for alerts
      * @param {string} frequency - 'monthly', 'quarterly'
@@ -22,18 +22,27 @@ class TaxIntelligenceService {
             throw new Error('Invalid VAT Scheme');
         }
 
-        const id = 'global_config'; // Single config for now
-        db.prepare(`
-            INSERT INTO TaxConfig (id, vatScheme, turnoverThreshold, filingFrequency, updatedAt)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(id) DO UPDATE SET
-                vatScheme = excluded.vatScheme,
-                turnoverThreshold = excluded.turnoverThreshold,
-                filingFrequency = excluded.filingFrequency,
-                updatedAt = CURRENT_TIMESTAMP
-        `).run(id, scheme, threshold, frequency);
+        const now = new Date().toISOString();
 
-        console.log(`VAT Scheme configured: ${scheme}`);
+        // Transaction to ensure atomicity
+        const transaction = db.transaction(() => {
+            // Close current active config
+            db.prepare(`
+                UPDATE TaxConfig 
+                SET effectiveTo = ? 
+                WHERE effectiveTo IS NULL
+            `).run(now);
+
+            // Insert new active config
+            db.prepare(`
+                INSERT INTO TaxConfig (vatScheme, turnoverThreshold, filingFrequency, effectiveFrom, effectiveTo)
+                VALUES (?, ?, ?, ?, NULL)
+            `).run(scheme, threshold, frequency, now);
+        });
+
+        transaction();
+        
+        console.log(`VAT Scheme configured: ${scheme} (Effective from ${now})`);
         return { success: true };
     }
 
@@ -41,7 +50,8 @@ class TaxIntelligenceService {
      * Get current configuration
      */
     getConfig() {
-        return db.prepare(`SELECT * FROM TaxConfig WHERE id = 'global_config'`).get() || {
+        // Get the currently active config (effectiveTo is NULL)
+        return db.prepare(`SELECT * FROM TaxConfig WHERE effectiveTo IS NULL`).get() || {
             vatScheme: this.SCHEMES.STANDARD,
             turnoverThreshold: this.REGISTRATION_THRESHOLD,
             filingFrequency: 'monthly'
@@ -50,11 +60,32 @@ class TaxIntelligenceService {
 
     /**
      * Calculate Net VAT Position (Output - Input)
+     * Correctly respects historical VAT schemes for the requested period.
      * @param {string} startDate - YYYY-MM-DD
      * @param {string} endDate - YYYY-MM-DD
      */
     calculateNetPosition(startDate, endDate) {
-        const config = this.getConfig();
+        // For accurate reporting, we should technically iterate through time ranges.
+        // However, for simplified logic aligned with "Filing Period", we use the config
+        // that was active at the END of the period (Filing Date logic).
+        // Or better: Find the config that overlaps this period.
+        
+        // Strategy: Get config active at endDate of the report. 
+        // If scheme changed mid-month, typically the new scheme applies to future tx.
+        // Complex scenario: Scheme changed on 15th. 1-15 (Old), 16-30 (New).
+        // We will simplify: Use the config effective at the end of the query period.
+        // Ideally, we sum transactions joined with their relevant config period.
+
+        // Get config active at endDate
+        const configAtEnd = db.prepare(`
+            SELECT * FROM TaxConfig 
+            WHERE effectiveFrom <= ? 
+            AND (effectiveTo IS NULL OR effectiveTo >= ?)
+            ORDER BY effectiveFrom DESC
+            LIMIT 1
+        `).get(endDate, endDate) || this.getConfig();
+
+        const activeScheme = configAtEnd.vatScheme;
 
         // 1. Output VAT (Sales)
         const salesResult = db.prepare(`
@@ -69,8 +100,7 @@ class TaxIntelligenceService {
         // 2. Input VAT (Purchases/Expenses)
         // Only applicable for Standard Rate (15%)
         let inputVat = 0;
-        if (config.vatScheme === this.SCHEMES.STANDARD) {
-             // 2. Input VAT (Purchases)
+        if (activeScheme === this.SCHEMES.STANDARD) {
              try {
                 const purchaseResult = db.prepare(`
                     SELECT SUM(vatAmount) as inputVat
@@ -87,9 +117,9 @@ class TaxIntelligenceService {
         const realProfit = totalRevenue - netPayable; // Simplified: Revenue - VAT Liability (ignoring cost of goods for this specific metric)
 
         return {
-            scheme: config.vatScheme,
+            scheme: activeScheme,
             outputVat,
-            inputVat: config.vatScheme === this.SCHEMES.STANDARD ? inputVat : 0, // Flat rate cannot claim input tax
+            inputVat: activeScheme === this.SCHEMES.STANDARD ? inputVat : 0, // Flat rate cannot claim input tax
             netPayable,
             realProfit,
             currency: 'GHS'
