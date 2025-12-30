@@ -5,10 +5,11 @@ const { createSupabaseServiceClient, supabaseConfig } = require('../config/supab
 const bcrypt = require('bcrypt');
 
 class SyncEngine extends EventEmitter {
-  constructor(websocketServer, networkDiscovery) {
+  constructor(websocketServer, networkDiscovery, networkManager = null) {
     super();
     this.wsServer = websocketServer;
     this.networkDiscovery = networkDiscovery;
+    this.networkManager = networkManager; // Optional for backward/test compat
     this.isMaster = false;
     this.syncQueue = [];
     this.lastSyncTimestamp = {};
@@ -91,6 +92,11 @@ class SyncEngine extends EventEmitter {
     // Add to sync queue
     this.syncQueue.push(syncRecord);
     
+    // Mark as seen in Gossip cache to prevent processing our own echo
+    if (this.networkManager) {
+      this.networkManager.markMessageSeen(syncRecord.id);
+    }
+
     // If we're the master, broadcast to all peers
     if (this.isMaster) {
       this.broadcastSyncRecord(syncRecord);
@@ -153,6 +159,17 @@ class SyncEngine extends EventEmitter {
   }
 
   processSyncRecord(record, sourcePeer) {
+    // Gossip Protocol: Check if we've seen this message
+    if (this.networkManager && this.networkManager.isMessageSeen(record.id)) {
+      console.log(`Gossip: Dropping known message ${record.id}`);
+      return;
+    }
+
+    // Mark as seen so we don't re-process or re-broadcast blindly
+    if (this.networkManager) {
+      this.networkManager.markMessageSeen(record.id);
+    }
+
     // Check for conflicts
     const conflict = this.detectConflict(record);
     

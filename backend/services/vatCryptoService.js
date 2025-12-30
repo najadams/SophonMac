@@ -12,11 +12,8 @@
  * Future: GRA (Ghana Revenue Authority) as root trust anchor
  */
 
-const crypto = require('crypto');
-const { promisify } = require('util');
-
-// Use Node.js native Ed25519 support (Node 15.0.0+)
-const generateKeyPairAsync = promisify(crypto.generateKeyPair);
+const { KeyProviderFactory } = require('./keyProviders');
+const crypto = require('crypto'); // Still needed for helpers like hash/canonicalize, but not for key ops directly
 
 /**
  * Authority precedence for conflict resolution
@@ -33,18 +30,6 @@ const AUTHORITY_PRECEDENCE = {
  */
 const TOKEN_VERSION = '1';
 
-/**
- * Encryption configuration for private key storage
- */
-const ENCRYPTION_CONFIG = {
-  algorithm: 'aes-256-gcm',
-  keyLength: 32,
-  ivLength: 16,
-  saltLength: 32,
-  iterations: 100000,
-  digest: 'sha512'
-};
-
 class VATCryptoService {
   constructor() {
     this.algorithm = 'Ed25519';
@@ -56,96 +41,13 @@ class VATCryptoService {
 
   /**
    * Generate a new Ed25519 key pair for a company
-   * @param {string} encryptionPassword - Password to encrypt the private key
+   * @param {string} encryptionPassword - Password to encrypt the private key (for software keys)
+   * @param {string} providerType - 'software' or 'hardware'
    * @returns {Promise<{publicKey: string, privateKeyEncrypted: string, fingerprint: string}>}
    */
-  async generateKeyPair(encryptionPassword) {
-    try {
-      // Generate Ed25519 key pair
-      const { publicKey, privateKey } = await generateKeyPairAsync('ed25519', {
-        publicKeyEncoding: { type: 'spki', format: 'der' },
-        privateKeyEncoding: { type: 'pkcs8', format: 'der' }
-      });
-
-      // Encode public key as base64
-      const publicKeyBase64 = publicKey.toString('base64');
-
-      // Encrypt private key with password
-      const privateKeyEncrypted = this.encryptPrivateKey(privateKey, encryptionPassword);
-
-      // Generate fingerprint from public key
-      const fingerprint = this.getFingerprint(publicKeyBase64);
-
-      return {
-        publicKey: publicKeyBase64,
-        privateKeyEncrypted,
-        fingerprint,
-        algorithm: this.algorithm
-      };
-    } catch (error) {
-      throw new Error(`Failed to generate key pair: ${error.message}`);
-    }
-  }
-
-  /**
-   * Encrypt private key using AES-256-GCM with password-derived key
-   * @param {Buffer} privateKey - Raw private key bytes
-   * @param {string} password - Encryption password
-   * @returns {string} Encrypted private key as base64 (includes salt, iv, authTag)
-   */
-  encryptPrivateKey(privateKey, password) {
-    const salt = crypto.randomBytes(ENCRYPTION_CONFIG.saltLength);
-    const iv = crypto.randomBytes(ENCRYPTION_CONFIG.ivLength);
-    
-    // Derive key from password using PBKDF2
-    const key = crypto.pbkdf2Sync(
-      password,
-      salt,
-      ENCRYPTION_CONFIG.iterations,
-      ENCRYPTION_CONFIG.keyLength,
-      ENCRYPTION_CONFIG.digest
-    );
-
-    const cipher = crypto.createCipheriv(ENCRYPTION_CONFIG.algorithm, key, iv);
-    const encrypted = Buffer.concat([cipher.update(privateKey), cipher.final()]);
-    const authTag = cipher.getAuthTag();
-
-    // Pack: salt (32) + iv (16) + authTag (16) + encrypted
-    const packed = Buffer.concat([salt, iv, authTag, encrypted]);
-    return packed.toString('base64');
-  }
-
-  /**
-   * Decrypt private key using AES-256-GCM
-   * @param {string} encryptedBase64 - Encrypted private key
-   * @param {string} password - Decryption password
-   * @returns {Buffer} Decrypted private key bytes
-   */
-  decryptPrivateKey(encryptedBase64, password) {
-    const packed = Buffer.from(encryptedBase64, 'base64');
-    
-    // Unpack: salt (32) + iv (16) + authTag (16) + encrypted
-    const salt = packed.subarray(0, ENCRYPTION_CONFIG.saltLength);
-    const iv = packed.subarray(ENCRYPTION_CONFIG.saltLength, ENCRYPTION_CONFIG.saltLength + ENCRYPTION_CONFIG.ivLength);
-    const authTag = packed.subarray(
-      ENCRYPTION_CONFIG.saltLength + ENCRYPTION_CONFIG.ivLength,
-      ENCRYPTION_CONFIG.saltLength + ENCRYPTION_CONFIG.ivLength + 16
-    );
-    const encrypted = packed.subarray(ENCRYPTION_CONFIG.saltLength + ENCRYPTION_CONFIG.ivLength + 16);
-
-    // Derive key from password
-    const key = crypto.pbkdf2Sync(
-      password,
-      salt,
-      ENCRYPTION_CONFIG.iterations,
-      ENCRYPTION_CONFIG.keyLength,
-      ENCRYPTION_CONFIG.digest
-    );
-
-    const decipher = crypto.createDecipheriv(ENCRYPTION_CONFIG.algorithm, key, iv);
-    decipher.setAuthTag(authTag);
-    
-    return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  async generateKeyPair(encryptionPassword, providerType = 'software') {
+    const provider = KeyProviderFactory.getProvider(providerType);
+    return provider.generateKeyPair({ encryptionPassword });
   }
 
   /**
@@ -258,24 +160,21 @@ class VATCryptoService {
   }
 
   /**
-   * Sign token payload with private key
+   * Sign token payload using appropriate provider
    * @param {string} payloadString - Canonical JSON payload string
-   * @param {string} privateKeyEncrypted - Encrypted private key
-   * @param {string} password - Decryption password
-   * @returns {string} Base64-encoded signature
+   * @param {string} privateKeyEncrypted - Encrypted private key (or handle)
+   * @param {string} password - Decryption password (for software keys)
+   * @param {string} providerType - 'software' or 'hardware'. Default software for backward compat.
+   * @returns {Promise<string>} Base64-encoded signature
    */
-  signPayload(payloadString, privateKeyEncrypted, password) {
-    const privateKeyDer = this.decryptPrivateKey(privateKeyEncrypted, password);
-    
-    // Create private key object from DER
-    const privateKey = crypto.createPrivateKey({
-      key: privateKeyDer,
-      format: 'der',
-      type: 'pkcs8'
-    });
-
-    const signature = crypto.sign(null, Buffer.from(payloadString, 'utf8'), privateKey);
-    return signature.toString('base64');
+  async signPayload(payloadString, privateKeyEncrypted, password, providerType = 'software') {
+    const provider = KeyProviderFactory.getProvider(providerType);
+    // Context shape depends on provider, but we pass superset
+    const context = {
+        privateKeyEncrypted,
+        password
+    };
+    return provider.sign(payloadString, context);
   }
 
   /**
@@ -285,11 +184,12 @@ class VATCryptoService {
    * @param {string} password - Decryption password
    * @param {string} signerKeyFingerprint - Fingerprint of the signing key
    * @param {string} authority - Authority level (SKA, GRA, Company)
+   * @param {string} providerType - Provider type (software/hardware)
    * @returns {Object} Complete token with payload and proof
    */
-  mintToken(tokenData, privateKeyEncrypted, password, signerKeyFingerprint, authority = 'SKA') {
+  async mintToken(tokenData, privateKeyEncrypted, password, signerKeyFingerprint, authority = 'SKA', providerType = 'software') {
     const { payload, payloadString, hash } = this.createTokenPayload(tokenData);
-    const signature = this.signPayload(payloadString, privateKeyEncrypted, password);
+    const signature = await this.signPayload(payloadString, privateKeyEncrypted, password, providerType);
 
     return {
       payload,

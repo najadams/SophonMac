@@ -16,7 +16,8 @@ class NetworkManager extends EventEmitter {
     super();
     this.networkDiscovery = new NetworkDiscoveryService();
     this.websocketServer = new WebSocketServer();
-    this.syncEngine = new SyncEngine(this.websocketServer, this.networkDiscovery);
+    // Pass 'this' (NetworkManager) to SyncEngine to enable Gossip Protocol coordination
+    this.syncEngine = new SyncEngine(this.websocketServer, this.networkDiscovery, this);
     
     this.isInitialized = false;
     // Use configuration from network.config.js with database overrides
@@ -36,6 +37,54 @@ class NetworkManager extends EventEmitter {
     };
     
     this.setupEventListeners();
+    
+    // Gossip Protocol: Message Cache (to prevent broadcast storms)
+    this.messageCache = new Set();
+    this.MESSAGE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    this.startCacheCleanup();
+  }
+
+  // ... (rest of initialize)
+
+  // ===========================================================================
+  // GOSSIP PROTOCOL HELPERS
+  // ===========================================================================
+
+  /**
+   * Check if a message ID has been seen recently
+   * @param {string} messageId 
+   * @returns {boolean} True if seen
+   */
+  isMessageSeen(messageId) {
+    return this.messageCache.has(messageId);
+  }
+
+  /**
+   * Mark a message ID as seen
+   * @param {string} messageId 
+   */
+  markMessageSeen(messageId) {
+    this.messageCache.add(messageId);
+    // Also store timestamp for cleanup? 
+    // Set is simple key storage. We might need Map<id, timestamp> for proper cleanup.
+    // Switching to Map for TTL support.
+  }
+  
+  // Re-implementing with Map for proper TTL
+  initializeMessageCache() {
+    this.messageCache = new Map(); // ID -> Timestamp
+  }
+
+  startCacheCleanup() {
+    // Run cleanup every minute
+    this.cacheCleanupInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [id, timestamp] of this.messageCache.entries()) {
+        if (now - timestamp > this.MESSAGE_CACHE_TTL) {
+          this.messageCache.delete(id);
+        }
+      }
+    }, 60 * 1000);
   }
 
   async initialize(httpServer, port, companyId, companyName) {

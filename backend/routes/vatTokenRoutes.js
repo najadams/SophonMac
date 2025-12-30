@@ -69,17 +69,20 @@ const getCompanyDetails = (companyId) => {
 /**
  * Get or create keypair for a company
  */
-const getOrCreateKeyPair = async (companyId, encryptionPassword) => {
+const getOrCreateKeyPair = async (companyId, encryptionPassword, providerType = 'software') => {
   // Check if keypair exists
   const existingStmt = db.prepare(`SELECT * FROM VATKeyPair WHERE companyId = ? AND status = 'active'`);
   const existing = existingStmt.get(companyId);
   
   if (existing) {
-    return existing;
+    // Auto-detect provider based on stored key format
+    // If it starts with 'hsm:', it's a hardware handle
+    const detectedProvider = existing.privateKeyEncrypted.startsWith('hsm:') ? 'hardware' : 'software';
+    return { ...existing, providerType: detectedProvider };
   }
   
   // Generate new keypair
-  const keyPair = await vatCryptoService.generateKeyPair(encryptionPassword);
+  const keyPair = await vatCryptoService.generateKeyPair(encryptionPassword, providerType);
   const id = dbUtils.generateUUID();
   
   const insertStmt = db.prepare(`
@@ -97,7 +100,8 @@ const getOrCreateKeyPair = async (companyId, encryptionPassword) => {
     keyFingerprint: keyPair.fingerprint,
     algorithm: keyPair.algorithm,
     authority: 'SKA',
-    status: 'active'
+    status: 'active',
+    providerType // Return the requested provider type
   };
 };
 
@@ -117,18 +121,19 @@ const getTokenReferencedQuantity = (tokenId) => {
 /**
  * POST /api/vat-tokens/keypair/generate
  * Generate a new keypair for a company (or return existing)
+ * Accepts optional 'providerType' ('software' | 'hardware')
  */
 router.post('/keypair/generate', async (req, res) => {
   try {
-    const { companyId, encryptionPassword } = req.body;
+    const { companyId, encryptionPassword, providerType = 'software' } = req.body;
     
     if (!companyId || !encryptionPassword) {
       return res.status(400).json({ error: 'companyId and encryptionPassword are required' });
     }
     
-    const keyPair = await getOrCreateKeyPair(companyId, encryptionPassword);
+    const keyPair = await getOrCreateKeyPair(companyId, encryptionPassword, providerType);
     
-    // Return public info only (never expose encrypted private key via API)
+    // Return public info only
     res.json({
       id: keyPair.id,
       companyId: keyPair.companyId,
@@ -136,7 +141,8 @@ router.post('/keypair/generate', async (req, res) => {
       keyFingerprint: keyPair.keyFingerprint,
       algorithm: keyPair.algorithm,
       authority: keyPair.authority,
-      status: keyPair.status
+      status: keyPair.status,
+      providerType: keyPair.providerType
     });
   } catch (error) {
     console.error('Error generating keypair:', error);
@@ -189,7 +195,8 @@ router.post('/mint', requireSyncedData('tax_rates'), async (req, res) => {
       vatRate,
       currencyCode = 'GHS',
       encryptionPassword,
-      previousTokenId = null
+      previousTokenId = null,
+      providerType // Optional override, though usually auto-detected from key
     } = req.body;
     
     // Validate required fields
@@ -205,8 +212,8 @@ router.post('/mint', requireSyncedData('tax_rates'), async (req, res) => {
       return res.status(404).json({ error: 'Company not found' });
     }
     
-    // Get or create keypair
-    const keyPair = await getOrCreateKeyPair(companyId, encryptionPassword);
+    // Get or create keypair (auto-detects provider if exists)
+    const keyPair = await getOrCreateKeyPair(companyId, encryptionPassword, providerType);
     
     // Calculate VAT amount
     const vatAmount = grossAmount - (grossAmount / (1 + (vatRate / 100)));
@@ -232,12 +239,13 @@ router.post('/mint', requireSyncedData('tax_rates'), async (req, res) => {
     };
     
     // Mint the token (sign with company key)
-    const token = vatCryptoService.mintToken(
+    const token = await vatCryptoService.mintToken(
       tokenData,
       keyPair.privateKeyEncrypted,
       encryptionPassword,
       keyPair.keyFingerprint,
-      keyPair.authority
+      keyPair.authority,
+      keyPair.providerType // Pass the detected or requested provider type
     );
     
     // Store token in database
