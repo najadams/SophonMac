@@ -13,7 +13,7 @@ export function toSignificantFigures(num, sigFigs = 2) {
   return Math.round(num * factor) / factor;
 }
 
-const processDailyData = (receipts) => {
+const processDailyData = (receipts, taxRate = 0) => {
   // First, aggregate the data with full precision
   const dailyData = receipts.reduce((acc, receipt) => {
     if (!receipt.createdAt || isNaN(new Date(receipt.createdAt).getTime())) {
@@ -29,9 +29,15 @@ const processDailyData = (receipts) => {
         totalSales: 0,
         details: [],
         totalProfit: 0,
+        totalTax: 0,
+        totalNetSales: 0,
+        totalNetProfit: 0,
         // Store raw values for calculations
         rawSales: 0,
         rawProfit: 0,
+        rawTax: 0,
+        rawNetSales: 0,
+        rawNetProfit: 0,
       };
     }
 
@@ -39,9 +45,24 @@ const processDailyData = (receipts) => {
     acc[dayKey].rawSales += receipt.total;
     acc[dayKey].rawProfit += receipt.profit;
 
+    // Calculate Tax Metrics
+    // Assuming sales are VAT inclusive
+    const effectiveTaxRate = taxRate || 0;
+    const taxAmount = (receipt.total * effectiveTaxRate) / (100 + effectiveTaxRate);
+    const netSales = receipt.total - taxAmount;
+    const netProfit = receipt.profit - taxAmount;
+
+    acc[dayKey].rawTax += taxAmount;
+    acc[dayKey].rawNetSales += netSales;
+    acc[dayKey].rawNetProfit += netProfit;
+
     // Round only for display
     acc[dayKey].totalSales = Number(acc[dayKey].rawSales.toFixed(2));
     acc[dayKey].totalProfit = Number(acc[dayKey].rawProfit.toFixed(2));
+    acc[dayKey].totalTax = Number(acc[dayKey].rawTax.toFixed(2));
+    acc[dayKey].totalNetSales = Number(acc[dayKey].rawNetSales.toFixed(2));
+    acc[dayKey].totalNetProfit = Number(acc[dayKey].rawNetProfit.toFixed(2));
+    
     acc[dayKey].details.push(...receipt.detail);
 
     return acc;
@@ -102,6 +123,24 @@ const processDailyData = (receipts) => {
     rawValue: dailyData[day].rawProfit,
   }));
 
+  const taxData = sortedLabels.map((day) => ({
+      date: day,
+      value: dailyData[day].totalTax,
+      rawValue: dailyData[day].rawTax
+  }));
+  
+  const netSalesData = sortedLabels.map((day) => ({
+      date: day,
+      value: dailyData[day].totalNetSales,
+      rawValue: dailyData[day].rawNetSales
+  }));
+
+  const netProfitData = sortedLabels.map((day) => ({
+      date: day,
+      value: dailyData[day].totalNetProfit,
+      rawValue: dailyData[day].rawNetProfit
+  }));
+
   // Format dates for better display
   const formattedLabels = sortedLabels.map((day) => {
     const [d, m, y] = day.split("-");
@@ -112,6 +151,9 @@ const processDailyData = (receipts) => {
     labels: formattedLabels,
     salesData: salesData.map((item) => item.value),
     profitData: profitData.map((item) => item.value),
+    taxData: taxData.map((item) => item.value),
+    netSalesData: netSalesData.map((item) => item.value),
+    netProfitData: netProfitData.map((item) => item.value),
     // Include raw data arrays if needed for additional calculations
     rawSalesData: salesData.map((item) => item.rawValue),
     rawProfitData: profitData.map((item) => item.rawValue),
@@ -300,6 +342,11 @@ export const calculateSalesMetrics = (receipts) => {
     hourlyData[hour].averageTicket =
       hourlyData[hour].sales / hourlyData[hour].transactions;
 
+    // Simplified Input VAT calc (mock logic for now - ideally needs purchase records linked)
+    // We assume 10% of sales is basically input cost that had VAT
+    // In real implementation, this comes from 'supplies'
+    // For now, let's just leave it as placeholder
+    
     // Update weekday metrics
     weekdayData[weekday].sales += receipt.total;
     weekdayData[weekday].transactions += 1;
@@ -1064,7 +1111,7 @@ export const tableActions = {
       throw error;
     }
   },
-  fetchSalesData: async (companyId, dateRange) => {
+  fetchSalesData: async (companyId, dateRange, vatDetails = {}) => {
     try {
       const params = {};
       if (dateRange) {
@@ -1082,7 +1129,22 @@ export const tableActions = {
         ? response.data
         : response.data.receipts || [];
 
-      const { labels, salesData, profitData } = processDailyData(receipts);
+      // Determine tax rate
+      let taxRate = 0;
+      if (vatDetails.vatScheme && vatDetails.vatScheme !== 'exempt') {
+          if (vatDetails.vatScheme === 'standard_15') taxRate = 15;
+          else if (vatDetails.vatScheme === 'standard_20') taxRate = 20; // New Ghana Standard
+          else if (vatDetails.vatScheme === 'standard_7_5') taxRate = 7.5; // Nigeria
+          else if (vatDetails.vatScheme === 'standard_16') taxRate = 16; // Kenya
+          else if (vatDetails.vatScheme === 'flat_4') taxRate = 4; // 3% + 1%
+           // Use user defined rate if custom, or if logic differs
+          else if (vatDetails.taxRate) taxRate = Number(vatDetails.taxRate)
+      } else if (vatDetails.taxRate && vatDetails.vatScheme !== 'exempt') {
+          // Fallback if scheme isn't set but rate is
+           taxRate = Number(vatDetails.taxRate);
+      }
+
+      const { labels, salesData, profitData, taxData, netProfitData, netSalesData } = processDailyData(receipts, taxRate);
       const { topProductsByProfit, topProductsByQuantity } =
         calculateTopPurchasedProducts(receipts);
 
@@ -1093,11 +1155,14 @@ export const tableActions = {
       const sales = labels.map((label, index) => ({
         month: label,
         totalSales: salesData[index],
+        netSales: netSalesData[index]
       }));
 
       const profit = labels.map((label, index) => ({
         month: label,
         totalProfit: profitData[index],
+        netProfit: netProfitData[index],
+        tax: taxData[index]
       }));
 
       return {
@@ -1107,11 +1172,43 @@ export const tableActions = {
         topProductsByProfit,
         topProfitableProducts,
         topCustomers,
+        taxData // Return raw tax data if needed
       };
     } catch (error) {
       console.error("Error fetching sales data", error);
       throw new Error("Failed to fetch sales data");
     }
+  },
+
+  // Tax Settings API Calls
+  fetchCountries: async () => {
+      try {
+          const response = await axios.get('/api/tax-settings/countries');
+          return response.data.countries;
+      } catch (error) {
+          console.error("Failed to fetch countries", error);
+          throw error;
+      }
+  },
+
+  fetchCountryTaxRates: async (countryCode) => {
+      try {
+          const response = await axios.get(`/api/tax-settings/rates/${countryCode}`);
+          return response.data.data;
+      } catch (error) {
+           console.error(`Failed to fetch tax rates for ${countryCode}`, error);
+           throw error;
+      }
+  },
+
+  syncTaxRates: async () => {
+      try {
+          const response = await axios.post('/api/tax-settings/sync');
+          return response.data;
+      } catch (error) {
+          console.error("Failed to sync tax rates", error);
+          throw error;
+      }
   },
 };
 

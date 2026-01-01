@@ -952,7 +952,8 @@ const DashboardMetrics = ({ dateRange }) => {
 };
 
 const Dashboard = () => {
-  const companyId = useSelector((state) => state.companyState.data?.id);
+  const company = useSelector((state) => state.companyState.data);
+  const companyId = company?.id;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -987,10 +988,13 @@ const Dashboard = () => {
     isLoading: isOverallLoading,
     isError: isOverallError,
   } = useQuery(
-    ["overall", companyId, dateRange],
-    () => tableActions.fetchSalesData(companyId, dateRange),
+    ["overall", companyId, dateRange, company.vatScheme, company.taxRate],
+    () => tableActions.fetchSalesData(companyId, dateRange, {
+       vatScheme: company.vatScheme,
+       taxRate: company.taxRate
+    }),
     {
-      enabled: !!companyId,
+       enabled: !!companyId,
     }
   );
 
@@ -1143,12 +1147,21 @@ const Dashboard = () => {
                   />
                   <Legend />
                   <Line
-                    type="monotone"
-                    dataKey="totalSales"
                     stroke="#2196f3"
                     strokeWidth={2}
                     activeDot={{ r: 8 }}
+                    name="Gross Sales"
                   />
+                  {company.vatScheme !== 'exempt' && (
+                     <Line
+                        type="monotone"
+                        dataKey="netSales"
+                        stroke="#9c27b0"
+                        strokeWidth={2}
+                        activeDot={{ r: 8 }}
+                        name="Net Sales (Ex-Tax)"
+                     />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -1195,12 +1208,21 @@ const Dashboard = () => {
                   />
                   <Legend />
                   <Line
-                    type="monotone"
-                    dataKey="totalProfit"
                     stroke="#4caf50"
                     strokeWidth={2}
                     activeDot={{ r: 8 }}
+                    name="Gross Profit"
                   />
+                  {company.vatScheme !== 'exempt' && (
+                     <Line
+                        type="monotone"
+                        dataKey="netProfit"
+                        stroke="#ff9800"
+                        strokeWidth={2}
+                        activeDot={{ r: 8 }}
+                        name="Profit After Tax"
+                     />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             )}

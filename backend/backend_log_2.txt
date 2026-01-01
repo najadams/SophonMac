@@ -1,0 +1,85 @@
+[dotenv@17.2.3] injecting env (8) from .env -- tip: ⚙️  override existing env vars with { override: true }
+[INFO] Not a backend process, may have Electron context
+[INFO] Not in Electron context, continuing normally
+Backend starting with PORT: 80
+process.env.PORT: 80
+Initializing database...
+Database path: /Users/a./Projects/Web/pos/backend/data/db/database.sqlite
+Connected to SQLite database via better-sqlite3.
+Database tables already exist.
+Database initialized successfully
+Networking migrations already applied.
+Running Governance migration...
+Governance migration completed successfully!
+Running GRA migration...
+GRA migration completed successfully!
+Running Tax Intelligence migration...
+Tax Intelligence migration completed successfully!
+Running Tax Config History migration...
+Tax Config History migration applied.
+CustomRoles table migration already applied.
+Route registration error: Missing catch or finally after try
+Backend server running on http://0.0.0.0:80
+Backend ready on port 80
+Initializing Network Manager...
+Network config loaded: {
+  autoDiscovery: true,
+  autoSync: true,
+  masterElection: true,
+  conflictResolution: 'last-write-wins',
+  server: { port: 80, host: '0.0.0.0', maxConnections: 100, timeout: 30000 },
+  discovery: {
+    serviceName: 'sophon-pos',
+    serviceType: 'http',
+    port: 80,
+    announceInterval: 5000,
+    discoveryTimeout: 10000,
+    maxPeers: 10
+  },
+  sync: {
+    interval: 30000,
+    batchSize: 100,
+    retryAttempts: 3,
+    retryDelay: 5000,
+    conflictResolution: 'last-write-wins'
+  },
+  websocket: {
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    maxHttpBufferSize: 1000000,
+    cors: { origin: true, credentials: true }
+  },
+  security: {
+    jwtSecret: 'sophon-pos-secret-key',
+    tokenExpiration: '24h',
+    enablePeerAuth: true
+  },
+  monitoring: {
+    healthCheckInterval: 10000,
+    connectionTimeout: 5000,
+    maxFailedChecks: 3
+  },
+  debug: { enableNetworkLogs: false, logLevel: 'info', enableMetrics: true }
+}
+WebSocket server initialized
+Network Discovery initialized for instance: 388a9da8ba78335e5f064fef5c7d93cb632bf2d28b82241a852d1994587547a8
+Sync Engine initialized - Mode: Slave
+Started advertising Sophon service: Sophon-me-388a9da8-107583
+Started discovering Sophon services on network
+Network discovery started
+Network Manager initialized successfully - Master: false
+Networking system initialized successfully
+UmbrellaSyncService initialized for Company ab0eda37-d4a6-4c07-bf4b-08760500bd19
+Started polling Umbrella Core for events...
+GRA Queue Service started
+/Users/a./Projects/Web/pos/backend/services/networkDiscovery.js:12
+  throw error;
+  ^
+
+TypeError: db.prepare is not a function
+    at GRAQueueService.processQueue (/Users/a./Projects/Web/pos/backend/services/graQueueService.js:58:26)
+    at Timeout._onTimeout (/Users/a./Projects/Web/pos/backend/services/graQueueService.js:111:32)
+    at listOnTimeout (node:internal/timers:581:17)
+    at process.processTimers (node:internal/timers:519:7)
+
+Node.js v20.19.3

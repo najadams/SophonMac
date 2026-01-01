@@ -250,6 +250,8 @@ const Settings = () => {
               smsNotifications: Boolean(company.smsNotifications) || false,
               currentPlan: company.currentPlan || "Standard",
               nextBillingDate: company.nextBillingDate || "2024-06-15",
+              countryCode: company.countryCode || "GH",
+              vatRegistered: company.vatRegistered !== false, // Default to true if undefined
               receiptHeader: company.receiptHeader || "",
               receiptFooter: company.receiptFooter || "",
               defaultPrinter: company.defaultPrinter || "",
@@ -469,6 +471,27 @@ const Settings = () => {
                             onChange={handleChange}
                           />
                         </Grid>
+                        <Grid item xs={12} md={6}>
+                           <FormControl fullWidth>
+                            <InputLabel>Country</InputLabel>
+                            <Select
+                              name="countryCode"
+                              value={values.countryCode}
+                              onChange={(e) => {
+                                  handleChange(e);
+                                  // In real app, triggering a fetch here to update local tax options would be ideal
+                                  // For now, we rely on the user to hit "Sync" or save to refresh context
+                              }}
+                              label="Country"
+                            >
+                                <MenuItem value="GH">Ghana</MenuItem>
+                                <MenuItem value="NG">Nigeria</MenuItem>
+                                <MenuItem value="KE">Kenya</MenuItem>
+                                <MenuItem value="US">United States</MenuItem>
+                                <MenuItem value="UK">United Kingdom</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
                       </Grid>
                     </CardContent>
                   </StyledCard>
@@ -527,8 +550,11 @@ const Settings = () => {
                                 // In a real app we might wait for submit, but for config we want sync
                               }}
                               label="VAT Scheme">
-                              <MenuItem value="standard_15">Standard Rate (15%)</MenuItem>
-                              <MenuItem value="flat_4">Flat Rate (3% + 1%)</MenuItem>
+                              <MenuItem value="standard_20">Standard Rate (20%) - Ghana</MenuItem>
+                              <MenuItem value="standard_15">Standard Rate (15%) - All</MenuItem>
+                              <MenuItem value="standard_7_5">Standard Rate (7.5%) - Nigeria</MenuItem>
+                              <MenuItem value="standard_16">Standard Rate (16%) - Kenya</MenuItem>
+                              <MenuItem value="flat_4">Flat Rate (3% + 1%) - Legacy</MenuItem>
                               <MenuItem value="exempt">Exempt</MenuItem>
                             </Select>
                           </FormControl>
@@ -545,6 +571,55 @@ const Settings = () => {
                               <MenuItem value="quarterly">Quarterly</MenuItem>
                             </Select>
                           </FormControl>
+                        </Grid>
+                        <Grid item xs={12}>
+                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
+                                <FormControlLabel
+                                    control={
+                                    <Switch
+                                        name="vatRegistered"
+                                        checked={values.vatRegistered}
+                                        onChange={(e) => {
+                                            handleChange(e);
+                                            // Auto-adjust scheme based on registration
+                                            if (!e.target.checked) {
+                                                setFieldValue('vatScheme', 'exempt');
+                                                setFieldValue('taxRate', '0');
+                                            } else {
+                                                // Default back to standard if re-enabling
+                                                if(values.countryCode === 'GH') {
+                                                    setFieldValue('vatScheme', 'standard_20');
+                                                    setFieldValue('taxRate', '20');
+                                                }
+                                            }
+                                        }}
+                                        color="primary"
+                                    />
+                                    }
+                                    label="VAT Registered Business?"
+                                />
+                                <Button 
+                                    variant="outlined" 
+                                    size="small" 
+                                    onClick={async () => {
+                                        try {
+                                            await tableActions.syncTaxRates();
+                                            setSnackbarMessage("Tax rates synced from central database!");
+                                            setOpen(true);
+                                        } catch(e) {
+                                            setSnackbarMessage("Failed to sync tax rates");
+                                            setOpen(true);
+                                        }
+                                    }}
+                                >
+                                    Sync Tax Rates
+                                </Button>
+                             </Box>
+                             {values.countryCode === 'GH' && (
+                                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                     * Registration threshold for Ghana is GH¢750,000 turnover
+                                 </Typography>
+                             )}
                         </Grid>
                       </Grid>
                     </CardContent>
@@ -687,6 +762,18 @@ const Settings = () => {
                                     variant="caption"
                                     color="text.secondary">
                                     Detailed receipt with tax breakdown
+                                  </Typography>
+                                </Box>
+                              </MenuItem>
+                              <MenuItem value="template4">
+                                <Box>
+                                  <Typography variant="subtitle1">
+                                    Template 4
+                                  </Typography>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary">
+                                    Fiscal receipt with QR Code & GRA Signature
                                   </Typography>
                                 </Box>
                               </MenuItem>

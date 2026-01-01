@@ -2,6 +2,7 @@ import React from "react";
 import Template1 from "./ReceiptTemplates/Template1";
 import Template2 from "./ReceiptTemplates/Template2";
 import Template3 from "./ReceiptTemplates/Template3";
+import Template4 from "./ReceiptTemplates/Template4";
 import { useSelector } from "react-redux";
 
 const ReceiptTemplateSelector = React.forwardRef(({ data }, ref) => {
@@ -12,6 +13,7 @@ const ReceiptTemplateSelector = React.forwardRef(({ data }, ref) => {
     template1: Template1,
     template2: Template2,
     template3: Template3,
+    template4: Template4,
   };
 
   const SelectedTemplate = templates[selectedTemplate];

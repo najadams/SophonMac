@@ -258,6 +258,9 @@ function registerRoutes(withDb) {
       const syncRoutes = require('./routes/syncRoutes');
       const currencyRoutes = require('./routes/currencyRoutes');
       const backupRoutes = require('./routes/backupRoutes');
+      const taxRoutes = require("./routes/taxRoutes");
+      const taxSettingsRoutes = require("./routes/taxSettingsRoutes");
+      const vatTokenRoutes = require("./routes/vatTokenRoutes");
 
       app.use('/api/auth', authRoutes);
       app.use('/api/companies', companyRoutes);

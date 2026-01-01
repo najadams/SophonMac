@@ -1,0 +1,75 @@
+{
+  "GH": {
+    "name": "Ghana",
+    "currency": "GHS",
+    "threshold": 750000,
+    "defaultRate": 20,
+    "schemes": [
+      {
+        "id": "standard_20",
+        "name": "Standard Rate (20%)",
+        "rate": 20,
+        "type": "standard",
+        "description": "Applies to all registered businesses with turnover > GH¢750k"
+      },
+      {
+        "id": "exempt",
+        "name": "Exempt",
+        "rate": 0,
+        "type": "exempt",
+        "description": "For unregistered businesses or exempt supplies"
+      }
+    ]
+  },
+  "NG": {
+    "name": "Nigeria",
+    "currency": "NGN",
+    "threshold": 25000000,
+    "defaultRate": 7.5,
+    "schemes": [
+      {
+         "id": "standard_7_5",
+         "name": "Standard Rate (7.5%)",
+         "rate": 7.5,
+         "type": "standard",
+         "description": "Standard VAT rate"
+      },
+      {
+        "id": "exempt",
+        "name": "Exempt",
+        "rate": 0,
+        "type": "exempt",
+        "description": "Exempt goods and services"
+      }
+    ]
+  },
+  "KE": {
+      "name": "Kenya",
+      "currency": "KES",
+      "threshold": 5000000,
+      "defaultRate": 16,
+      "schemes": [
+          {
+              "id": "standard_16",
+              "name": "Standard Rate (16%)",
+              "rate": 16,
+              "type": "standard",
+              "description": "General rate for goods and services"
+          },
+          {
+              "id": "zero_rated",
+              "name": "Zero Rated (0%)",
+              "rate": 0,
+              "type": "zero_rated",
+              "description": "Exports and essential goods"
+          },
+          {
+              "id": "exempt",
+              "name": "Exempt",
+              "rate": 0,
+              "type": "exempt",
+              "description": "Exempt supplies"
+          }
+      ]
+  }
+}

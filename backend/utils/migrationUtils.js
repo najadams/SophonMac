@@ -293,14 +293,8 @@ async function runTaxConfigHistoryMigration() {
     } catch (error) {
         console.warn('Tax Config History migration failed:', error.message);
     }
-}      } else {
-        console.log('Tax Intelligence migration already applied.');
-      }
-    } catch (error) {
-      console.error('Error running Tax Intelligence migration:', error);
-      throw error;
-    }
-  }
+// End of runTaxConfigHistoryMigration function
+}
 
 // Run Governance table migration
 async function runGovernanceMigration() {

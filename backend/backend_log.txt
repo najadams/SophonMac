@@ -1,0 +1,16 @@
+[dotenv@17.2.3] injecting env (8) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[INFO] Not a backend process, may have Electron context
+[INFO] Not in Electron context, continuing normally
+Backend starting with PORT: 80
+process.env.PORT: 80
+Database unavailable; starting in network-only mode: Unexpected token '}'
+Registered minimal network routes (DB unavailable)
+Backend server running on http://0.0.0.0:80
+Backend ready on port 80
+Database path: /Users/a./Projects/Web/pos/backend/data/db/database.sqlite
+Connected to SQLite database via better-sqlite3.
+Network Discovery initialized for instance: 388a9da8ba78335e5f064fef5c7d93cb632bf2d28b82241a852d1994587547a8
+Started advertising Sophon service: Sophon-Offline-388a9da8-981054
+Started discovering Sophon services on network
+Network discovery started
+Networking discovery started (DB unavailable)
