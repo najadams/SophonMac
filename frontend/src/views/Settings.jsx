@@ -341,7 +341,12 @@ const Settings = () => {
                 address: values.address.trim().toLowerCase(),
               };
               try {
-                const submissionData = { companyId, ...processedValues };
+                // Sync taxId with tinNumber (backward compatibility)
+                const submissionData = { 
+                  companyId, 
+                  ...processedValues,
+                  taxId: processedValues.tinNumber // Ensure taxId matches TIN
+                };
                 await tableActions.updateCompanyData(submissionData);
                 
                 // Also update Tax Intelligence Config
@@ -505,49 +510,35 @@ const Settings = () => {
                         <Typography variant="h6">Tax Settings</Typography>
                       </Box>
                       <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
+                        <Grid item xs={12} md={6}>
                           <StyledField
                             as={TextField}
                             fullWidth
                             name="tinNumber"
-                            label="Tin Number"
+                            label="Tax Identification Number (TIN)"
                             variant="outlined"
                             value={values.tinNumber}
                             onChange={handleChange}
                           />
                         </Grid>
-                        <Grid item xs={12} md={4}>
-                          <StyledField
-                            as={TextField}
-                            fullWidth
-                            name="taxRate"
-                            label="Tax Rate (%)"
-                            variant="outlined"
-                            value={values.taxRate}
-                            onChange={handleChange}
-                          />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                          <StyledField
-                            as={TextField}
-                            fullWidth
-                            name="taxId"
-                            label="Tax ID"
-                            variant="outlined"
-                            value={values.taxId}
-                            onChange={handleChange}
-                          />
-                        </Grid>
                         <Grid item xs={12} md={6}>
-                           <FormControl fullWidth sx={{ mt: 1 }}>
+                           <FormControl fullWidth>
                             <InputLabel>VAT Scheme</InputLabel>
                             <Select
                               name="vatScheme"
                               value={values.vatScheme}
                               onChange={(e) => {
                                 handleChange(e);
-                                // Also update config endpoint for immediate effect
-                                // In a real app we might wait for submit, but for config we want sync
+                                const scheme = e.target.value;
+                                let rate = '0';
+                                if (scheme === 'standard_20') rate = '20';
+                                else if (scheme === 'standard_15') rate = '15';
+                                else if (scheme === 'standard_16') rate = '16';
+                                else if (scheme === 'standard_7_5') rate = '7.5';
+                                else if (scheme === 'flat_4') rate = '3'; // Typically 3% flat + 1% levy, but simplifying for now or use 4
+                                else if (scheme === 'exempt') rate = '0';
+                                
+                                setFieldValue('taxRate', rate);
                               }}
                               label="VAT Scheme">
                               <MenuItem value="standard_20">Standard Rate (20%) - Ghana</MenuItem>
@@ -934,7 +925,7 @@ const Settings = () => {
                   </StyledCard>
                 </Slide>
 
-                <Slide direction="up" in timeout={800}>
+                {/* <Slide direction="up" in timeout={800}>
                   <StyledCard sx={{ mb: 4 }}>
                     <CardContent>
                       <Box display="flex" alignItems="center" mb={2}>
@@ -993,7 +984,7 @@ const Settings = () => {
                       </Grid>
                     </CardContent>
                   </StyledCard>
-                </Slide>
+                </Slide> */}
 
                 <Slide direction="up" in timeout={800}>
                   <StyledCard sx={{ mb: 4 }}>

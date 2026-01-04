@@ -1,0 +1,12 @@
+2026-01-01T04:17:43.077Z
+ReferenceError: ta is not defined
+    at Object.<anonymous> (/Users/a./Projects/Web/pos/backend/routes/vatTokenRoutes.js:1:1)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19)
+    at require (node:internal/modules/helpers:182:18)
+    at registerRoutes (/Users/a./Projects/Web/pos/backend/index.js:263:30)
+    at /Users/a./Projects/Web/pos/backend/index.js:161:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)

@@ -1,4 +1,4 @@
-ta/**
+/**
  * VAT Token Routes
  * 
  * REST API endpoints for the Sophon VAT Token system:
@@ -713,7 +713,9 @@ router.post('/verify', (req, res) => {
       vatAmount: tokenToVerify.payload.t,
       quantity: tokenToVerify.payload.q
     });
+
     
+  } catch (error) {
     res.status(500).json({ valid: false, reason: 'Verification error: ' + error.message });
   }
 });
