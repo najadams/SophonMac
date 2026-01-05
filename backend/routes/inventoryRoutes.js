@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
 const dbUtils = require('../utils/dbUtils');
+const dbUtils = require('../utils/dbUtils');
 const EventService = require('../services/eventService');
+const Fraction = require('../utils/fractionUtils');
 
 // Get all inventory items
 router.get('/', (req, res) => {
@@ -112,7 +114,12 @@ const newProduct = async (req, res) => {
       allowsUnitBreakdown:
         unitConversions && unitConversions.length > 0 ? 1 : 0,
       atomicUnit: baseUnit || "none",
+      allowedUnitBreakdown:
+        unitConversions && unitConversions.length > 0 ? 1 : 0,
+      atomicUnit: baseUnit || "none",
       lossFactor: 0,
+      quantity_numerator: onhand || 0,
+      quantity_denominator: 1,
     };
 
     // Insert product
@@ -123,7 +130,11 @@ const newProduct = async (req, res) => {
           id, companyId, name, category, baseUnit, costPrice, salesPrice, 
           onhand, reorderPoint, minimumStock, description, sku, barcode, 
           deleted, allowsUnitBreakdown, atomicUnit, lossFactor
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, companyId, name, category, baseUnit, costPrice, salesPrice, 
+          onhand, reorderPoint, minimumStock, description, sku, barcode, 
+          deleted, allowsUnitBreakdown, atomicUnit, lossFactor,
+          quantity_numerator, quantity_denominator
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           newId,
           productData.companyId,
@@ -141,7 +152,12 @@ const newProduct = async (req, res) => {
           productData.deleted,
           productData.allowsUnitBreakdown,
           productData.atomicUnit,
+          productData.deleted,
+          productData.allowsUnitBreakdown,
+          productData.atomicUnit,
           productData.lossFactor,
+          productData.quantity_numerator,
+          productData.quantity_denominator
         ],
         function (err) {
           if (err) reject(err);
@@ -395,7 +411,11 @@ const getProducts = async (req, res) => {
           lastBreakdownDate: product.lastBreakdownDate,
           breakdownHistory: breakdownHistory,
           createdAt: product.createdAt,
-          updatedAt: product.updatedAt
+          breakdownHistory: breakdownHistory,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+          quantity_numerator: product.quantity_numerator,
+          quantity_denominator: product.quantity_denominator,
         };
       })
     );
@@ -511,8 +531,15 @@ const updateProduct = async (req, res) => {
       ...(minimumStock !== undefined && { minimumStock: minimumStock || 0 }),
       ...(description !== undefined && { description: description || "" }),
       ...(sku !== undefined && { sku: sku && sku.trim() !== "" ? sku.trim() : null }),
+      ...(sku !== undefined && { sku: sku && sku.trim() !== "" ? sku.trim() : null }),
       ...(barcode !== undefined && { barcode: barcode && barcode.trim() !== "" ? barcode.trim() : null }),
     };
+
+    // If onhand is manually updated, reset the fraction
+    if (onhand !== undefined) {
+         updateData.quantity_numerator = onhand;
+         updateData.quantity_denominator = 1;
+    }
 
     // Handle unit conversions update
     if (unitConversions !== undefined) {

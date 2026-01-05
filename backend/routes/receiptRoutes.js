@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const db = require("../data/db/db");
 const dbUtils = require("../utils/dbUtils");
-const { promises } = require("fs-extra");
+const Fraction = require("../utils/fractionUtils");
+// const { promises } = require("fs-extra"); // Unused?
 
 // Helper function to format date for SQLite
 const formatDateForSql = (date) => {
@@ -646,8 +647,8 @@ const newReceipts = async (req, res) => {
       const formattedName = product.name.trim().toLowerCase();
       const inventoryItem = inventoryMap.get(formattedName);
 
-      let quantityToDeduct = product.quantity;
       let atomicQuantityToDeduct = product.quantity;
+      let conversionRate = 1;
 
       if (product.unit && product.unit !== inventoryItem.baseUnit) {
         const conversion = await new Promise((resolve, reject) => {
@@ -665,25 +666,38 @@ const newReceipts = async (req, res) => {
           );
         });
 
-        quantityToDeduct = product.quantity / conversion.conversionRate;
-        atomicQuantityToDeduct =
-          product.quantity * (inventoryItem.atomicUnitQuantity || 1);
+        if (conversion) {
+            conversionRate = conversion.conversionRate;
+            atomicQuantityToDeduct = product.quantity * (inventoryItem.atomicUnitQuantity || 1);
+        } else if (product.unit !== "none") {
+             // Fallback if unit specified but not found? Should have been caught earlier.
+        }
       }
 
       await new Promise((resolve, reject) => {
-        // Add precision handling function at the top
-        function toPrecisionInteger(value, decimals = 6) {
-          return Math.round(value * Math.pow(10, decimals));
+        // USE FRACTION LOGIC
+        const currentNum = inventoryItem.quantity_numerator !== undefined ? inventoryItem.quantity_numerator : Math.round(inventoryItem.onhand);
+        const currentDen = inventoryItem.quantity_denominator !== undefined ? inventoryItem.quantity_denominator : 1;
+        const currentFrac = new Fraction(currentNum, currentDen);
+
+        let deductFrac;
+        if (product.unit && product.unit !== inventoryItem.baseUnit && conversionRate > 1) {
+            // Deducting sub-units. Fraction = quantity / conversionRate
+            // e.g. 1 Can = 1/6 Pack (if rate is 6)
+            deductFrac = new Fraction(product.quantity, conversionRate);
+        } else {
+            // Deducting base units. Fraction = quantity / 1
+            deductFrac = new Fraction(product.quantity, 1);
         }
 
-        function fromPrecisionInteger(value, decimals = 6) {
-          return value / Math.pow(10, decimals);
-        }
+        const newFrac = currentFrac.subtract(deductFrac);
 
-        // Update the inventory update logic around line 537
+        // Update the inventory
         const updateInventory = `
           UPDATE Inventory 
-          SET onhand = ROUND(onhand - ?, 10), 
+          SET onhand = ?, 
+              quantity_numerator = ?,
+              quantity_denominator = ?,
               atomicUnitQuantity = CASE 
                 WHEN (COALESCE(atomicUnitQuantity, 0) - ?) <= 0 THEN NULL
                 ELSE ROUND(COALESCE(atomicUnitQuantity, 0) - ?, 10)
@@ -695,7 +709,9 @@ const newReceipts = async (req, res) => {
         db.run(
           updateInventory,
           [
-            quantityToDeduct,
+            newFrac.toFloat(), // Float for display
+            newFrac.n,         // Numerator
+            newFrac.d,         // Denominator
             atomicQuantityToDeduct,
             atomicQuantityToDeduct,
             new Date().toISOString(),

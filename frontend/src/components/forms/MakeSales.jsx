@@ -30,6 +30,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import ReceiptTemplate from "../compPrint/ReceiptTemplate";
 import { useLocation } from "react-router-dom";
 import Loader from "../common/Loader";
+import { formatQuantity } from "../../utils/quantityFormat";
 
 
 const validationSchema = Yup.object().shape({
@@ -204,7 +205,7 @@ const MakeSales = ({
                   ? selectedProduct.atomicUnit 
                   : selectedProduct.baseUnit;
                 stockErrors.push(
-                  `${capitalizeFirstLetter(product.name)}: Insufficient stock. Available: ${availableStock} ${unitDisplay}`
+                  `${capitalizeFirstLetter(product.name)}: Insufficient stock. Available: ${formatQuantity(selectedProduct)} ${unitDisplay}`
                 );
               }
             }

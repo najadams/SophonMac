@@ -293,6 +293,158 @@ const IntelligenceService = {
           throw error;
       }
   }
+  // ===========================================================================
+  // 5. SALES FORECASTING (Linear Regression)
+  // ===========================================================================
+
+  async getSalesForecast(companyId) {
+      try {
+          // Get monthly sales for the last 12 months
+          const today = new Date();
+          const twelveMonthsAgo = subDays(today, 365).toISOString();
+
+          return new Promise((resolve, reject) => {
+              db.all(
+                  `SELECT 
+                      strftime('%Y-%m', createdAt) as month,
+                      SUM(total) as total
+                   FROM Receipt
+                   WHERE companyId = ? AND createdAt >= ?
+                   GROUP BY strftime('%Y-%m', createdAt)
+                   ORDER BY month ASC`,
+                  [companyId, twelveMonthsAgo],
+                  (err, rows) => {
+                      if (err) return reject(err);
+
+                      const actualData = rows.map(r => ({
+                          name: format(parseISO(r.month + '-01'), 'MMM'),
+                          fullDate: r.month,
+                          actual: r.total,
+                          projected: null
+                      }));
+
+                      // Linear Regression Calculation
+                      // x = month index (0, 1, 2...), y = sales
+                      const n = rows.length;
+                      if (n < 2) {
+                          // Not enough data for regression, return actuals only
+                          return resolve(actualData);
+                      }
+
+                      let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+                      rows.forEach((row, i) => {
+                          sumX += i;
+                          sumY += row.total;
+                          sumXY += i * row.total;
+                          sumXX += i * i;
+                      });
+
+                      const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                      const intercept = (sumY - slope * sumX) / n;
+
+                      // Generate Forecast for next 6 months
+                      const forecastData = [];
+                      for (let i = 1; i <= 6; i++) {
+                          const nextMonthDate = new Date();
+                          nextMonthDate.setMonth(today.getMonth() + i);
+                          
+                          const x = n - 1 + i; // Continue x index
+                          const y = slope * x + intercept;
+
+                          forecastData.push({
+                              name: format(nextMonthDate, 'MMM'),
+                              actual: null,
+                              projected: Math.max(0, parseFloat(y.toFixed(2))) // No negative sales
+                          });
+                      }
+
+                      resolve([...actualData, ...forecastData]);
+                  }
+              );
+          });
+      } catch (error) {
+          console.error('Error calculating sales forecast:', error);
+          throw error;
+      }
+  },
+
+  // ===========================================================================
+  // 6. TAX INTELLIGENCE (Liability Estimation)
+  // ===========================================================================
+
+  async getTaxInsights(companyId) {
+      try {
+          const db = require('../data/db/db');
+          
+          // Get Tax Config to know frequency
+          const config = await new Promise((resolve) => {
+              db.get("SELECT * FROM TaxConfig LIMIT 1", (err, row) => resolve(row));
+          });
+
+          // Determine current tax period based on filing frequency
+          // Default to monthly if not set
+          const frequency = config?.filingFrequency || 'monthly';
+          const today = new Date();
+          let startDate, endDate;
+
+          if (frequency === 'quarterly') {
+               const quarter = Math.floor((today.getMonth() + 3) / 3);
+               startDate = new Date(today.getFullYear(), (quarter - 1) * 3, 1);
+               endDate = new Date(today.getFullYear(), quarter * 3, 0); // Last day of quarter
+          } else {
+               // Monthly
+               startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+               endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          }
+
+          // Calculate Output VAT (from Sales)
+          // Assuming tax is stored in Receipt or we calculate 15% flat for MVP if not explicit
+          // Better: Use Receipt.taxAmount if it exists, or Receipt.total * 0.1304 (if 15% inclusive)
+          // For this implementation, we sum 'tax' column if it exists in Receipt, otherwise 0
+          
+          const outputVat = await new Promise((resolve) => {
+              db.get(
+                  `SELECT SUM(tax) as totalTax FROM Receipt 
+                   WHERE companyId = ? AND createdAt BETWEEN ? AND ?`,
+                  [companyId, startDate.toISOString(), endDate.toISOString()],
+                  (err, row) => resolve(row?.totalTax || 0)
+              );
+          });
+
+          // Calculate Input VAT (from Purchases)
+          const inputVat = await new Promise((resolve) => {
+              // Purchases table needs vatAmount column (added in migration)
+              db.get(
+                  `SELECT SUM(vatAmount) as totalInputTax FROM Purchases 
+                   WHERE companyId = ? AND purchaseDate BETWEEN ? AND ?`,
+                  [companyId, startDate.toISOString(), endDate.toISOString()],
+                  (err, row) => resolve(row?.totalInputTax || 0)
+              );
+          });
+
+          const liability = outputVat - inputVat;
+          
+          // Next filing due date: 15th of next month (standard)
+          const nextFilingDate = new Date(endDate);
+          nextFilingDate.setDate(15);
+          nextFilingDate.setMonth(nextFilingDate.getMonth() + 1);
+
+          return {
+              period: frequency === 'quarterly' ? 'Quarter To Date' : 'Month To Date',
+              startDate: format(startDate, 'yyyy-MM-dd'),
+              endDate: format(endDate, 'yyyy-MM-dd'),
+              outputVat: Number(outputVat.toFixed(2)),
+              inputVat: Number(inputVat.toFixed(2)),
+              estimatedLiability: Number(liability.toFixed(2)),
+              nextFilingDeadline: format(nextFilingDate, 'yyyy-MM-dd'),
+              status: liability > 0 ? 'payable' : 'refundable'
+          };
+
+      } catch (error) {
+          console.error('Error fetching tax insights:', error);
+          throw error;
+      }
+  }
 };
 
 module.exports = IntelligenceService;

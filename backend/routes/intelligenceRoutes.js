@@ -51,17 +51,42 @@ router.get('/anomalies/:companyId', async (req, res) => {
   }
 });
 
+// GET /api/intelligence/forecast/:companyId
+router.get('/forecast/:companyId', async (req, res) => {
+    try {
+        const { companyId } = req.params;
+        const forecast = await IntelligenceService.getSalesForecast(companyId);
+        res.json(forecast);
+    } catch (error) {
+        console.error('API Error: forecast', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/intelligence/tax/:companyId
+router.get('/tax/:companyId', async (req, res) => {
+    try {
+        const { companyId } = req.params;
+        const tax = await IntelligenceService.getTaxInsights(companyId);
+        res.json(tax);
+    } catch (error) {
+        console.error('API Error: tax', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/intelligence/pulse/:companyId (Aggregated View)
 router.get('/pulse/:companyId', async (req, res) => {
     try {
         const { companyId } = req.params;
         
         // Execute in parallel for performance
-        const [reorders, anomalies, trends, productIntel] = await Promise.all([
+        const [reorders, anomalies, trends, productIntel, tax] = await Promise.all([
             IntelligenceService.getReorderSuggestions(companyId, 3), // Critical only (3 days)
             IntelligenceService.detectAnomalies(companyId),
             IntelligenceService.getSalesTrends(companyId),
-            IntelligenceService.getProductIntelligence(companyId)
+            IntelligenceService.getProductIntelligence(companyId),
+            IntelligenceService.getTaxInsights(companyId)
         ]);
         
         res.json({
@@ -69,7 +94,8 @@ router.get('/pulse/:companyId', async (req, res) => {
             criticalReorders: reorders.filter(r => r.riskLevel === 'critical'),
             anomalies,
             dailyTrend: trends.daily,
-            deadStockCount: productIntel.deadStock.length
+            deadStockCount: productIntel.deadStock.length,
+            tax
         });
     } catch (error) {
         console.error('API Error: pulse', error);

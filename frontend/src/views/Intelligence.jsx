@@ -23,12 +23,15 @@ import {
   Lightbulb,
   Refresh,
   CheckCircle,
-  AccessTime
+  AccessTime,
+  ReceiptLong,
+  CalendarToday
 } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 import axios from "../config/index";
 import { motion } from "framer-motion";
 import Loader from "../components/common/Loader";
+import ForecastingChart from "./components/ForecastingChart"; // Adjust path if needed (e.g. view/components)
 import {
   BarChart,
   Bar,
@@ -40,6 +43,7 @@ import {
   Cell
 } from "recharts";
 import { format } from "date-fns";
+import { formatQuantity } from "../utils/quantityFormat";
 
 const Intelligence = () => {
     const theme = useTheme();
@@ -53,6 +57,8 @@ const Intelligence = () => {
     const [reordersData, setReordersData] = useState([]);
     const [anomaliesData, setAnomaliesData] = useState([]);
     const [productIntelData, setProductIntelData] = useState(null);
+    const [forecastData, setForecastData] = useState([]);
+    const [taxData, setTaxData] = useState(null);
     const [error, setError] = useState(null);
 
     const fetchData = async () => {
@@ -60,19 +66,24 @@ const Intelligence = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const [pulseRes, trendsRes, reordersRes, anomaliesRes, productRes] = await Promise.all([
+            const [pulseRes, trendsRes, reordersRes, anomaliesRes, productRes, forecastRes] = await Promise.all([
                  axios.get(`/api/intelligence/pulse/${companyId}`),
                  axios.get(`/api/intelligence/trends/${companyId}?period=7d`),
                  axios.get(`/api/intelligence/reorders/${companyId}`),
                  axios.get(`/api/intelligence/anomalies/${companyId}`),
-                 axios.get(`/api/intelligence/product-performance/${companyId}`)
+                 axios.get(`/api/intelligence/product-performance/${companyId}`),
+                 axios.get(`/api/intelligence/forecast/${companyId}`)
             ]);
 
             setPulseData(pulseRes.data);
+            if (pulseRes.data.tax) {
+                setTaxData(pulseRes.data.tax);
+            }
             setTrendsData(trendsRes.data);
             setReordersData(reordersRes.data);
             setAnomaliesData(anomaliesRes.data);
             setProductIntelData(productRes.data);
+            setForecastData(forecastRes.data);
             setLastRefreshed(new Date());
 
         } catch (err) {
@@ -126,12 +137,17 @@ const Intelligence = () => {
              if (value > -10) return colors.neutral; // Small drop is normal
              return colors.red; // Big drop
         }
+        if (type === 'tax') {
+            // Always neutral/info unless overdue (which we don't track yet)
+             return colors.neutral;
+        }
         return colors.neutral;
     };
 
     const stockStatus = getStatusParams('stock', pulseData?.reordersCount || 0);
     const anomalyStatus = getStatusParams('anomalies', pulseData?.anomalies?.length || 0);
     const trendStatus = getStatusParams('sales', trendsData?.daily?.percentChange || 0);
+    const taxStatus = getStatusParams('tax', 0);
 
     return (
         <Box sx={{ p: 2, height: "100%", overflowY: "auto", bgcolor: '#f5f5f5' }}>
@@ -171,7 +187,7 @@ const Intelligence = () => {
                 {/* 1. PULSE (Health Monitor) */}
                 <Grid container spacing={2} mb={3}>
                     {/* Stock Risks */}
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} sm={6} md={3}>
                         <PulseCard 
                             title="Stock Risks" 
                             status={stockStatus}
@@ -181,7 +197,7 @@ const Intelligence = () => {
                     </Grid>
 
                     {/* Sales Trend */}
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} sm={6} md={3}>
                         <PulseCard 
                             title="Sales Trend (Today)" 
                             status={trendStatus}
@@ -192,7 +208,7 @@ const Intelligence = () => {
                     </Grid>
 
                     {/* Anomalies */}
-                    <Grid item xs={12} md={4}>
+                    <Grid item xs={12} sm={6} md={3}>
                         <PulseCard 
                             title="Anomalies Today" 
                             status={anomalyStatus}
@@ -201,12 +217,23 @@ const Intelligence = () => {
                             icon={<Warning />}
                         />
                     </Grid>
+
+                     {/* Tax Intelligence */}
+                     <Grid item xs={12} sm={6} md={3}>
+                        <PulseCard 
+                            title="Tax Output (MTD)" 
+                            status={taxStatus}
+                            value={<>{company?.currency?.symbol}{taxData?.outputVat?.toFixed(0) || '0'}</>}
+                            subLabel={`Est. Liability: ${company?.currency?.symbol}${taxData?.estimatedLiability?.toFixed(0) || '0'}`}
+                            icon={<ReceiptLong />}
+                        />
+                    </Grid>
                 </Grid>
 
                 {/* 2. MAIN CONTENT GRID */}
                 <Grid container spacing={2}>
                     
-                    {/* LEFT COLUMN: Trends & Reorders */}
+                    {/* LEFT COLUMN: Trends, Forecast, Reorders */}
                     <Grid item xs={12} md={8}>
                          {/* SALES TREND CHART */}
                          <motion.div variants={itemVariants}>
@@ -215,7 +242,7 @@ const Intelligence = () => {
                                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                                         <Typography variant="h6" fontWeight="600">Sales Performance (7 Days)</Typography>
                                     </Box>
-                                    <ResponsiveContainer width="100%" height={280}>
+                                    <ResponsiveContainer width="100%" height={250}>
                                         <BarChart data={trendsData?.chartData || []}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                                             <XAxis 
@@ -246,6 +273,17 @@ const Intelligence = () => {
                             </Card>
                          </motion.div>
 
+                         {/* SALES FORECAST CHART */}
+                         <motion.div variants={itemVariants}>
+                             <Box mb={2}>
+                                 <ForecastingChart 
+                                     data={forecastData} 
+                                     loading={isLoading} 
+                                     title="Business Forecast (6 Months)" 
+                                 />
+                             </Box>
+                         </motion.div>
+
                          {/* REORDER SUGGESTIONS */}
                          <motion.div variants={itemVariants}>
                              <Card sx={{ borderRadius: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
@@ -273,7 +311,7 @@ const Intelligence = () => {
                                                              primary={<Typography variant="subtitle2" fontWeight="600">{item.name}</Typography>}
                                                              secondary={
                                                                  <Typography variant="caption" color="text.secondary">
-                                                                     {item.onhand} in stock • Burning {item.burnRate}/day
+                                                                     {formatQuantity(item.onhand)} in stock • Burning {formatQuantity(item.burnRate)}/day
                                                                  </Typography>
                                                              }
                                                          />
@@ -304,7 +342,7 @@ const Intelligence = () => {
                     <Grid item xs={12} md={4}>
                         {/* DEAD STOCK */}
                         <motion.div variants={itemVariants}>
-                            <Card sx={{ borderRadius: 3, height: '100%', boxShadow: '0px 2px 4px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
+                            <Card sx={{ borderRadius: 3, mb: 2, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)', border: '1px solid #eee' }}>
                                 <CardContent>
                                      <Typography variant="h6" mb={0.5} color="text.primary" fontWeight="600">Dead Stock</Typography>
                                      <Typography variant="caption" color="text.secondary" mb={2} display="block">
@@ -334,6 +372,44 @@ const Intelligence = () => {
                                      )}
                                 </CardContent>
                             </Card>
+                        </motion.div>
+
+                        {/* TAX DETAILS */}
+                        <motion.div variants={itemVariants}>
+                             <Card sx={{ borderRadius: 3, boxShadow: '0px 2px 4px rgba(0,0,0,0.05)', border: '1px solid #eee', bgcolor: '#f8f9fa' }}>
+                                 <CardContent>
+                                    <Box display="flex" alignItems="center" mb={1}>
+                                         <ReceiptLong sx={{ color: '#546e7a', mr: 1 }} />
+                                         <Typography variant="h6" fontWeight="600">Tax Filing</Typography>
+                                    </Box>
+                                    <Typography variant="body2" color="text.secondary" mb={2}>
+                                        Next Deadline: <strong>{taxData?.nextFilingDeadline || 'N/A'}</strong>
+                                    </Typography>
+                                    
+                                    <Divider sx={{ mb: 2 }} />
+                                    
+                                    <Grid container spacing={1}>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Output VAT</Typography>
+                                            <Typography variant="body1" fontWeight="600">{company?.currency?.symbol}{taxData?.outputVat?.toFixed(2) || '0.00'}</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Input VAT</Typography>
+                                            <Typography variant="body1" fontWeight="600">{company?.currency?.symbol}{taxData?.inputVat?.toFixed(2) || '0.00'}</Typography>
+                                        </Grid>
+                                        <Grid item xs={12} mt={1}>
+                                            <Box p={1.5} bgcolor={taxData?.estimatedLiability > 0 ? '#ffebee' : '#e8f5e9'} borderRadius={2} textAlign="center">
+                                                <Typography variant="caption" color={taxData?.estimatedLiability > 0 ? "error" : "success.main"} fontWeight="bold">
+                                                    NET {taxData?.estimatedLiability > 0 ? "PAYABLE" : "REFUNDABLE"}
+                                                </Typography>
+                                                <Typography variant="h5" fontWeight="800" color={taxData?.estimatedLiability > 0 ? "error" : "success.main"}>
+                                                    {company?.currency?.symbol}{Math.abs(taxData?.estimatedLiability || 0).toFixed(2)}
+                                                </Typography>
+                                            </Box>
+                                        </Grid>
+                                    </Grid>
+                                 </CardContent>
+                             </Card>
                         </motion.div>
                     </Grid>
                 </Grid>
