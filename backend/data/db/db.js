@@ -134,6 +134,14 @@ function initializeDatabase() {
         if (cb) cb(err);
       }
     },
+    prepare(sql) {
+        try {
+            return connection.prepare(sql);
+        } catch (err) {
+            console.error("Error preparing statement:", err.message);
+            throw err;
+        }
+    },
     close(cb) {
       try {
         if (connection) {

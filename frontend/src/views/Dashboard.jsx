@@ -48,7 +48,9 @@ import {
   Visibility,
   VisibilityOff,
   Group,
+  Lightbulb,
 } from "@mui/icons-material";
+import axios from "../config/index";
 import { useSelector } from "react-redux";
 import { useQuery } from "react-query";
 import { motion } from "framer-motion";
@@ -998,6 +1000,15 @@ const Dashboard = () => {
     }
   );
 
+  const { data: pulseData, isLoading: isPulseLoading } = useQuery(
+    ["intelligencePulse", companyId],
+    async () => {
+        const res = await axios.get(`/api/intelligence/pulse/${companyId}`);
+        return res.data;
+    },
+    { enabled: !!companyId }
+  );
+
   const productCount = counts?.productCount || 0;
   const userCount = counts?.userCount || 0;
   const customerCount = counts?.customerCount || 0;
@@ -1074,6 +1085,9 @@ const Dashboard = () => {
       </motion.div>
 
       <Grid container spacing={2}>
+        <Grid item xs={12} sm={12} md={12}>
+           <SmartInsightWidget data={pulseData} isLoading={isPulseLoading} />
+        </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Widgets
             title="Sales"
@@ -1359,6 +1373,66 @@ const Dashboard = () => {
       <DashboardMetrics dateRange={dateRange} />
     </motion.div>
   );
+};
+
+const SmartInsightWidget = ({ data, isLoading }) => {
+    if (isLoading) return null; // Or skeleton
+    
+    // Determine status
+    const criticalReorders = data?.reordersCount || 0;
+    const anomalies = data?.anomalies?.length || 0;
+    const hasIssues = criticalReorders > 0 || anomalies > 0;
+
+    return (
+        <motion.div
+           initial={{ opacity: 0, y: -20 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ duration: 0.5 }}
+        >
+            <Paper 
+                component={motion.div}
+                whileHover={{ scale: 1.01 }}
+                sx={{ 
+                    p: 2, 
+                    mb: 2, 
+                    borderRadius: 2, 
+                    background: hasIssues ? 'linear-gradient(135deg, #fff3e0 0%, #ffffff 100%)' : 'linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%)',
+                    borderLeft: hasIssues ? '6px solid #ff9800' : '6px solid #4caf50',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer'
+                }}
+                onClick={() => window.location.href = '/intelligence'}
+            >
+                <Box display="flex" alignItems="center">
+                    <Box 
+                        sx={{ 
+                            p: 1.5, 
+                            borderRadius: '50%', 
+                            bgcolor: hasIssues ? '#fff3e0' : '#e8f5e9',
+                            mr: 2
+                        }}
+                    >
+                        {hasIssues ? <Warning color="warning" /> : <Lightbulb color="success" />}
+                    </Box>
+                    <Box>
+                        <Typography variant="h6" fontWeight="bold">
+                            {hasIssues ? "Attention Needed" : "Shop Intelligence: All Good"}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {hasIssues 
+                                ? `${criticalReorders} stock risks, ${anomalies} anomalies detected today.` 
+                                : "Sales are tracking normal. No urgent risks."}
+                        </Typography>
+                    </Box>
+                </Box>
+                <Button variant="outlined" size="small" color={hasIssues ? "warning" : "success"}>
+                    View Details
+                </Button>
+            </Paper>
+        </motion.div>
+    );
 };
 
 export default Dashboard;

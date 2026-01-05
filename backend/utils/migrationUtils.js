@@ -171,6 +171,7 @@ const runMigrations = async () => {
     await runReceiptDetailMigration();
     await runCustomRolesMigration();
     await runCurrencyNormalizationMigration();
+    await runTaxConfigHistoryMigration();
     console.log('All migrations completed successfully!');
   } catch (error) {
     console.error('Migration error:', error);
@@ -289,6 +290,8 @@ async function runTaxConfigHistoryMigration() {
                 });
             }
             console.log('Tax Config History migration applied.');
+        } else {
+            console.log('Tax Config History migration already applied.');
         }
     } catch (error) {
         console.warn('Tax Config History migration failed:', error.message);

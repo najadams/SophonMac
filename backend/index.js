@@ -259,8 +259,9 @@ function registerRoutes(withDb) {
       const currencyRoutes = require('./routes/currencyRoutes');
       const backupRoutes = require('./routes/backupRoutes');
       const taxRoutes = require("./routes/taxRoutes");
-      const taxSettingsRoutes = require("./routes/taxSettingsRoutes");
+      // const taxSettingsRoutes = require("./routes/taxSettingsRoutes");
       const vatTokenRoutes = require("./routes/vatTokenRoutes");
+      const intelligenceRoutes = require("./routes/intelligenceRoutes");
 
       app.use('/api/auth', authRoutes);
       app.use('/api/companies', companyRoutes);
@@ -285,6 +286,7 @@ function registerRoutes(withDb) {
       app.use('/api/devices', require('./routes/deviceRoutes'));
       app.use('/api/vat-tokens', require('./routes/vatTokenRoutes'));
       app.use('/api/governance', require('./routes/governanceRoutes'));
+      app.use('/api/intelligence', intelligenceRoutes);
       app.use('/api/analytics', require('./routes/analyticsRoutes'));
       console.log('Registered full route set with DB');
     } else {
