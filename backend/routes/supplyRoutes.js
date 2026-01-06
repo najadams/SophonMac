@@ -322,7 +322,7 @@ router.post('/:companyId', (req, res) => {
                              // Supply usually in Base Unit unless specified?
                              // item.quantity is usually in Base Unit for supply?
                              // Assuming supply is in Base Unit for now as there's no unit field in supply products in this snippet.
-                             const addFrac = new Fraction(item.quantity, 1);
+                             const addFrac = Fraction.from(item.quantity);
                              const newFrac = currentFrac.add(addFrac);
 
                              db.run(

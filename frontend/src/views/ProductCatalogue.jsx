@@ -10,6 +10,7 @@ import { Box, Tabs, Tab, Typography, Paper } from "@mui/material";
 import ReceiveInventory from "../components/forms/ReceiveInventory";
 
 import { alpha } from "@mui/material/styles";
+import { formatQuantity } from "../utils/quantityFormat";
 
 const fetchProducts = async (companyId) => {
   try {
@@ -29,6 +30,8 @@ const fetchProducts = async (companyId) => {
       description: item.description,
       sku: item.sku,
       barcode: item.barcode,
+      quantity_numerator: item.quantity_numerator,
+      quantity_denominator: item.quantity_denominator,
     }));
     return data;
   } catch (error) {
@@ -167,7 +170,10 @@ const ProductCatalogue = () => {
             <TableCreater
               companyId={companyId}
               type={"products"}
-              data={products}
+              data={products.map(p => ({
+                 ...p,
+                 onhand: formatQuantity(p) 
+              }))}
               onDataUpdate={handleProductUpdate} // This prop should be used in TableCreater
             />
           ) : (

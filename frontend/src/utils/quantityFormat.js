@@ -109,12 +109,14 @@ function approximateFraction(x) {
     let h1 = 1, h2 = 0, k1 = 0, k2 = 1;
     let b = x;
     
+    const maxDenom = 1000;
+    
     do {
         const a = Math.floor(b);
         let aux = h1; h1 = a * h1 + h2; h2 = aux;
         aux = k1; k1 = a * k1 + k2; k2 = aux;
         b = 1 / (b - a);
-    } while (Math.abs(x - h1 / k1) > x * tolerance);
+    } while (Math.abs(x - h1 / k1) > x * tolerance && k1 < maxDenom);
     
     return { n: h1, d: k1 };
 }

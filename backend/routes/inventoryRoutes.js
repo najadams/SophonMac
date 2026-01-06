@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
 const dbUtils = require('../utils/dbUtils');
-const dbUtils = require('../utils/dbUtils');
 const EventService = require('../services/eventService');
 const Fraction = require('../utils/fractionUtils');
 
@@ -129,7 +128,6 @@ const newProduct = async (req, res) => {
         `INSERT INTO Inventory (
           id, companyId, name, category, baseUnit, costPrice, salesPrice, 
           onhand, reorderPoint, minimumStock, description, sku, barcode, 
-          deleted, allowsUnitBreakdown, atomicUnit, lossFactor
           id, companyId, name, category, baseUnit, costPrice, salesPrice, 
           onhand, reorderPoint, minimumStock, description, sku, barcode, 
           deleted, allowsUnitBreakdown, atomicUnit, lossFactor,
@@ -149,9 +147,6 @@ const newProduct = async (req, res) => {
           productData.description,
           productData.sku,
           productData.barcode,
-          productData.deleted,
-          productData.allowsUnitBreakdown,
-          productData.atomicUnit,
           productData.deleted,
           productData.allowsUnitBreakdown,
           productData.atomicUnit,

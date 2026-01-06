@@ -684,10 +684,10 @@ const newReceipts = async (req, res) => {
         if (product.unit && product.unit !== inventoryItem.baseUnit && conversionRate > 1) {
             // Deducting sub-units. Fraction = quantity / conversionRate
             // e.g. 1 Can = 1/6 Pack (if rate is 6)
-            deductFrac = new Fraction(product.quantity, conversionRate);
+            deductFrac = Fraction.from(product.quantity).divide(Fraction.from(conversionRate));
         } else {
             // Deducting base units. Fraction = quantity / 1
-            deductFrac = new Fraction(product.quantity, 1);
+            deductFrac = Fraction.from(product.quantity);
         }
 
         const newFrac = currentFrac.subtract(deductFrac);

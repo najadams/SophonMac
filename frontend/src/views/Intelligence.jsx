@@ -256,7 +256,7 @@ const Intelligence = () => {
                                                 axisLine={false} 
                                                 tickLine={false} 
                                                 tick={{ fill: '#757575', fontSize: 12 }} 
-                                                tickFormatter={(val) => `${company?.currency?.symbol}${val}`}
+                                                tickFormatter={(val) => `${company?.currency?.symbol || ''}${val}`}
                                             />
                                             <RechartsTooltip 
                                                 cursor={{ fill: '#f5f5f5' }}

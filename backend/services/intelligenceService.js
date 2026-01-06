@@ -292,7 +292,7 @@ const IntelligenceService = {
           console.error('Error detecting anomalies:', error);
           throw error;
       }
-  }
+  },
   // ===========================================================================
   // 5. SALES FORECASTING (Linear Regression)
   // ===========================================================================
