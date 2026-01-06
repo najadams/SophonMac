@@ -37,6 +37,7 @@ const supabaseConfig = {
       'Vendor',
       'Inventory',
       'Receipt',          // Must come before ReceiptDetail and Debt
+      'ReceiptPayment',   // Depends on Receipt
       'ReceiptDetail',    // Depends on Receipt
       'Debt',             // Depends on Receipt (receiptId)
       'DebtPayment',      // Depends on Debt

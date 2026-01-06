@@ -1116,7 +1116,7 @@ class SyncEngine extends EventEmitter {
 
       // Check if record exists locally
       // Determine which timestamp column to use
-      const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+      const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem', 'ReceiptPayment'];
       const timestampCol = tablesWithoutUpdatedAt.includes(tableName) ? 'id' : 'updatedAt'; // Fallback to id if no timestamp (not ideal but prevents error)
       
       let query = `SELECT id`;
@@ -1213,7 +1213,7 @@ class SyncEngine extends EventEmitter {
       const validColumns = await this.getTableColumns(tableName);
 
       // Define tables that don't have createdAt/updatedAt
-      const tablesWithoutTimestamp = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+      const tablesWithoutTimestamp = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem', 'ReceiptPayment'];
       
       let columns = Object.keys(record);
     

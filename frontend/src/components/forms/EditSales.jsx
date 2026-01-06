@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import { validateFields } from "../../config/Functions";
 import Loader from "../common/Loader";
+import PaymentInput from "./PaymentInput";
 import ErrorAlert from "../../utils/Error";
 import { Autocomplete } from "@mui/material";
 import { Input } from "@mui/material";
@@ -1298,113 +1299,55 @@ const EditSales = () => {
 
               <div
                 style={{
-                  display: "flex",
-                  gap: "1rem",
-                  flexWrap: "wrap",
                   marginBottom: "1rem",
                 }}>
-                <Field name="amountPaid">
-                  {({ field, form }) => {
-                    const hasError = Boolean(
-                      form.errors.amountPaid && form.touched.amountPaid
-                    );
-                    return (
-                      <TextField
-                        {...field}
-                        label="Amount Paid"
-                        type="number"
-                        placeholder="Amount Paid"
-                        fullWidth
-                        error={hasError}
-                        helperText={hasError ? form.errors.amountPaid : ""}
-                        variant="outlined"
-                        onChange={(event) => {
-                          setFieldValue("amountPaid", event.target.value || 0);
-                        }}
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            borderRadius: "8px",
-                          },
-                          "& .MuiInputLabel-root": {
-                            color: "#666",
-                          },
-                        }}
-                      />
-                    );
-                  }}
-                </Field>
-                <Field name="discount">
-                  {({ field, form }) => {
-                    const hasError = Boolean(
-                      form.errors.discount && form.touched.discount
-                    );
-                    return (
-                      <TextField
-                        {...field}
-                        label="Discount"
-                        type="number"
-                        placeholder="Discount"
-                        fullWidth
-                        error={hasError}
-                        helperText={hasError ? form.errors.discount : ""}
-                        variant="outlined"
-                        onChange={(event) => {
-                          setFieldValue("discount", event.target.value);
-                        }}
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            borderRadius: "8px",
-                          },
-                          "& .MuiInputLabel-root": {
-                            color: "#666",
-                          },
-                        }}
-                      />
-                    );
-                  }}
-                </Field>
-                <Field name="paymentMethod">
-                  {({ field, form }) => {
-                    const hasError = Boolean(
-                      form.errors.paymentMethod && form.touched.paymentMethod
-                    );
-                    return (
-                      <FormControl
-                        fullWidth
-                        error={hasError}
-                        variant="outlined">
-                        <InputLabel>Payment Method</InputLabel>
-                        <Select
-                          {...field}
-                          label="Payment Method"
-                          value={field.value || "cash"}
-                          onChange={(event) => {
-                            setFieldValue("paymentMethod", event.target.value);
-                          }}
-                          sx={{
-                            "& .MuiOutlinedInput-root": {
-                              borderRadius: "8px",
-                            },
-                          }}>
-                          <MenuItem value="cash">Cash</MenuItem>
-                          <MenuItem value="card">Card</MenuItem>
-                          <MenuItem value="mobile_money">Mobile Money</MenuItem>
-                          <MenuItem value="bank_transfer">
-                            Bank Transfer
-                          </MenuItem>
-                        </Select>
-                        {hasError && (
-                          <Typography
-                            variant="caption"
-                            color="error"
-                            sx={{ mt: 0.5 }}>
-                            {form.errors.paymentMethod}
-                          </Typography>
-                        )}
-                      </FormControl>
-                    );
-                  }}
-                </Field>
+                <PaymentInput 
+                  values={values} 
+                  setFieldValue={setFieldValue} 
+                  totalAmount={Math.ceil(values.products?.reduce(
+                        (sum, product) => sum + (product?.totalPrice || 0),
+                        0
+                      ))} 
+                />
+
+                 {/* Hidden fields to maintain Formik state/validation for legacy dependencies */}
+                 <div style={{ display: 'none' }}>
+                    <Field name="amountPaid" />
+                    <Field name="paymentMethod" />
+                 </div>
+
+                 <div style={{ marginTop: '1rem', width: '100%' }}>
+                    <Field name="discount">
+                      {({ field, form }) => {
+                        const hasError = Boolean(
+                          form.errors.discount && form.touched.discount
+                        );
+                        return (
+                          <TextField
+                            {...field}
+                            label="Discount"
+                            type="number"
+                            placeholder="Discount"
+                            fullWidth
+                            error={hasError}
+                            helperText={hasError ? form.errors.discount : ""}
+                            variant="outlined"
+                            onChange={(event) => {
+                              setFieldValue("discount", event.target.value);
+                            }}
+                            sx={{
+                              "& .MuiOutlinedInput-root": {
+                                borderRadius: "8px",
+                              },
+                              "& .MuiInputLabel-root": {
+                                color: "#666",
+                              },
+                            }}
+                          />
+                        );
+                      }}
+                    </Field>
+                </div>
               </div>
 
               <div

@@ -20,7 +20,9 @@ import {
   CreditCard,
   AccountBalance,
   PhoneAndroid,
+
   MonetizationOn,
+  CallSplit,
 } from "@mui/icons-material";
 import { formatNumber } from "../../config/Functions";
 
@@ -372,6 +374,17 @@ const SummaryReport = ({ data }) => {
                     ₵{formatNumber((amountPaid?.bankTransfer || 0) + (debtPayments.bankTransfer || 0) - (vendorPayments?.bankTransfer || 0))}
                   </span>
                 </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <CallSplit sx={{ fontSize: 16, color: "#795548" }} />
+                    <span style={{ color: "#666" }}>Split / Other:</span>
+                  </Box>
+                  <span style={{ fontWeight: 600, color: "#2e7d32" }}>
+                    ₵{formatNumber((amountPaid?.split || 0) + (debtPayments.split || 0) - (vendorPayments?.split || 0))}
+                  </span>
+                </Typography>
               </Box>
             </Card>
           </Grid>
@@ -432,6 +445,17 @@ const SummaryReport = ({ data }) => {
                   </Box>
                   <span style={{ fontWeight: 600, color: "#1976d2" }}>
                     ₵{formatNumber(debtPayments.bankTransfer || 0)}
+                  </span>
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <CallSplit sx={{ fontSize: 16, color: "#795548" }} />
+                    <span style={{ color: "#666" }}>Split / Other:</span>
+                  </Box>
+                  <span style={{ fontWeight: 600, color: "#1976d2" }}>
+                    ₵{formatNumber(debtPayments.split || 0)}
                   </span>
                 </Typography>
               </Box>
@@ -496,6 +520,17 @@ const SummaryReport = ({ data }) => {
                     ₵{formatNumber(vendorPayments?.bankTransfer || 0)}
                   </span>
                 </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <CallSplit sx={{ fontSize: 16, color: "#795548" }} />
+                    <span style={{ color: "#666" }}>Split / Other:</span>
+                  </Box>
+                  <span style={{ fontWeight: 600, color: "#d32f2f" }}>
+                    ₵{formatNumber(vendorPayments?.split || 0)}
+                  </span>
+                </Typography>
               </Box>
             </Card>
           </Grid>
@@ -530,6 +565,7 @@ const SummaryReport = ({ data }) => {
                 { name: "Mobile Money", amount: sales.momo, icon: PhoneAndroid, color: "#4caf50" },
                 { name: "Card", amount: sales.card || 0, icon: CreditCard, color: "#2196f3" },
                 { name: "Bank Transfer", amount: sales.bankTransfer || 0, icon: AccountBalance, color: "#9c27b0" },
+                { name: "Split / Other", amount: sales.split || 0, icon: CallSplit, color: "#795548" },
               ];
               
               const debtPaymentMethods = [
@@ -537,6 +573,7 @@ const SummaryReport = ({ data }) => {
                 { name: "Mobile Money", amount: debtPayments.momo, icon: PhoneAndroid, color: "#4caf50" },
                 { name: "Card", amount: debtPayments.card || 0, icon: CreditCard, color: "#2196f3" },
                 { name: "Bank Transfer", amount: debtPayments.bankTransfer || 0, icon: AccountBalance, color: "#9c27b0" },
+                { name: "Split / Other", amount: debtPayments.split || 0, icon: CallSplit, color: "#795548" },
               ];
               
               return (

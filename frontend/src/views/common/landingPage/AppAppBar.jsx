@@ -14,7 +14,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import ToggleColorMode from "./ToggleColorMode";
 
 const logoStyle = {
-  width: "20px",
+  width: "40px",
   height: "auto",
   cursor: "pointer",
   marginLeft: 10

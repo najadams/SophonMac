@@ -18,19 +18,21 @@ router.get('/summary', (req, res) => {
 
   const summaryQuery = `
     SELECT 
-      -- Sales data
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'cash' THEN total ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as salesCash,
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'mobile_money' THEN total ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as salesMomo,
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'card' THEN total ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as salesCard,
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'bank_transfer' THEN total ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as salesBankTransfer,
+      -- Sales data (Now Revenue/Collections based on ReceiptPayment)
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND rp.paymentMethod = 'cash') as salesCash,
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND rp.paymentMethod = 'mobile_money') as salesMomo,
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND rp.paymentMethod = 'card') as salesCard,
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND rp.paymentMethod = 'bank_transfer') as salesBankTransfer,
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND (rp.paymentMethod = 'split' OR rp.paymentMethod NOT IN ('cash', 'mobile_money', 'card', 'bank_transfer'))) as salesSplit,
       (SELECT COALESCE(SUM(total), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as totalSales,
       (SELECT COALESCE(SUM(discount), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as totalDiscounts,
       
-      -- Amount paid data
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'cash' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as amountPaidCash,
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'mobile_money' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as amountPaidMomo,
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'card' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as amountPaidCard,
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'bank_transfer' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as amountPaidBankTransfer,
+      -- Amount paid data (Same as Sales data now, fetched from ReceiptPayment)
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND rp.paymentMethod = 'cash') as amountPaidCash,
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND rp.paymentMethod = 'mobile_money') as amountPaidMomo,
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND rp.paymentMethod = 'card') as amountPaidCard,
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND rp.paymentMethod = 'bank_transfer') as amountPaidBankTransfer,
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND (rp.paymentMethod = 'split' OR rp.paymentMethod NOT IN ('cash', 'mobile_money', 'card', 'bank_transfer'))) as amountPaidSplit,
       (SELECT COALESCE(SUM(amountPaid), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) as totalAmountPaid,
       
       -- Debt payments data
@@ -38,6 +40,7 @@ router.get('/summary', (req, res) => {
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'momo' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsMomo,
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'card' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsCard,
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'bank_transfer' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsBankTransfer,
+      (SELECT COALESCE(SUM(CASE WHEN (dp.paymentMethod = 'split' OR dp.paymentMethod NOT IN ('cash', 'momo', 'card', 'bank_transfer')) THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as debtPaymentsSplit,
       (SELECT COALESCE(SUM(dp.amountPaid), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) as totalDebtPayments,
       
       -- Vendor payments data
@@ -45,13 +48,14 @@ router.get('/summary', (req, res) => {
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'mobile_money' THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as vendorPaymentsMomo,
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'card' THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as vendorPaymentsCard,
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'bank_transfer' THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as vendorPaymentsBankTransfer,
+      (SELECT COALESCE(SUM(CASE WHEN (paymentMethod = 'split' OR paymentMethod NOT IN ('cash', 'mobile_money', 'card', 'bank_transfer')) THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as vendorPaymentsSplit,
       (SELECT COALESCE(SUM(amount), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as totalVendorPayments,
       
       -- New debts acquired
       (SELECT COALESCE(SUM(amount), 0) FROM Debt WHERE companyId = ? AND DATE(createdAt) BETWEEN ? AND ?) as totalDebtsAcquired,
       
       -- Net cash received (amountPaid + debt payments - vendor payments)
-      (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'cash' THEN amountPaid ELSE 0 END), 0) FROM Receipt WHERE companyId = ? AND (flagged = 0 OR flagged IS NULL) AND DATE(createdAt) BETWEEN ? AND ?) +
+      (SELECT COALESCE(SUM(rp.amount), 0) FROM ReceiptPayment rp JOIN Receipt r ON rp.receiptId = r.id WHERE r.companyId = ? AND (r.flagged = 0 OR r.flagged IS NULL) AND DATE(r.createdAt) BETWEEN ? AND ? AND rp.paymentMethod = 'cash') +
       (SELECT COALESCE(SUM(CASE WHEN dp.paymentMethod = 'cash' THEN dp.amountPaid ELSE 0 END), 0) FROM DebtPayment dp JOIN Debt d ON dp.debtId = d.id WHERE d.companyId = ? AND DATE(dp.date) BETWEEN ? AND ?) -
       (SELECT COALESCE(SUM(CASE WHEN paymentMethod = 'cash' THEN amount ELSE 0 END), 0) FROM VendorPayment WHERE companyId = ? AND DATE(paymentDate) BETWEEN ? AND ?) as netCashReceived,
       
@@ -64,20 +68,20 @@ router.get('/summary', (req, res) => {
 
   // Create parameter array for all subqueries
   const params = [];
-  // Sales data (6 subqueries * 3 params each = 18)
+  // Sales data (7 subqueries * 3 params each = 21)
+  for (let i = 0; i < 7; i++) {
+    params.push(companyId, start, end);
+  }
+  // Amount paid data (6 subqueries * 3 params each = 18)
   for (let i = 0; i < 6; i++) {
     params.push(companyId, start, end);
   }
-  // Amount paid data (5 subqueries * 3 params each = 15)
-  for (let i = 0; i < 5; i++) {
+  // Debt payments data (6 subqueries * 3 params each = 18)
+  for (let i = 0; i < 6; i++) {
     params.push(companyId, start, end);
   }
-  // Debt payments data (5 subqueries * 3 params each = 15)
-  for (let i = 0; i < 5; i++) {
-    params.push(companyId, start, end);
-  }
-  // Vendor payments data (5 subqueries * 3 params each = 15)
-  for (let i = 0; i < 5; i++) {
+  // Vendor payments data (6 subqueries * 3 params each = 18)
+  for (let i = 0; i < 6; i++) {
     params.push(companyId, start, end);
   }
   // New debts acquired (1 subquery * 3 params = 3)
@@ -106,6 +110,7 @@ router.get('/summary', (req, res) => {
           momo: row.salesMomo || 0,
           card: row.salesCard || 0,
           bankTransfer: row.salesBankTransfer || 0,
+          split: row.salesSplit || 0,
           totalSales: row.totalSales || 0,
           discounts: row.totalDiscounts || 0
         },
@@ -114,6 +119,7 @@ router.get('/summary', (req, res) => {
           momo: row.amountPaidMomo || 0,
           card: row.amountPaidCard || 0,
           bankTransfer: row.amountPaidBankTransfer || 0,
+          split: row.amountPaidSplit || 0,
           totalAmountPaid: row.totalAmountPaid || 0
         },
         debtPayments: {
@@ -121,6 +127,7 @@ router.get('/summary', (req, res) => {
           momo: row.debtPaymentsMomo || 0,
           card: row.debtPaymentsCard || 0,
           bankTransfer: row.debtPaymentsBankTransfer || 0,
+          split: row.debtPaymentsSplit || 0,
           totalPaid: row.totalDebtPayments || 0
         },
         vendorPayments: {
@@ -128,6 +135,7 @@ router.get('/summary', (req, res) => {
           momo: row.vendorPaymentsMomo || 0,
           card: row.vendorPaymentsCard || 0,
           bankTransfer: row.vendorPaymentsBankTransfer || 0,
+          split: row.vendorPaymentsSplit || 0,
           totalPaid: row.totalVendorPayments || 0
         },
         debtsAcquired: {

@@ -16,42 +16,43 @@ import { useRef } from "react";
 
 const tiers = [
   {
-    title: "Free",
+    title: "Starter",
     price: "0",
     description: [
-      "10 users included",
-      "2 GB of storage",
-      "Help center access",
-      "Email support",
+      "1 Store Location",
+      "1 User Account",
+      "Unlimited Products",
+      "Digital Receipts",
+      "Basic Reporting",
     ],
     buttonText: "Sign up for free",
     buttonVariant: "outlined",
   },
   {
-    title: "Professional",
+    title: "Growth",
     subheader: "Recommended",
-    price: "15",
+    price: "29",
     description: [
-      "20 users included",
-      "10 GB of storage",
-      "Help center access",
-      "Priority email support",
-      "Dedicated team",
-      "Best deals",
+      "Up to 5 Users",
+      "Advanced Inventory & Alerts",
+      "Debt Management",
+      "Profit & Loss Reports",
+      "Customer Loyalty",
     ],
-    buttonText: "Start now",
+    buttonText: "Start free trial",
     buttonVariant: "contained",
   },
   {
     title: "Enterprise",
-    price: "30",
+    price: "99",
     description: [
-      "50 users included",
-      "30 GB of storage",
-      "Help center access",
-      "Phone & email support",
+      "Unlimited Users & Stores",
+      "Multi-store Synchronization",
+      "API Access",
+      "Dedicated Support",
+      "White-label Options",
     ],
-    buttonText: "Contact us",
+    buttonText: "Contact Sales",
     buttonVariant: "outlined",
   },
 ];
@@ -115,11 +116,11 @@ export default function Pricing() {
                   flexDirection: "column",
                   gap: 4,
                   border:
-                    tier.title === "Professional" ? "1px solid" : undefined,
+                          tier.title === "Growth" ? "1px solid" : undefined,
                   borderColor:
-                    tier.title === "Professional" ? "primary.main" : undefined,
+                          tier.title === "Growth" ? "primary.main" : undefined,
                   background:
-                    tier.title === "Professional"
+                          tier.title === "Growth"
                       ? "linear-gradient(#033363, #021F3B)"
                       : "#E0F2F1",
                   transition: "all 0.3s ease-in-out",
@@ -137,12 +138,12 @@ export default function Pricing() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        color: tier.title === "Professional" ? "grey.100" : "",
+                        color: tier.title === "Growth" ? "grey.100" : "",
                       }}>
                       <Typography component="h3" variant="h6">
                         {tier.title}
                       </Typography>
-                      {tier.title === "Professional" && (
+                      {tier.title === "Growth" && (
                         <Chip
                           icon={<AutoAwesomeIcon />}
                           label={tier.subheader}
@@ -176,7 +177,7 @@ export default function Pricing() {
                         display: "flex",
                         alignItems: "baseline",
                         color:
-                          tier.title === "Professional" ? "grey.50" : undefined,
+                                tier.title === "Growth" ? "grey.50" : undefined,
                       }}>
                       <Typography component="h3" variant="h2">
                         ${tier.price}
@@ -223,7 +224,7 @@ export default function Pricing() {
                             sx={{
                               width: 20,
                               color:
-                                tier.title === "Professional"
+                                      tier.title === "Growth"
                                   ? "primary.light"
                                   : "primary.main",
                             }}
@@ -233,7 +234,7 @@ export default function Pricing() {
                             variant="subtitle2"
                             sx={{
                               color:
-                                tier.title === "Professional"
+                                      tier.title === "Growth"
                                   ? "grey.200"
                                   : undefined,
                             }}>

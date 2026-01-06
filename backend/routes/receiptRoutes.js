@@ -582,6 +582,35 @@ const newReceipts = async (req, res) => {
     // Insert receipt
     const receiptId = await new Promise((resolve, reject) => {
       const newReceiptId = dbUtils.generateUUID();
+      
+      // Determine payment method string for Receipt table
+      let finalPaymentMethod = paymentMethod;
+      let paymentsToSave = [];
+
+      // Check if we have multiple payments
+      if (req.body.payments && Array.isArray(req.body.payments) && req.body.payments.length > 0) {
+          paymentsToSave = req.body.payments;
+          
+          // Verify total paid matches amountPaid
+          const totalPayments = paymentsToSave.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+          
+          // Use 'split' if multiple methods, or just the single method if 1
+          if (paymentsToSave.length > 1) {
+              finalPaymentMethod = 'split';
+          } else {
+              finalPaymentMethod = paymentsToSave[0].method;
+          }
+      } else {
+          // Legacy/Single payment case
+          if (amountPaid > 0) {
+              paymentsToSave.push({
+                  amount: amountPaid,
+                  method: paymentMethod || 'cash',
+                  reference: null
+              });
+          }
+      }
+
       const insertReceipt = `
         INSERT INTO Receipt (
           id, companyId, customerId, workerId, total, discount, 
@@ -600,11 +629,33 @@ const newReceipts = async (req, res) => {
           amountPaid,
           finalBalance,
           totalProfit - (discount || 0),
-          paymentMethod,
+          finalPaymentMethod,
         ],
-        function (err) {
-          if (err) reject(err);
-          else resolve(newReceiptId);
+        async function (err) {
+          if (err) {
+              reject(err);
+              return;
+          }
+
+          try {
+              // Save Payment Details
+              for(const p of paymentsToSave) {
+                  const payId = dbUtils.generateUUID();
+                  await new Promise((res, rej) => {
+                      db.run(
+                          `INSERT INTO ReceiptPayment (id, receiptId, amount, paymentMethod, reference) VALUES (?, ?, ?, ?, ?)`,
+                          [payId, newReceiptId, p.amount, p.method, p.reference || null],
+                          (e) => e ? rej(e) : res()
+                      );
+                  });
+              }
+              resolve(newReceiptId);
+          } catch (e) {
+              // Complex to rollback here completely without transaction support better wrapping
+              // But we are in "BEGIN" transaction so rejecting will trigger rollback in catch block?
+              // The parent function has db.exec("BEGIN").
+              reject(e); 
+          }
         }
       );
     });

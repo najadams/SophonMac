@@ -60,7 +60,7 @@ export default function Hero() {
               textAlign: "center",
               fontSize: "clamp(2rem, 6vw, 4rem)",
             }}>
-            Empowering Wholesalers, Connecting Investors, Fueling Growth.
+            The Smartest POS for Your Growing Business.
           </Typography>
           <Typography
             textAlign="center"
