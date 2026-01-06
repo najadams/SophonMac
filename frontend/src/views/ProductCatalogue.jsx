@@ -27,11 +27,8 @@ const fetchProducts = async (companyId) => {
       onhand: item.onhand,
       reorderPoint: item.reorderPoint,
       minimumStock: item.minimumStock,
-      description: item.description,
       sku: item.sku,
       barcode: item.barcode,
-      quantity_numerator: item.quantity_numerator,
-      quantity_denominator: item.quantity_denominator,
     }));
     return data;
   } catch (error) {
