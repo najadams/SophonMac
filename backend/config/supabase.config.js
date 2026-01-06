@@ -17,6 +17,9 @@ const supabaseConfig = {
     
     // Maximum records to sync in one batch
     maxBatchSize: 100,
+
+    // Threshold to trigger immediate sync (volume-based)
+    largeDataThreshold: 50,
     
     // Retry configuration
     maxRetries: 3,

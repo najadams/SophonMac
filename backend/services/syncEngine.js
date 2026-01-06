@@ -27,6 +27,10 @@ class SyncEngine extends EventEmitter {
     this.supabaseSyncInterval = null;
     this.tableSchemas = new Map(); // Cache for table schemas
     
+    // Auto-sync debounce timer
+    this.processOutboxTimeout = null;
+    this.outboxCheckInterval = 5000; // 5 seconds debounce
+    
     if (!this.isSupabaseEnabled) {
       console.log('Supabase sync disabled - no configuration found');
     }
@@ -43,6 +47,12 @@ class SyncEngine extends EventEmitter {
     
     this.setupEventListeners();
     this.startPeriodicSync();
+    
+    // Start Supabase auto-sync if enabled
+    if (this.isSupabaseEnabled) {
+      this.startAutomaticSupabaseSync();
+    }
+
     this.isRunning = true;
     
     console.log(`Sync Engine initialized - Mode: ${isMaster ? 'Master' : 'Slave'}`);
@@ -555,15 +565,33 @@ class SyncEngine extends EventEmitter {
       `);
       
       const dataStr = data === undefined ? null : JSON.stringify(data);
-    stmt.run([tableName, recordId, operation, dataStr, syncId], function(err) {
+      stmt.run([tableName, recordId, operation, dataStr, syncId], (err) => {
         if (err) {
           console.error('Error adding to Supabase outbox:', err);
           reject(err);
         } else {
+          // Check if we reached the large data threshold to trigger immediate sync
+          this.checkOutboxSizeAndTriggerSync();
           resolve(this.lastID);
         }
       });
     });
+  }
+
+  // Check outbox size and trigger sync if threshold reached (debounced)
+  checkOutboxSizeAndTriggerSync() {
+    if (this.processOutboxTimeout) {
+      clearTimeout(this.processOutboxTimeout);
+    }
+
+    this.processOutboxTimeout = setTimeout(() => {
+      db.get('SELECT COUNT(*) as count FROM SyncOutbox WHERE status = "pending"', (err, row) => {
+        if (!err && row && row.count >= supabaseConfig.syncSettings.largeDataThreshold) {
+          console.log(`Large data threshold reached (${row.count} pending items). Triggering immediate sync.`);
+          this.syncWithSupabase(this.companyId || 'unknown'); // Ensure companyId is available
+        }
+      });
+    }, this.outboxCheckInterval);
   }
 
   // Process outbox - sync pending operations to Supabase
