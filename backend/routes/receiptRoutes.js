@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../data/db/db");
 const dbUtils = require("../utils/dbUtils");
 const Fraction = require("../utils/fractionUtils");
+const InventoryService = require('../services/inventoryService');
 // const { promises } = require("fs-extra"); // Unused?
 
 // Helper function to format date for SQLite
@@ -647,82 +648,15 @@ const newReceipts = async (req, res) => {
       const formattedName = product.name.trim().toLowerCase();
       const inventoryItem = inventoryMap.get(formattedName);
 
-      let atomicQuantityToDeduct = product.quantity;
-      let conversionRate = 1;
-
-      if (product.unit && product.unit !== inventoryItem.baseUnit) {
-        const conversion = await new Promise((resolve, reject) => {
-          const conversionQuery = `
-            SELECT * FROM UnitConversion 
-            WHERE inventoryId = ? AND toUnit = ?
-          `;
-          db.get(
-            conversionQuery,
-            [inventoryItem.id, product.unit],
-            (err, row) => {
-              if (err) reject(err);
-              else resolve(row);
-            }
-          );
-        });
-
-        if (conversion) {
-            conversionRate = conversion.conversionRate;
-            atomicQuantityToDeduct = product.quantity * (inventoryItem.atomicUnitQuantity || 1);
-        } else if (product.unit !== "none") {
-             // Fallback if unit specified but not found? Should have been caught earlier.
-        }
+      try {
+        // Deduct stock using centralized service (pass negative quantity for deduction)
+        // Service handles unit conversion and strict fraction math
+        await InventoryService.updateStock(inventoryItem.id, -product.quantity, product.unit);
+      } catch (err) {
+        console.error(`Failed to update stock for ${product.name}:`, err);
+        db.run("ROLLBACK"); // Ensure we rollback if stock update fails
+        throw err; 
       }
-
-      await new Promise((resolve, reject) => {
-        // USE FRACTION LOGIC
-        const currentNum = inventoryItem.quantity_numerator !== undefined ? inventoryItem.quantity_numerator : Math.round(inventoryItem.onhand);
-        const currentDen = inventoryItem.quantity_denominator !== undefined ? inventoryItem.quantity_denominator : 1;
-        const currentFrac = new Fraction(currentNum, currentDen);
-
-        let deductFrac;
-        if (product.unit && product.unit !== inventoryItem.baseUnit && conversionRate > 1) {
-            // Deducting sub-units. Fraction = quantity / conversionRate
-            // e.g. 1 Can = 1/6 Pack (if rate is 6)
-            deductFrac = Fraction.from(product.quantity).divide(Fraction.from(conversionRate));
-        } else {
-            // Deducting base units. Fraction = quantity / 1
-            deductFrac = Fraction.from(product.quantity);
-        }
-
-        const newFrac = currentFrac.subtract(deductFrac);
-
-        // Update the inventory
-        const updateInventory = `
-          UPDATE Inventory 
-          SET onhand = ?, 
-              quantity_numerator = ?,
-              quantity_denominator = ?,
-              atomicUnitQuantity = CASE 
-                WHEN (COALESCE(atomicUnitQuantity, 0) - ?) <= 0 THEN NULL
-                ELSE ROUND(COALESCE(atomicUnitQuantity, 0) - ?, 10)
-              END, 
-              lastBreakdownDate = ?, 
-              updatedAt = datetime('now') 
-          WHERE id = ?
-        `;
-        db.run(
-          updateInventory,
-          [
-            newFrac.toFloat(), // Float for display
-            newFrac.n,         // Numerator
-            newFrac.d,         // Denominator
-            atomicQuantityToDeduct,
-            atomicQuantityToDeduct,
-            new Date().toISOString(),
-            inventoryItem.id,
-          ],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
     }
 
     // Handle debt creation if balance > 0

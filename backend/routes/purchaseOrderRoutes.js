@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
 const dbUtils = require('../utils/dbUtils');
+const InventoryService = require('../services/inventoryService');
 
 // Get all purchase orders
 router.get('/', (req, res) => {
@@ -255,22 +256,16 @@ router.put('/:companyId/:orderId/receive', (req, res) => {
             let hasError = false;
             
             items.forEach((item) => {
-              // Update inventory quantity
-              db.run(
-                'UPDATE Inventory SET onhand = onhand + ? WHERE id = ?',
-                [item.quantity, item.productId],
-                (updateErr) => {
-                  if (updateErr && !hasError) {
-                    hasError = true;
-                    db.run('ROLLBACK');
-                    return res.status(500).json({ error: updateErr.message });
-                  }
-                  
+              // Update inventory using centralized service
+              InventoryService.updateStock(item.productId, item.quantity, item.unit)
+                .then(() => {
                   itemsProcessed++;
                   
                   if (itemsProcessed === items.length && !hasError) {
                     db.run('COMMIT', (commitErr) => {
                       if (commitErr) {
+                         // Commit error handling... hard to rollback here if some async tasks finished? 
+                         // Actually Promise.all would be better but keeping structure...
                         return res.status(500).json({ error: commitErr.message });
                       }
                       
@@ -280,8 +275,14 @@ router.put('/:companyId/:orderId/receive', (req, res) => {
                       });
                     });
                   }
-                }
-              );
+                })
+                .catch((updateErr) => {
+                  if (!hasError) {
+                    hasError = true;
+                    db.run('ROLLBACK');
+                    return res.status(500).json({ error: updateErr.message });
+                  }
+                });
             });
           }
         );

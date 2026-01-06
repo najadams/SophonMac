@@ -2,8 +2,11 @@ const express = require('express');
 const router = express.Router();
 const db = require('../data/db/db');
 const dbUtils = require('../utils/dbUtils');
-const EventService = require('../services/eventService');
 const Fraction = require('../utils/fractionUtils');
+// const EventService = require('../services/eventService'); // Removed in favor of InventoryService events? Or keep?
+// InventoryService emits events now, but only if we use it. 
+// updateProduct still does manual update.
+const InventoryService = require('../services/inventoryService');
 
 // Get all inventory items
 router.get('/', (req, res) => {
@@ -530,10 +533,19 @@ const updateProduct = async (req, res) => {
       ...(barcode !== undefined && { barcode: barcode && barcode.trim() !== "" ? barcode.trim() : null }),
     };
 
-    // If onhand is manually updated, reset the fraction
+    // If onhand is manually updated, use Fraction logic to approximate or exact
     if (onhand !== undefined) {
-         updateData.quantity_numerator = onhand;
-         updateData.quantity_denominator = 1;
+         try {
+             // Try to make a fraction from the float to keep precision if user typed e.g. 0.333333
+             // But usually manual input is cleaner. 
+             const frac = Fraction.fromFloat(onhand);
+             updateData.quantity_numerator = frac.n.toString();
+             updateData.quantity_denominator = frac.d.toString();
+         } catch (e) {
+             // Fallback
+             updateData.quantity_numerator = onhand;
+             updateData.quantity_denominator = 1;
+         }
     }
 
     // Handle unit conversions update
