@@ -17,39 +17,39 @@ import { useRef } from "react";
 const items = [
   {
     icon: <SettingsSuggestRoundedIcon />,
-    title: "Adaptable performance",
+    title: "Split Payments",
     description:
-      "Our product effortlessly adjusts to your needs, boosting efficiency and simplifying your tasks.",
+      "Accept mixed payment methods (e.g., Cash + Mobile Money) in a single transaction seamlessly.",
   },
   {
     icon: <ConstructionRoundedIcon />,
-    title: "Built to last",
+    title: "Vendor Management",
     description:
-      "Experience unmatched durability that goes above and beyond with lasting investment.",
+      "Keep track of your suppliers, manage purchase orders, and streamline your supply chain.",
   },
   {
     icon: <ThumbUpAltRoundedIcon />,
-    title: "Great user experience",
+    title: "Debt Tracking",
     description:
-      "Integrate our product into your routine with an intuitive and easy-to-use interface.",
+      "Easily manage customer debts and credit sales with dedicated reporting and tracking tools.",
   },
   {
     icon: <AutoFixHighRoundedIcon />,
-    title: "Innovative functionality",
+    title: "Secure User Roles",
     description:
-      "Stay ahead with features that set new standards, addressing your evolving needs better than the rest.",
+      "Control access with dedicated roles for Admins, Managers, and Staff to protect your data.",
   },
   {
     icon: <SupportAgentRoundedIcon />,
-    title: "Reliable support",
+    title: "Detailed Analytics",
     description:
-      "Count on our responsive customer support, offering assistance that goes beyond the purchase.",
+      "Visualize your performance with daily, weekly, and monthly sales charts and category breakdowns.",
   },
   {
     icon: <QueryStatsRoundedIcon />,
-    title: "Precision in every detail",
+    title: "Fast Checkout",
     description:
-      "Enjoy a meticulously crafted product where small touches make a significant impact on your overall experience.",
+      "Optimized point-of-sale interface designed for speed and accuracy in high-volume environments.",
   },
 ];
 
@@ -62,6 +62,7 @@ export default function Highlights() {
       id="highlights"
       sx={{
         pt: { xs: 4, sm: 12 },
+        scrollMarginTop: "100px",
         marginLeft: "0",
         marginRight: "0",
         color: "black",
@@ -76,7 +77,8 @@ export default function Highlights() {
           style={{
             paddingTop: "5%",
             paddingBottom: "10%",
-            backgroundColor: "#E0F2F1",
+            backgroundColor: "transparent", 
+            boxShadow: "none",
             borderRadius: "10px",
             margin: "0 auto",
             fontSize: 32,
@@ -97,11 +99,13 @@ export default function Highlights() {
               <Box
                 sx={{
                   width: { sm: "100%", md: "60%" },
-                  textAlign: { sm: "left", md: "center" },
+                  textAlign: "center",
+                  mx: "auto"
                 }}>
                 <Typography
                   component="h2"
                   variant="h4"
+                  color="text.primary"
                   sx={{
                     pb: { xs: 2, sm: 3, md: 5 },
                   }}>
@@ -109,7 +113,7 @@ export default function Highlights() {
                 </Typography>
                 <Typography
                   variant="body1"
-                  sx={{ color: "black.400", fontFamily: "Poppins" }}>
+                  sx={{ color: "text.secondary", fontFamily: "Poppins" }}>
                   Explore why our product stands out: adaptability, durability,
                   user-friendly design, and innovation. Enjoy reliable customer
                   support and precision in every detail.
@@ -138,11 +142,18 @@ export default function Highlights() {
                         p: 3,
                         height: "100%",
                         border: "1px solid",
-                        borderColor: "grey.800",
-                        color: "white",
-                        background: "linear-gradient(#033363, #021F3B)",
-                        backgroundColor: "white.900",
+                        borderColor: (theme) => theme.palette.mode === 'light' ? 'primary.light' : 'primary.dark',
+                        borderRadius: 2,
+                        color: "text.primary",
+                        background: (theme) => theme.palette.mode === 'light' 
+                          ? 'linear-gradient(135deg, #FFFFFF 0%, #F5F5FA 100%)'
+                          : 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
                         transition: "all 0.3s ease-in-out",
+                        boxShadow: 3,
+                        '&:hover': {
+                           boxShadow: 6,
+                           borderColor: "primary.main"
+                        }
                       }}>
                       <motion.div
                         initial={{ scale: 0.8, opacity: 0 }}

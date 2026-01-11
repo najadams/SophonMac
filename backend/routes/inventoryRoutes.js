@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../data/db/db');
 const dbUtils = require('../utils/dbUtils');
 const Fraction = require('../utils/fractionUtils');
-// const EventService = require('../services/eventService'); // Removed in favor of InventoryService events? Or keep?
+const EventService = require('../services/eventService');
 // InventoryService emits events now, but only if we use it. 
 // updateProduct still does manual update.
 const InventoryService = require('../services/inventoryService');

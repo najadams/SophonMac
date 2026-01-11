@@ -66,6 +66,7 @@ export default function Pricing() {
       id="pricing"
       sx={{
         pt: { xs: 4, sm: 12 },
+        scrollMarginTop: "100px",
         pb: { xs: 8, sm: 16 },
         position: "relative",
         display: "flex",
@@ -81,7 +82,7 @@ export default function Pricing() {
         <Box
           sx={{
             width: { sm: "100%", md: "60%" },
-            textAlign: { sm: "left", md: "center" },
+            textAlign: "center",
           }}>
           <Typography component="h2" variant="h3" color="text.primary">
             Pricing
@@ -115,15 +116,21 @@ export default function Pricing() {
                   display: "flex",
                   flexDirection: "column",
                   gap: 4,
-                  border:
-                          tier.title === "Growth" ? "1px solid" : undefined,
+                  border: "1px solid",
                   borderColor:
-                          tier.title === "Growth" ? "primary.main" : undefined,
+                    tier.title === "Growth"
+                      ? "primary.main"
+                      : (theme) => theme.palette.mode === 'light' ? 'grey.200' : 'grey.800',
                   background:
-                          tier.title === "Growth"
-                      ? "linear-gradient(#033363, #021F3B)"
-                      : "#E0F2F1",
+                    tier.title === "Growth"
+                      ? "linear-gradient(135deg, #0959AA 0%, #003b75 100%)" // Deep Blue Gradient
+                      : (theme) => theme.palette.mode === 'light' ? '#FFFFFF' : '#1E293B',
+                  boxShadow: tier.title === "Growth" ? 6 : 1,
                   transition: "all 0.3s ease-in-out",
+                  '&:hover': {
+                      boxShadow: 8,
+                      transform: "translateY(-4px)"
+                  }
                 }}>
                 <CardContent>
                   <motion.div

@@ -45,6 +45,8 @@ const companyReducer = (state = initialState, action) => {
           ...state.data,
           ...action.payload,
         },
+        allowedUnits: action.payload.allowedUnits || [],
+        allowedCategories: action.payload.allowedCategories || [],
         loading: false,
         error: null,
       };

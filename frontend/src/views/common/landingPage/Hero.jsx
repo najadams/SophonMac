@@ -1,4 +1,5 @@
 import * as React from "react";
+import { motion } from "framer-motion";
 import { alpha } from "@mui/material";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -37,7 +38,7 @@ export default function Hero() {
         width: "100%",
         backgroundImage:
           theme.palette.mode === "light"
-            ? "linear-gradient(270deg, #CEE5FD, #FFFE)"
+            ? "linear-gradient(135deg, #E3F2FD 0%, #FFFFFF 100%)"
             : `linear-gradient(#02294F, ${alpha("#090E10", 0.0)})`,
         backgroundSize: "100%",
       })}>
@@ -50,26 +51,45 @@ export default function Hero() {
           pb: { xs: 8, sm: 12 },
         }}>
         <Stack spacing={2} useFlexGap sx={{ width: { xs: "100%", sm: "70%" } }}>
-          <Typography
-            variant="h1"
-            sx={{
-              display: "flex",
-              pt: { xs: 10, sm: 10, md: "inherit" },
-              flexDirection: { xs: "column", md: "row" },
-              alignSelf: "center",
-              textAlign: "center",
-              fontSize: "clamp(2rem, 6vw, 4rem)",
-            }}>
-            The Smartest POS for Your Growing Business.
-          </Typography>
-          <Typography
-            textAlign="center"
-            color="text.secondary"
-            sx={{ alignSelf: "center", width: { sm: "100%", md: "80%" } }}>
-            Explore our vast community. A network of sellers, buyers, and
-            investors. Welcome to the world of business.
-          </Typography>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+          >
+            <Typography
+              variant="h1"
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", md: "row" },
+                alignSelf: "center",
+                textAlign: "center",
+                justifyContent: "center",
+                fontSize: "clamp(2rem, 6vw, 4rem)",
+                color: "primary.main",
+              }}>
+              The Smartest POS for Your Growing Business.
+            </Typography>
+          </motion.div>
+          <motion.div
+             initial={{ opacity: 0, y: 30 }}
+             animate={{ opacity: 1, y: 0 }}
+             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+          >
+            <Typography
+              textAlign="center"
+              color="text.secondary"
+              sx={{ alignSelf: "center", width: { sm: "100%", md: "80%" }, mx: "auto" }}>
+              Manage sales, track inventory, and grow your business with Sophon. 
+              The all-in-one platform designed for modern wholesalers and retailers.
+            </Typography>
+          </motion.div>
         </Stack>
+        <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 40 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
+            style={{ width: "100%", display: "flex", justifyContent: "center" }}
+        >
         <Box
           id="image"
           sx={{
@@ -79,7 +99,7 @@ export default function Hero() {
             maxWidth: "1000px",
             borderRadius: "10px",
             overflow: "hidden",
-            boxShadow: 10,
+            boxShadow: 20,
             mt: { xs: 4, sm: 6 },
           }}>
           {isMobile ? (
@@ -129,6 +149,7 @@ export default function Hero() {
             </Box>
           )}
         </Box>
+        </motion.div>
       </Container>
     </Box>
   );

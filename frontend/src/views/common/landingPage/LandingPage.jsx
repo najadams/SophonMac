@@ -52,8 +52,55 @@ ToggleCustomTheme.propTypes = {
 export default function LandingPage() {
   const [mode, setMode] = React.useState("light");
   const [showCustomTheme, setShowCustomTheme] = React.useState(true);
-  // const LPtheme = createTheme(getLPTheme(mode));
-  const defaultTheme = createTheme({ palette: { mode } });
+  const LPtheme = createTheme({
+    palette: {
+      mode,
+      primary: {
+        main: "#0959AA", // Deep Tech Blue
+        light: "#42a5f5",
+        dark: "#003b75",
+        contrastText: "#ffffff",
+      },
+      secondary: {
+        main: "#00BFA5", // Teal Accent
+        light: "#5df2d6",
+        dark: "#008e76",
+        contrastText: "#000000",
+      },
+      background: {
+        default: mode === "light" ? "#F4F6F8" : "#0B1120", // Off-white / Deep Slate
+        paper: mode === "light" ? "#FFFFFF" : "#161C24",
+      },
+    },
+    typography: {
+      fontFamily: '"Montserrat", "Inter", sans-serif',
+      h1: { fontWeight: 700 },
+      h2: { fontWeight: 600 },
+      h3: { fontWeight: 600 },
+      button: { fontWeight: 600, textTransform: "none" },
+    },
+    components: {
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: 8,
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: {
+            borderRadius: 12,
+            boxShadow: mode === "light"
+              ? "0 4px 20px 0 rgba(0,0,0,0.05)"
+              : "0 4px 20px 0 rgba(0,0,0,0.4)",
+          },
+        },
+      },
+    },
+  });
+
+  const defaultTheme = LPtheme; // Use the custom theme as default
 
   React.useEffect(() => {
     
@@ -70,9 +117,10 @@ export default function LandingPage() {
   return (
     // <ThemeProvider theme={showCustomTheme ? LPtheme : defaultTheme}>
     <div
-      className="page"
       style={{
-        height: "100vh",
+        height: "100%",
+        width: "100%",
+        overflowY: "auto",
         padding: 0,
         margin: 0,
         backgroundColor: "inherit",

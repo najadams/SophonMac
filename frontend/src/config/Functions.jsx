@@ -913,7 +913,7 @@ export const tableActions = {
   },
   fetchWorkers: async (companyId) => {
     try {
-      const response = await axios.get(`api/workers/${companyId}`);
+      const response = await axios.get(`/api/workers/${companyId}`);
       if (response.status === 200) {
         return response.data;
       }
@@ -933,7 +933,7 @@ export const tableActions = {
   },
   fetchSuppliersNames: async (companyId) => {
     try {
-      const response = await axios.get(`api/vendors/${companyId}`);
+      const response = await axios.get(`/api/vendors/${companyId}`);
       if (response.status === 200) {
         return response.data?.map((data) =>
           capitalizeFirstLetter(
@@ -947,7 +947,7 @@ export const tableActions = {
   },
   fetchSuppliers: async (companyId) => {
     try {
-      const response = await axios.get(`api/vendors/${companyId}`);
+      const response = await axios.get(`/api/vendors/${companyId}`);
       if (response.status === 200) {
         return response.data;
       }
@@ -979,7 +979,7 @@ export const tableActions = {
   },
   fetchSupplierDetails: async (vendorId, companyId) => {
     try {
-      const response = await axios.get(`api/vendors/${companyId}/${vendorId}`);
+      const response = await axios.get(`/api/vendors/${companyId}/${vendorId}`);
       if (response.status === 200) {
         return response.data;
       }
@@ -989,7 +989,7 @@ export const tableActions = {
   },
   fetchSuppliesByVendor: async (vendorId, companyId) => {
     try {
-      const response = await axios.get(`api/vendors/${companyId}/${vendorId}/supplies`);
+      const response = await axios.get(`/api/vendors/${companyId}/${vendorId}/supplies`);
       if (response.status === 200) {
         
         return response.data;
@@ -999,9 +999,20 @@ export const tableActions = {
     }
   },
 
+  fetchSupplies: async (companyId) => {
+    try {
+      const response = await axios.get(`/api/supplies/${companyId}`);
+      if (response.status === 200) {
+        return response.data;
+      }
+    } catch (error) {
+      throw new Error(error.response?.data?.message || "Failed to fetch supplies");
+    }
+  },
+
   fetchSupplyDetails: async (supplyId, companyId) => {
     try {
-      const response = await axios.get(`api/supplies/${companyId}/${supplyId}`);
+      const response = await axios.get(`/api/supplies/${companyId}/${supplyId}`);
       if (response.status === 200) {
         return response.data;
       }

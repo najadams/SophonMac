@@ -26,9 +26,9 @@ const items = [
   },
   {
     icon: <EdgesensorHighRoundedIcon />,
-    title: "Mobile integration",
+    title: "Inventory Management",
     description:
-      "This item could provide information about the mobile app version of the product.",
+      "Track stock levels in real-time. Multiple units are allowed, creating flexible sales options where loss from selling in smaller units is completely eradicated.",
     imageLight:
       'url("/static/images/templates/templates-images/mobile-light.png")',
     imageDark:
@@ -36,9 +36,9 @@ const items = [
   },
   {
     icon: <DevicesRoundedIcon />,
-    title: "Available on all platforms",
+    title: "Detailed Reporting",
     description:
-      "This item could let users know the product is available on all platforms, such as web, mobile, and desktop.",
+      "Gain insights with comprehensive sales history, profit & loss analysis, and debt tracking reports.",
     imageLight:
       'url("/static/images/templates/templates-images/devices-light.png")',
     imageDark:
@@ -58,21 +58,23 @@ export default function Features() {
   const selectedFeature = items[selectedItemIndex];
 
   return (
-    <Container id="features" sx={{ py: { xs: 8, sm: 16 }, pb: 0 }}>
+    <Container id="features" sx={{ py: { xs: 8, sm: 16 }, pb: 0, scrollMarginTop: "100px" }}>
       <Grid container spacing={6}>
         <Grid item xs={12} md={6}>
           <motion.div
             ref={ref}
             initial={{ opacity: 0, x: -100 }}
             animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -100 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}>
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            style={{ textAlign: "center", width: "100%" }}
+          >
             <Typography component="h2" variant="h4" color="text.primary">
               Product features
             </Typography>
             <Typography
               variant="body1"
               color="text.secondary"
-              sx={{ mb: { xs: 2, sm: 4 } }}>
+              sx={{ mb: { xs: 2, sm: 4 }, mx: "auto", maxWidth: "80%" }}>
               Here you can provide a brief overview of the key features of the
               product. For example, you could list the number of features, the
               types of features, add-ons, or the benefits of the features.

@@ -182,6 +182,7 @@ app.get('/', (req, res) => {
               // Initialize Umbrella Sync Service
               try {
                 const UmbrellaSyncService = require('./services/umbrellaSyncService');
+                UmbrellaSyncService.setWebSocketServer(networkManager.websocketServer);
                 await UmbrellaSyncService.initialize(companyInfo.id);
               } catch (syncErr) {
                 console.warn('Failed to initialize Umbrella Sync:', syncErr.message);

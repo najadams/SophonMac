@@ -847,7 +847,7 @@ class SyncEngine extends EventEmitter {
         const tablesWithBelongsTo = ['Customer'];
         
         // Tables that don't have updatedAt column (use id for ordering instead)
-        const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+        const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem', 'ReceiptPayment'];
         const orderByClause = tablesWithoutUpdatedAt.includes(tableName) ? 'id ASC' : 'COALESCE(updatedAt, createdAt) ASC';
         
         if (tablesWithCompanyId.includes(tableName)) {
@@ -1032,7 +1032,7 @@ class SyncEngine extends EventEmitter {
       const lastSync = await this.getLastSupabaseSyncTime(tableName);
       
       // Define tables without updatedAt column
-      const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem'];
+      const tablesWithoutUpdatedAt = ['ReceiptDetail', 'DebtPayment', 'SuppliesDetail', 'PurchaseOrderItem', 'ReceiptPayment'];
 
       let query = this.supabase.from(pgTableName).select('*');
       
@@ -1261,14 +1261,14 @@ class SyncEngine extends EventEmitter {
         if (err) {
           // Check if it's a foreign key constraint error
           if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-            console.warn(`Skipping ${tableName} record due to missing foreign key reference:`, {
+            console.error(`Failed to insert ${tableName} record due to missing foreign key reference:`, {
               table: tableName,
               columns: columns,
               values: values,
               record: record
             });
-            // Resolve instead of reject to continue syncing other records
-            resolve();
+            // Reject to prevent marking as synced when data is missing
+            reject(err);
           } else {
             console.error(`Error inserting into ${tableName}:`, err.message);
             console.error('Columns:', columns);

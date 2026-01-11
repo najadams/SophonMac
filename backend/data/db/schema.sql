@@ -182,6 +182,8 @@ CREATE TABLE Inventory (
     description TEXT,
     sku TEXT,
     barcode TEXT,
+    quantity_numerator TEXT,
+    quantity_denominator TEXT,
     allowsUnitBreakdown INTEGER DEFAULT 0 CHECK(allowsUnitBreakdown IN (0,1)),
     atomicUnit TEXT,
     atomicUnitQuantity REAL CHECK(atomicUnitQuantity IS NULL OR atomicUnitQuantity > 0),

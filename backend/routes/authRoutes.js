@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../middleware/authMiddleware');
 const { createSupabaseServiceClient, supabaseConfig } = require('../config/supabase.config');
+const { createLogger } = require('vite');
 
 // Company Registration
 router.post('/register', async (req, res) => {
@@ -212,8 +213,8 @@ router.post('/login', (req, res) => {
 
 // Worker Login
 router.post('/account', (req, res) => {
+  console.log("Worker Login",);
   const { name, password, companyId } = req.body;
-  console.log(req.body)
   if (!name || !password) {
     return res.status(400).json({ error: 'Worker name and password are required' });
   }
@@ -224,9 +225,10 @@ router.post('/account', (req, res) => {
     }
     
     if (!worker) {
-      console.log(worker)
+      console.log("Worker not found");
       return res.status(401).json({ message: 'Invalid worker name or password' });
     }
+    console.log(" worker", worker)
 
     // Compare passwords
     const validPassword = await bcrypt.compare(password, worker.password);

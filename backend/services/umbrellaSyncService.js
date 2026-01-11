@@ -6,6 +6,11 @@ class UmbrellaSyncService {
     this.companyId = null; // Will be set on init
     this.isPolling = false;
     this.pollInterval = 10000; // 10 seconds
+    this.wsServer = null;
+  }
+
+  setWebSocketServer(wsServer) {
+    this.wsServer = wsServer;
   }
 
   async initialize(companyId) {
@@ -108,45 +113,172 @@ class UmbrellaSyncService {
     // Map fields if necessary (payload might have 'name' but DB uses 'companyName')
     const companyName = data.companyName || data.name;
     
-    return new Promise((resolve, reject) => {
-      const query = `
-        INSERT INTO Company (id, companyName, storeAddress, contact, email, parentCompanyId, taxMode, tinNumber, password)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          companyName = excluded.companyName,
-          storeAddress = excluded.storeAddress,
-          contact = excluded.contact,
-          email = excluded.email,
-          parentCompanyId = excluded.parentCompanyId,
-          taxMode = excluded.taxMode,
-          tinNumber = excluded.tinNumber,
-          updatedAt = CURRENT_TIMESTAMP
-      `;
-      
-      // Use a dummy hash for synced companies (they shouldn't login this way usually)
-      const dummyHash = '$2b$10$DummyHashForSyncedCompany......................';
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Check if company exists
+        const existingCompany = await new Promise((res, rej) => {
+          db.get("SELECT * FROM Company WHERE id = ?", [data.id], (err, row) => {
+            if (err) rej(err);
+            else res(row);
+          });
+        });
 
-      db.run(query, [
-        data.id, 
-        companyName, 
-        data.storeAddress || data.address, 
-        data.contact || data.phone, 
-        data.email,
-        data.parentCompanyId,
-        data.taxMode,
-        data.tinNumber,
-        dummyHash
-      ], (err) => {
-        if (err) {
-          // If conflict on unique email/name, we might need to handle it.
-          // For now, log error.
-          console.error('Error applying company update:', err.message);
-          reject(err);
-        } else {
+        if (existingCompany) {
+          console.log(`Company ${data.id} exists. Performing partial update.`);
+          // Partial Update
+          const updates = [];
+          const values = [];
+
+          if (data.companyName || data.name) {
+            updates.push("companyName = ?");
+            values.push(data.companyName || data.name);
+          }
+          if (data.storeAddress || data.address) {
+            updates.push("storeAddress = ?");
+            values.push(data.storeAddress || data.address);
+          }
+           if (data.contact || data.phone) {
+            updates.push("contact = ?");
+            values.push(data.contact || data.phone);
+          }
+          if (data.email) {
+            updates.push("email = ?");
+            values.push(data.email);
+          }
+          if (data.parentCompanyId !== undefined) {
+             updates.push("parentCompanyId = ?");
+             values.push(data.parentCompanyId);
+          }
+          if (data.taxMode) {
+             updates.push("taxMode = ?");
+             values.push(data.taxMode);
+          }
+          if (data.tinNumber) {
+             updates.push("tinNumber = ?");
+             values.push(data.tinNumber);
+          }
+          if (data.currencyCode) {
+            updates.push("currencyCode = ?");
+            values.push(data.currencyCode);
+          }
+          
+          updates.push("updatedAt = CURRENT_TIMESTAMP");
+
+          if (updates.length > 0) {
+             const sql = `UPDATE Company SET ${updates.join(", ")} WHERE id = ?`;
+             values.push(data.id);
+             
+             await new Promise((res, rej) => {
+                db.run(sql, values, (err) => {
+                    if (err) rej(err);
+                    else res();
+                });
+             });
+          }
+
+          // Handle Allowed Units
+          if (data.allowedUnits && Array.isArray(data.allowedUnits)) {
+            // Replace all allowed units
+            await new Promise((res, rej) => {
+                db.run("DELETE FROM CompanyAllowedUnits WHERE companyId = ?", [data.id], (err) => {
+                    if (err) rej(err);
+                    else res();
+                });
+            });
+            
+            for (const unit of data.allowedUnits) {
+                await new Promise((res, rej) => {
+                    db.run("INSERT INTO CompanyAllowedUnits (id, companyId, unit) VALUES (?, ?, ?)", 
+                    [this.generateUUID(), data.id, unit], (err) => {
+                        if (err) rej(err);
+                        else res();
+                    });
+                });
+            }
+          }
+
+          // Handle Allowed Categories
+          if (data.allowedCategories && Array.isArray(data.allowedCategories)) {
+             // Replace all allowed categories
+             await new Promise((res, rej) => {
+                 db.run("DELETE FROM CompanyAllowedCategories WHERE companyId = ?", [data.id], (err) => {
+                     if (err) rej(err);
+                     else res();
+                 });
+             });
+             
+             for (const cat of data.allowedCategories) {
+                 await new Promise((res, rej) => {
+                     db.run("INSERT INTO CompanyAllowedCategories (id, companyId, category) VALUES (?, ?, ?)", 
+                     [this.generateUUID(), data.id, cat], (err) => {
+                         if (err) rej(err);
+                         else res();
+                     });
+                 });
+             }
+          }
+
+          // Broadcast settings update
+          if (this.wsServer) {
+            console.log(`Broadcasting settings update for company ${data.id}`);
+            this.wsServer.broadcastToCompany(data.id, 'settings_updated', {
+                companyId: data.id,
+                timestamp: Date.now(),
+                settings: {
+                    ...existingCompany,
+                    ...data,
+                    allowedUnits: data.allowedUnits,
+                    allowedCategories: data.allowedCategories
+                }
+            });
+          }
+
           resolve();
+
+        } else {
+          console.log(`Company ${data.id} does not exist. Creating new.`);
+           // Insert new (requires core fields)
+           if (!companyName) {
+              // Can't insert without a name. Log warning and skip.
+              console.warn(`Skipping creation of company ${data.id}: Missing companyName`);
+              return resolve();
+           }
+
+          const query = `
+            INSERT INTO Company (id, companyName, storeAddress, contact, email, parentCompanyId, taxMode, tinNumber, password)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `;
+          
+          // Use a dummy hash for synced companies (they shouldn't login this way usually)
+          const dummyHash = '$2b$10$DummyHashForSyncedCompany......................';
+
+          db.run(query, [
+            data.id, 
+            companyName, 
+            data.storeAddress || data.address, 
+            data.contact || data.phone, 
+            data.email,
+            data.parentCompanyId,
+            data.taxMode,
+            data.tinNumber,
+            dummyHash
+          ], (err) => {
+            if (err) {
+              console.error('Error applying company update:', err.message);
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
         }
-      });
+      } catch (e) {
+        reject(e);
+      }
     });
+  }
+
+  generateUUID() {
+    return require('crypto').randomUUID();
   }
 
   async applyInventoryChange(data) {
