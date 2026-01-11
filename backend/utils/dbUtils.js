@@ -34,6 +34,9 @@ const DBUtils = {
       // Ensure tax columns exist (Migration for Sophon Market)
       await this.ensureTaxColumns();
 
+      // Ensure plan columns exist (Pricing Architecture)
+      await this.ensurePlanColumns();
+
       return true;
     } catch (error) {
       console.error("Error initializing database:", error);
@@ -134,6 +137,45 @@ const DBUtils = {
               });
             }
             console.log('Tax columns added successfully.');
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        };
+        
+        runMigration();
+      });
+    });
+  },
+
+  // Ensure Company table has Plan columns (Pricing Architecture)
+  ensurePlanColumns() {
+    return new Promise((resolve, reject) => {
+      const db = getDb();
+      
+      db.all("PRAGMA table_info(Company)", [], (err, rows) => {
+        if (err) return reject(err);
+        
+        const columns = rows.map(r => r.name);
+        const missingColumns = [];
+        
+        if (!columns.includes('currentPlan')) missingColumns.push("ADD COLUMN currentPlan TEXT DEFAULT 'STARTER'");
+        if (!columns.includes('planLimits')) missingColumns.push("ADD COLUMN planLimits TEXT"); // JSON
+        if (!columns.includes('planFeatures')) missingColumns.push("ADD COLUMN planFeatures TEXT"); // JSON
+        if (!columns.includes('planExpiry')) missingColumns.push("ADD COLUMN planExpiry TEXT"); // ISO Date
+        
+        if (missingColumns.length === 0) return resolve();
+        
+        console.log('Migrating Company table: Adding Plan columns...');
+        
+        const runMigration = async () => {
+          try {
+            for (const colSql of missingColumns) {
+              await new Promise((res, rej) => {
+                db.run(`ALTER TABLE Company ${colSql}`, (e) => e ? rej(e) : res());
+              });
+            }
+            console.log('Plan columns added successfully.');
             resolve();
           } catch (e) {
             reject(e);

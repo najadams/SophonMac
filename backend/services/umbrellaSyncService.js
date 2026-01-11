@@ -161,6 +161,22 @@ class UmbrellaSyncService {
             updates.push("currencyCode = ?");
             values.push(data.currencyCode);
           }
+          if (data.currentPlan) {
+            updates.push("currentPlan = ?");
+            values.push(data.currentPlan);
+          }
+          if (data.planLimits) {
+             updates.push("planLimits = ?");
+             values.push(typeof data.planLimits === 'object' ? JSON.stringify(data.planLimits) : data.planLimits);
+          }
+          if (data.planFeatures) {
+             updates.push("planFeatures = ?");
+             values.push(typeof data.planFeatures === 'object' ? JSON.stringify(data.planFeatures) : data.planFeatures);
+          }
+          if (data.planExpiry) {
+             updates.push("planExpiry = ?");
+             values.push(data.planExpiry);
+          }
           
           updates.push("updatedAt = CURRENT_TIMESTAMP");
 

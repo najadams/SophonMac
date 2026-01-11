@@ -5,12 +5,21 @@ import {
   DialogTitle,
   Typography,
   Grid,
-  Divider,
+  Button,
+  IconButton,
+  Tabs,
+  Tab,
+  Box,
 } from "@mui/material";
-import { capitalizeFirstLetter } from "../../config/Functions";
+import CloseIcon from "@mui/icons-material/Close";
+import PrintIcon from "@mui/icons-material/Print";
+import ReceiptIcon from "@mui/icons-material/Receipt";
+import DescriptionIcon from "@mui/icons-material/Description";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { useSelector } from "react-redux";
 import { useMediaQuery } from "@mui/material";
-import { format } from 'date-fns'
+import { useReactToPrint } from "react-to-print";
+import DocumentBuilder from "../documents/DocumentBuilder";
 
 const ReceiptDialog = ({
   open,
@@ -18,20 +27,25 @@ const ReceiptDialog = ({
   receiptData
 }) => {
   const company = useSelector((state) => state.companyState.data);
-  const primaryColor = "#00796B"; // A pleasant greenish-blue color
-    const secondaryColor = "#004D40";
-    const {
-      customerName,
-      workerName,
-      date,
-      detail,
-      discount,
-      total,
-      amountPaid,
-      balance,
-    } = receiptData;
-  const matchesMobile = useMediaQuery("(max-width:600px)");
+  const [docType, setDocType] = React.useState('RECEIPT');
+  const [tabValue, setTabValue] = React.useState(0);
+  const componentRef = React.useRef();
 
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+    switch (newValue) {
+        case 0: setDocType('RECEIPT'); break;
+        case 1: setDocType('INVOICE'); break;
+        case 2: setDocType('WAYBILL'); break;
+        default: setDocType('RECEIPT');
+    }
+  };
+
+  const handlePrint = useReactToPrint({
+    content: () => componentRef.current,
+  });
+
+  const matchesMobile = useMediaQuery("(max-width:600px)");
 
   return (
     <Dialog
@@ -41,205 +55,40 @@ const ReceiptDialog = ({
       fullWidth
       PaperProps={{
         style: {
-          height: "80vh", // Takes 80% of viewport height
-          width: matchesMobile ? "100vw" : "80vw", // Takes 80% of viewport width
-          overflowY: "auto", // Make it scrollable
-          backgroundColor: "#E0F2F1",
+          height: "90vh",
+          width: matchesMobile ? "100vw" : "80vw",
+          overflow: "hidden", // Let content scroll
+          backgroundColor: "#f5f5f5",
         },
       }}>
-      <DialogTitle>
-        <Typography variant="h6" align="center" color={primaryColor}>
-          Receipt Information
-        </Typography>
+      <DialogTitle sx={{ p: 1, backgroundColor: '#fff', borderBottom: '1px solid #ddd' }}>
+          <Grid container alignItems="center" justifyContent="space-between">
+             <Grid item>
+                 <Typography variant="h6" color="primary">Transaction Details</Typography>
+             </Grid>
+             <Grid item>
+                 <Button variant="contained" onClick={handlePrint} startIcon={<PrintIcon />}>
+                    Print {docType === 'RECEIPT' ? 'Receipt' : docType === 'WAYBILL' ? 'Waybill' : 'Invoice'}
+                 </Button>
+                 <IconButton onClick={onClose} sx={{ ml: 1 }}><CloseIcon /></IconButton>
+             </Grid>
+          </Grid>
+          
+          <Tabs value={tabValue} onChange={handleTabChange} indicatorColor="primary" textColor="primary" variant="fullWidth" sx={{ mt: 1 }}>
+             <Tab label="Receipt (Thermal)" icon={<ReceiptIcon />} iconPosition="start" />
+             <Tab label="Tax Invoice (A4)" icon={<DescriptionIcon />} iconPosition="start" />
+             <Tab label="Waybill" icon={<LocalShippingIcon />} iconPosition="start" />
+          </Tabs>
       </DialogTitle>
-      <DialogContent>
-        <div
-          style={{
-            backgroundColor: "#E0F2F1",
-            borderRadius: "10px",
-            // margin: "0",
-            scrollbarWidth: 0,
-            fontFamily: "'Roboto', sans-serif",
-          }}>
-          {/* Company Info */}
-          <Typography
-            variant="h4"
-            style={{
-              textAlign: "center",
-              color: primaryColor,
-              fontWeight: "bold",
-              marginBottom: "10px",
-            }}>
-            {capitalizeFirstLetter(company?.companyName)}
-          </Typography>
-
-          {company?.tinNumber && (
-            <Typography variant="body1" align="center" color="textSecondary">
-              Tin Number: {company.tinNumber.toUpperCase()}
-            </Typography>
-          )}
-
-          {company?.contact && (
-            <Typography variant="body1" align="center" color="textSecondary">
-              Contact: {company.contact}
-            </Typography>
-          )}
-
-          {company?.momo && (
-            <Typography variant="body1" align="center" color="textSecondary">
-              Momo: {company.momo}
-            </Typography>
-          )}
-
-          <Divider
-            style={{ margin: "20px 0", backgroundColor: secondaryColor }}
-          />
-
-          {/* Customer Info */}
-          <Grid container spacing={2}>
-            <Grid item xs={6} sm={4} md={4}>
-              <Typography variant="subtitle1" color={primaryColor}>
-                Customer:
-              </Typography>
-              <Typography variant="body1">
-                {capitalizeFirstLetter(customerName)}
-              </Typography>
-            </Grid>
-            <Grid item xs={6} sm={4} md={4}>
-              <Typography variant="subtitle1" color={primaryColor}>
-                Cashier:
-              </Typography>
-              <Typography variant="body1">
-                {capitalizeFirstLetter(workerName)}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={4} md={4}>
-              <Typography variant="subtitle1" color={primaryColor}>
-                Date:
-              </Typography>
-              <Typography variant="body1">
-                {date && !isNaN(new Date(date).getTime()) 
-                  ? format(new Date(date), "dd/MM/yyyy")
-                  : "Invalid Date"
-                }
-              </Typography>
-            </Grid>
-          </Grid>
-
-          <Divider
-            style={{ margin: "20px 0", backgroundColor: secondaryColor }}
-          />
-
-          {/* Products Info */}
-          <Typography
-            variant="h5"
-            style={{
-              textAlign: "center",
-              color: primaryColor,
-              marginBottom: "10px",
-            }}>
-            Purchased Products
-          </Typography>
-
-          <table style={{ width: "100%", marginBottom: "20px" }}>
-            <thead>
-              <tr style={{ backgroundColor: secondaryColor, color: "white" }}>
-                <th style={{ padding: "10px" }}>Qty</th>
-                <th style={{ padding: "10px" }}>Product</th>
-                <th style={{ padding: "10px" }}>Price</th>
-                <th style={{ padding: "10px" }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {detail?.map((product, index) => (
-                <tr key={index} style={{ textAlign: "center" }}>
-                  <td style={{ padding: "8px" }}>{product.quantity}</td>
-                  <td style={{ padding: "8px" }}>
-                    {capitalizeFirstLetter(product.name)}
-                  </td>
-                  <td style={{ padding: "8px" }}>
-                    ₵{product.price || product.salesPrice}
-                  </td>
-                  <td style={{ padding: "8px" }}>
-                    ₵
-                    {product.price
-                      ? product.price * product.quantity
-                      : product.salesPrice * product.quantity}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Summary Info */}
-          <Divider
-            style={{ margin: "20px 0", backgroundColor: secondaryColor }}
-          />
-
-          <Grid container spacing={2}>
-            {company.taxRate && (
-              <Grid item xs={6}>
-                <Typography variant="subtitle1" color={primaryColor}>
-                  Tax (%):
-                </Typography>
-                <Typography variant="body1">{company.taxRate}</Typography>
-              </Grid>
-            )}
-            {discount !== undefined && discount !== null && discount !== 0 && (
-              <Grid item xs={6}>
-                <Typography variant="subtitle1" color={primaryColor}>
-                  Discount:
-                </Typography>
-                <Typography variant="body1">₵{discount}</Typography>
-              </Grid>
-            )}
-            <Grid item xs={6}>
-              <Typography variant="subtitle1" color={primaryColor}>
-                Total:
-              </Typography>
-              <Typography variant="body1">₵{total}</Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Typography variant="subtitle1" color={primaryColor}>
-                Paid:
-              </Typography>
-              <Typography variant="body1">₵{amountPaid}</Typography>
-            </Grid>
-            {balance !== undefined && balance !== null && balance !== 0 && (
-              <Grid item xs={6}>
-                <Typography variant="subtitle1" color={primaryColor}>
-                  Balance:
-                </Typography>
-                <Typography variant="body1">₵{balance}</Typography>
-              </Grid>
-            )}
-          </Grid>
-
-          <Divider
-            style={{ margin: "20px 0", backgroundColor: secondaryColor }}
-          />
-
-          {/* Footer Message */}
-          <Typography
-            variant="body2"
-            style={{
-              textAlign: "center",
-              color: secondaryColor,
-              marginTop: "10px",
-            }}>
-            Goods Sold Are Not Returnable
-          </Typography>
-          <Typography
-            variant="h6"
-            style={{
-              textAlign: "center",
-              color: primaryColor,
-              fontWeight: "bold",
-              marginTop: "10px",
-            }}>
-            Thank you for shopping with us!
-          </Typography>
-        </div>
+      
+      <DialogContent sx={{ p: 0, backgroundColor: '#525659', display: 'flex', justifyContent: 'center', overflowY: 'auto' }}>
+        <Box sx={{ my: 4, transform: matchesMobile ? 'scale(0.8)' : 'scale(1)', transformOrigin: 'top center' }}>
+             <DocumentBuilder 
+                ref={componentRef}
+                type={docType}
+                data={receiptData}
+             />
+        </Box>
       </DialogContent>
     </Dialog>
   );

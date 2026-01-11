@@ -72,7 +72,8 @@ import {
   Sync as SyncIcon,
   PlayArrow as PlayArrowIcon,
   Stop as StopIcon,
-  Launch as LaunchIcon
+  Launch as LaunchIcon,
+  AutoAwesome as AutoAwesomeIcon
 } from "@mui/icons-material";
 import UmbrellaStatus from "../components/UmbrellaStatus";
 import { styled } from "@mui/system";
@@ -408,6 +409,51 @@ const Settings = () => {
                         <StoreIcon sx={{ mr: 1, color: "primary.main" }} />
                         <Typography variant="h6">General Settings</Typography>
                       </Box>
+                      
+                      {/* Subscription Status Section */}
+                      <Box sx={{ 
+                          mb: 4, 
+                          p: 2, 
+                          borderRadius: 2, 
+                          bgcolor: (theme) => theme.palette.mode === 'light' ? 'grey.50' : 'grey.900',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: 2
+                        }}>
+                          <Box>
+                             <Typography variant="subtitle2" color="text.secondary">CURRENT PLAN</Typography>
+                             <Box display="flex" alignItems="center" gap={1}>
+                                <Typography variant="h5" fontWeight="bold" color="primary">
+                                    {values.currentPlan?.toUpperCase() || 'STARTER'}
+                                </Typography>
+                                <Chip 
+                                    label="Active" 
+                                    size="small" 
+                                    color="success" 
+                                    variant="outlined"
+                                />
+                             </Box>
+                             <Typography variant="caption" color="text.secondary">
+                                Valid until: {values.planExpiry ? new Date(values.planExpiry).toLocaleDateString() : 'Forever'}
+                             </Typography>
+                          </Box>
+                          <Button 
+                            variant="contained" 
+                            color="secondary"
+                            startIcon={<AutoAwesomeIcon />}
+                            onClick={() => {
+                                // In a real app, this would open the billing portal
+                                window.location.href = '/#pricing'; 
+                            }}
+                          >
+                            Upgrade Plan
+                          </Button>
+                      </Box>
+
                       <Grid container spacing={2}>
                         <Grid item xs={12} md={6}>
                           <StyledField

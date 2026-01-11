@@ -19,37 +19,50 @@ const tiers = [
     title: "Starter",
     price: "0",
     description: [
-      "1 Store Location",
-      "1 User Account",
-      "Unlimited Products",
-      "Digital Receipts",
-      "Basic Reporting",
+      "Single Device / Offline POS",
+      "100 Product Limit",
+      "Daily Sales Summary",
+      "Local Storage Only",
+      "No Cloud Sync",
     ],
     buttonText: "Sign up for free",
     buttonVariant: "outlined",
   },
   {
-    title: "Growth",
-    subheader: "Recommended",
-    price: "29",
+    title: "Trader",
+    price: "15",
     description: [
-      "Up to 5 Users",
-      "Advanced Inventory & Alerts",
-      "Debt Management",
-      "Profit & Loss Reports",
-      "Customer Loyalty",
+      "Real-time Cloud Sync",
+      "Tax Invoices (GRA Compliant)",
+      "Waybills & Delivery Notes",
+      "3 Staff Accounts",
+      "WhatsApp Receipts",
+    ],
+    buttonText: "Start free trial",
+    buttonVariant: "outlined",
+  },
+  {
+    title: "Business",
+    subheader: "Most Popular",
+    price: "45",
+    description: [
+      "Up to 5 Branches",
+      "Unlimited Staff",
+      "Purchase Orders & GRN",
+      "Pro-forma & Commercial Invoices",
+      "Accounting Exports",
     ],
     buttonText: "Start free trial",
     buttonVariant: "contained",
   },
   {
     title: "Enterprise",
-    price: "99",
+    price: "Call",
     description: [
-      "Unlimited Users & Stores",
-      "Multi-store Synchronization",
-      "API Access",
-      "Dedicated Support",
+      "Unlimited Branches",
+      "Full API Access",
+      "Custom Workflows",
+      "Dedicated Account Manager",
       "White-label Options",
     ],
     buttonText: "Contact Sales",
@@ -102,8 +115,8 @@ export default function Pricing() {
             item
             key={tier.title}
             xs={12}
-            sm={tier.title === "Enterprise" ? 12 : 6}
-            md={4}>
+            sm={6}
+            md={3}>
             <motion.div
               initial={{ opacity: 0, y: 50 }}
               animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
@@ -118,14 +131,14 @@ export default function Pricing() {
                   gap: 4,
                   border: "1px solid",
                   borderColor:
-                    tier.title === "Growth"
+                    tier.title === "Business"
                       ? "primary.main"
                       : (theme) => theme.palette.mode === 'light' ? 'grey.200' : 'grey.800',
                   background:
-                    tier.title === "Growth"
+                    tier.title === "Business"
                       ? "linear-gradient(135deg, #0959AA 0%, #003b75 100%)" // Deep Blue Gradient
                       : (theme) => theme.palette.mode === 'light' ? '#FFFFFF' : '#1E293B',
-                  boxShadow: tier.title === "Growth" ? 6 : 1,
+                  boxShadow: tier.title === "Business" ? 6 : 1,
                   transition: "all 0.3s ease-in-out",
                   '&:hover': {
                       boxShadow: 8,
@@ -145,12 +158,12 @@ export default function Pricing() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        color: tier.title === "Growth" ? "grey.100" : "",
+                        color: tier.title === "Business" ? "grey.100" : "",
                       }}>
                       <Typography component="h3" variant="h6">
                         {tier.title}
                       </Typography>
-                      {tier.title === "Growth" && (
+                      {tier.title === "Business" && (
                         <Chip
                           icon={<AutoAwesomeIcon />}
                           label={tier.subheader}
@@ -184,7 +197,7 @@ export default function Pricing() {
                         display: "flex",
                         alignItems: "baseline",
                         color:
-                                tier.title === "Growth" ? "grey.50" : undefined,
+                                tier.title === "Business" ? "grey.50" : undefined,
                       }}>
                       <Typography component="h3" variant="h2">
                         ${tier.price}
@@ -231,7 +244,7 @@ export default function Pricing() {
                             sx={{
                               width: 20,
                               color:
-                                      tier.title === "Growth"
+                                      tier.title === "Business"
                                   ? "primary.light"
                                   : "primary.main",
                             }}
@@ -241,7 +254,7 @@ export default function Pricing() {
                             variant="subtitle2"
                             sx={{
                               color:
-                                      tier.title === "Growth"
+                                      tier.title === "Business"
                                   ? "grey.200"
                                   : undefined,
                             }}>
