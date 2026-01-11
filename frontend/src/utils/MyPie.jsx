@@ -21,10 +21,17 @@ const COLORS = [
 const MyPie = ({ data, dataKey, nameKey }) => {
   const isMobile = useMediaQuery((theme) => theme.breakpoints.down("md"));
 
-  const formatTooltip = (value) => {
-    // Format as currency if it's sales data
-    if (dataKey === "totalSales") {
-      return `₵${value.toFixed(2)}`;
+  const formatTooltip = (value, name) => {
+    // Format as currency if it's sales data or profit
+    if (typeof value === "number") {
+      if (
+        dataKey === "totalSales" ||
+        dataKey === "profit" ||
+        name === "revenue"
+      ) {
+        return `₵${value.toFixed(2)}`;
+      }
+      return value.toFixed(2);
     }
     return value;
   };
@@ -51,10 +58,10 @@ const MyPie = ({ data, dataKey, nameKey }) => {
           data={data}
           dataKey={dataKey}
           nameKey={nameKey}
-          cx="52%"
-          cy="52%"
+          cx="50%"
+          cy="50%"
           innerRadius="40%"
-          outerRadius="85%"
+          outerRadius="70%"
           fill="#8884d8"
           labelLine={false}
           label={renderCustomizedLabel}>

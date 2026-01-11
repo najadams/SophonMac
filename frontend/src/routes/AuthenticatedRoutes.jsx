@@ -1,6 +1,8 @@
 import React, { lazy, useEffect, useState } from "react";
 import { Route, Routes } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { ActionCreators } from "../actions/action";
+import { tableActions } from "../config/Functions";
 import SalesRoutes from "./sales/SalesRoutes";
 import DebtsRoutes from "./debts/DebtsRoutes";
 import ReportsRoutes from "./reports/ReportsRoutes";
@@ -34,6 +36,31 @@ const AuthenticatedRoutes = () => {
   const userRole = useSelector((state) => state.userState?.currentUser.role);
   const permissions = getPermissionsForRole(userRole);
   const isLoggedIn = useSelector((state) => state.companyState.isLoggedIn);
+  const companyId = useSelector((state) => state.companyState.data?.id);
+  const allowedUnits = useSelector((state) => state.companyState.allowedUnits);
+  const allowedCategories = useSelector((state) => state.companyState.allowedCategories);
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    const fetchCompanyData = async () => {
+      if (isLoggedIn && companyId) {
+        // If units or categories are missing/empty, fetch complete company data
+        if ((!allowedUnits || allowedUnits.length === 0) || 
+            (!allowedCategories || allowedCategories.length === 0)) {
+          try {
+            const companyData = await tableActions.fetchCompany(companyId);
+            dispatch(ActionCreators.fetchCompanySuccess(companyData));
+            console.log("Refetched company data to restore settings via AuthenticatedRoutes");
+          } catch (error) {
+            console.error("Failed to refetch company data:", error);
+          }
+        }
+      }
+    };
+
+    fetchCompanyData();
+  }, [isLoggedIn, companyId, allowedUnits, allowedCategories, dispatch]);
+
   console.log(permissions, userRole, isLoggedIn);
   return (
     <Routes>

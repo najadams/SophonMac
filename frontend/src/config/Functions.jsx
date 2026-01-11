@@ -598,6 +598,16 @@ export const tableActions = {
       return error.response?.data?.error || "An error occured";
     }
   },
+
+  fetchCompany: async (companyId) => {
+    try {
+      const response = await axios.get(`/api/companies/${companyId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching company details:", error);
+      throw new Error("Failed to fetch company details");
+    }
+  },
   updateCompanyData: async ({ companyId, ...details }) => {
     try {
       // empty fileds in the settings forms do not change the prev values

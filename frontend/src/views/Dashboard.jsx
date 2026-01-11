@@ -84,6 +84,27 @@ import MyPie from "../utils/MyPie";
 import SlidingCard from "../components/common/SlidingCard";
 import Loader from "../components/common/Loader";
 
+const tooltipFormatter = (value, name) => {
+  if (typeof value === "number") {
+    // heuristic: if name implies currency
+    if (
+      [
+        "sales",
+        "profit",
+        "revenue",
+        "tax",
+        "cost",
+        "totalamount",
+        "amount",
+      ].some((term) => name.toLowerCase().includes(term))
+    ) {
+      return [`₵${value.toFixed(2)}`, name];
+    }
+    return [value.toFixed(2), name];
+  }
+  return [value, name];
+};
+
 // Date Utils
 const getMonthsArray = () => {
   const months = [];
@@ -317,6 +338,7 @@ const CategoryAnalytics = ({ dateRange }) => {
             <XAxis dataKey="category" stroke="#666" />
             <YAxis stroke="#666" />
             <RechartsTooltip
+              formatter={tooltipFormatter}
               contentStyle={{
                 backgroundColor: "rgba(255,255,255,0.9)",
                 border: "none",
@@ -371,6 +393,7 @@ const PaymentAnalytics = ({ dateRange }) => {
             <XAxis dataKey="paymentMethod" stroke="#666" />
             <YAxis stroke="#666" />
             <RechartsTooltip
+              formatter={tooltipFormatter}
               contentStyle={{
                 backgroundColor: "rgba(255,255,255,0.9)",
                 border: "none",
@@ -425,6 +448,7 @@ const HourlySales = ({ dateRange }) => {
             <XAxis dataKey="hour" stroke="#666" />
             <YAxis stroke="#666" />
             <RechartsTooltip
+              formatter={tooltipFormatter}
               contentStyle={{
                 backgroundColor: "rgba(255,255,255,0.9)",
                 border: "none",
@@ -924,7 +948,7 @@ const DashboardMetrics = ({ dateRange }) => {
             <BarChart data={salesAnalytics?.hourlyAnalytics || []}>
               <XAxis dataKey="hour" />
               <YAxis />
-              <RechartsTooltip />
+              <RechartsTooltip formatter={tooltipFormatter} />
               <Legend />
               <Bar dataKey="sales" fill="#8884d8" />
               <Bar dataKey="transactions" fill="#82ca9d" />
@@ -939,7 +963,7 @@ const DashboardMetrics = ({ dateRange }) => {
             <LineChart data={salesAnalytics?.weekdayAnalytics || []}>
               <XAxis dataKey="day" />
               <YAxis />
-              <RechartsTooltip />
+              <RechartsTooltip formatter={tooltipFormatter} />
               <Legend />
               <Line type="monotone" dataKey="sales" stroke="#8884d8" />
               <Line type="monotone" dataKey="averageTicket" stroke="#82ca9d" />
@@ -1152,6 +1176,7 @@ const Dashboard = () => {
                   <XAxis dataKey="month" stroke="#666" />
                   <YAxis stroke="#666" />
                   <RechartsTooltip
+                    formatter={tooltipFormatter}
                     contentStyle={{
                       backgroundColor: "rgba(255,255,255,0.9)",
                       border: "none",
@@ -1213,6 +1238,7 @@ const Dashboard = () => {
                   <XAxis dataKey="month" stroke="#666" />
                   <YAxis stroke="#666" />
                   <RechartsTooltip
+                    formatter={tooltipFormatter}
                     contentStyle={{
                       backgroundColor: "rgba(255,255,255,0.9)",
                       border: "none",
@@ -1274,6 +1300,7 @@ const Dashboard = () => {
                   <XAxis dataKey="name" stroke="#666" />
                   <YAxis stroke="#666" />
                   <RechartsTooltip
+                    formatter={tooltipFormatter}
                     contentStyle={{
                       backgroundColor: "rgba(255,255,255,0.9)",
                       border: "none",
