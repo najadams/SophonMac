@@ -71,6 +71,10 @@ const PaymentDialog = ({ open, onClose, selectedDebt, onSubmit }) => {
   };
 
   const handleViewReceipt = async () => {
+    if (!selectedDebt?.receiptId) {
+      setError('No receipt linked to this debt details');
+      return;
+    }
     setSubmittingView(true);
     try {
       const data = await tableActions.fetchReceiptsById({

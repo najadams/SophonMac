@@ -34,7 +34,7 @@ export const SIDEBAR_PAGES = {
   DEBT: { path: "/debt", icon: "bx-money", text: "Debt", permission: PERMISSIONS.MANAGE_DEBT },
   TRANSACTIONS: { path: "/transactions", icon: "bx-money-withdraw", text: "Transactions", permission: PERMISSIONS.MANAGE_TRANSACTIONS },
   REPORTS: { path: "/reports", icon: "bx-line-chart", text: "Reports", permission: PERMISSIONS.VIEW_REPORTS },
-  TAX: { path: "/tax", icon: "bx-calculator", text: "Tax", permission: PERMISSIONS.VIEW_TAX_DASHBOARD },
+  // TAX: { path: "/tax", icon: "bx-calculator", text: "Tax", permission: PERMISSIONS.VIEW_TAX_DASHBOARD },
   NOTIFICATIONS: { path: "/notification", icon: "bx-notification", text: "Notification", permission: PERMISSIONS.VIEW_NOTIFICATIONS },
 };
 

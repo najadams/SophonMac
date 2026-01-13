@@ -105,6 +105,7 @@ const Debt = () => {
   };
 
   const handleCardClick = (debt) => {
+    console.log(debt)
     setSelectedDebt(debt);
     setPaymentAmount("");
     setPaymentDialogOpen(true);

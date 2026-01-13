@@ -482,7 +482,7 @@ const InventoryReports = ({ products = [], inventoryItems, companyId, startDate,
     ).length;
 
     setTotalCash(round(totalAmount, 2));
-    setTotalQuantitySold(round(totalQty, 3));
+    setTotalQuantitySold(totalQty);
     setTotalItemsWithSales(itemsWithSales);
   }, [inventoryItems, products]);
 

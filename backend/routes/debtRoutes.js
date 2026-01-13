@@ -23,10 +23,12 @@ router.get('/:companyId', (req, res) => {
            c.name as customerName,
            c.company as customerCompany,
            GROUP_CONCAT(cp.phone) as contact,
-           d.createdAt as date
+           d.createdAt as date,
+           r.id as receiptId
     FROM Debt d
     LEFT JOIN Customer c ON d.customerId = c.id
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
+    LEFT JOIN Receipt r ON d.id = r.debtId
     WHERE d.companyId = ? AND d.amount > 0
   `;
   
@@ -58,10 +60,12 @@ router.get('/:companyId/all', (req, res) => {
            c.name as customerName,
            c.company as customerCompany,
            GROUP_CONCAT(cp.phone) as contact,
-           d.createdAt as date
+           d.createdAt as date,
+           r.id as receiptId
     FROM Debt d
     LEFT JOIN Customer c ON d.customerId = c.id
     LEFT JOIN CustomerPhone cp ON c.id = cp.customerId
+    LEFT JOIN Receipt r ON d.id = r.debtId
     WHERE d.companyId = ? AND d.amount > 0
     GROUP BY d.id
     ORDER BY d.createdAt DESC
