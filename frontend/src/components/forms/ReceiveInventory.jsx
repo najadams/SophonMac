@@ -114,7 +114,6 @@ const ReceiveInventory = ({ Products, handleProductUpdate, setProducts }) => {
           balance,
           workerId,
           mintVatToken: mintVatToken && taxRate > 0,
-          vatKeyPassword: mintVatToken ? 'sophon-vat-key' : undefined, // TODO: Use secure key management
         };
         
         const response = await tableActions.restock(restockData, companyId);
@@ -421,7 +420,7 @@ const ReceiveInventory = ({ Products, handleProductUpdate, setProducts }) => {
                                     fullWidth
                                   />
                                 )}
-                                autoSelect // not working : supposed to autoselect the first name
+                                autoSelect
                               />
                             )}
                           </Field>

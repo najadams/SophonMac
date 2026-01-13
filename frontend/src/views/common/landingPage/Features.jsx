@@ -75,9 +75,7 @@ export default function Features() {
               variant="body1"
               color="text.secondary"
               sx={{ mb: { xs: 2, sm: 4 }, mx: "auto", maxWidth: "80%" }}>
-              Here you can provide a brief overview of the key features of the
-              product. For example, you could list the number of features, the
-              types of features, add-ons, or the benefits of the features.
+              View our versatile product features made for the everyday business owner for the everyday activity.
             </Typography>
           </motion.div>
 

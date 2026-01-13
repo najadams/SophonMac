@@ -100,12 +100,6 @@ export default function Pricing() {
           <Typography component="h2" variant="h3" color="text.primary">
             Pricing
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Quickly build an effective pricing table for your potential
-            customers with this layout. <br />
-            It&apos;s built with default Material UI components with little
-            customization.
-          </Typography>
         </Box>
       </motion.div>
 
@@ -277,7 +271,7 @@ export default function Pricing() {
                       fullWidth
                       variant={tier.buttonVariant}
                       component="a"
-                      href="/login"
+                      href={tier.title === "Enterprise" ? "mailto:najmadams1706@gmail.com" : "/login"}
                     >
                       {tier.buttonText}
                     </Button>
