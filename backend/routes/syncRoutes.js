@@ -321,9 +321,12 @@ router.get('/umbrella/status', async (req, res) => {
       });
     });
 
+    // Check actual connectivity
+    const isOnline = await req.app.get('networkManager').syncEngine.checkSupabaseConnectivity();
+
     res.json({
       sync: {
-        online: true, // TODO: Check actual connection
+        online: isOnline,
         lastSyncedId: syncState.lastSyncedId,
         lastSyncedAt: syncState.updatedAt
       },

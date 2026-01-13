@@ -200,7 +200,10 @@ router.get('/:companyId/:supplyId', (req, res) => {
 router.post('/:companyId', (req, res) => {
   try {
     const { companyId } = req.params;
-    const { supplierName, products, total, amountPaid, discount, balance, workerId, mintVatToken, vatKeyPassword } = req.body;
+    const { supplierName, products, total, amountPaid, discount, balance, workerId, mintVatToken } = req.body;
+    
+    // Securely get password from server environment/config
+    const vatKeyPassword = process.env.VAT_ENCRYPTION_PASSWORD || 'sophon-vat-key-secure-server-side';
     
     if (!workerId) {
       return res.status(400).json({ error: 'Worker ID is required' });
@@ -467,7 +470,7 @@ router.post('/:companyId', (req, res) => {
                     console.log('Transaction committed successfully');
                     
                     // Optionally mint VAT token
-                    if (mintVatToken && vatKeyPassword) {
+                    if (mintVatToken) {
                       mintVATTokenForSupply(companyId, suppliesId, totalCost, products, vatKeyPassword, (tokenErr, tokenData) => {
                         res.status(201).json({ 
                           id: suppliesId,
