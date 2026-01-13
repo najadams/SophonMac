@@ -17,13 +17,13 @@ import { useRef } from "react";
 const tiers = [
   {
     title: "Starter",
-    price: "0",
+    price: "200",
     description: [
-      "Single Device / Offline POS",
+      "Single Device",
+      "Two accounts only",
       "100 Product Limit",
       "Daily Sales Summary",
       "Local Storage Only",
-      "No Cloud Sync",
     ],
     buttonText: "Sign up for free",
     buttonVariant: "outlined",
@@ -35,8 +35,8 @@ const tiers = [
       "Real-time Cloud Sync",
       "Tax Invoices (GRA Compliant)",
       "Waybills & Delivery Notes",
-      "3 Staff Accounts",
-      "WhatsApp Receipts",
+      "5 Staff Accounts",
+      "Advanced Reporting",
     ],
     buttonText: "Start free trial",
     buttonVariant: "outlined",
@@ -203,7 +203,7 @@ export default function Pricing() {
                         ${tier.price}
                       </Typography>
                       <Typography component="h3" variant="h6">
-                        &nbsp; per month
+                        &nbsp; {tier.title === "Starter" ? "one time" : "per month"}
                       </Typography>
                     </Box>
                   </motion.div>

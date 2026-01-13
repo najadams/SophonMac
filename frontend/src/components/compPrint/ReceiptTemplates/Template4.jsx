@@ -8,15 +8,19 @@ const Template4 = React.forwardRef(({ data }, ref) => {
   const {
     customerName,
     products,
+    detail,
     amountPaid,
     total,
     balance,
     workerName,
     date,
     discount,
-    referenceNumber, // Assuming this might exist or we use date
+    referenceNumber, 
   } = data;
   const company = useSelector((state) => state.companyState.data);
+
+  // Normalize items list from either products (POS) or detail (History)
+  const items = products || detail || [];
 
   // Ensure numeric values
   const safeAmountPaid = Number(amountPaid) || 0;
@@ -108,7 +112,7 @@ const Template4 = React.forwardRef(({ data }, ref) => {
           </tr>
         </thead>
         <tbody>
-          {products.map((p, i) => {
+          {items.map((p, i) => {
              const qty = p.originalQuantity || p.quantity;
              const price = p.price || p.salesPrice;
              const lineTotal = qty * price;
