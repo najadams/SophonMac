@@ -24,6 +24,7 @@ import {
 import SearchField from "../../hooks/SearchField";
 import { StyledTableHead } from "./SalesReport";
 import { Inventory, TrendingUp, AttachMoney, LocalMall } from "@mui/icons-material";
+import { formatQuantity } from "../../utils/quantityFormat";
 
 const capitalizeFirstLetter = (str) => {
   if (typeof str === "string") {
@@ -35,35 +36,59 @@ const capitalizeFirstLetter = (str) => {
   return str;
 };
 
+// Helper to safely round numbers
+const round = (num, decimals = 2) => {
+  return Number(Math.round(num + "e" + decimals) + "e-" + decimals);
+};
+
 // Helper function to convert quantity to display format with unit conversion
 const formatQuantityWithUnits = (quantity, baseUnit, salesUnit, conversionRate) => {
   if (!quantity || quantity === 0) return "0";
   
-  // If baseUnit is 'none' or empty, show numeric value without unit
+  // If baseUnit is 'none' or empty, show formatted value without unit
   if (!baseUnit || baseUnit === 'none' || baseUnit === '') {
-    return `${quantity}`;
+    return formatQuantity(quantity);
   }
   
   // If no conversion rate or it's 1, just show the quantity with base unit
   if (!conversionRate || conversionRate === 1 || !salesUnit) {
-    return `${quantity} ${baseUnit}`;
+    return `${formatQuantity(quantity)} ${baseUnit}`;
   }
   
   // Convert to sales units if conversion rate is decimal (less than 1)
   if (conversionRate < 1) {
-    const salesUnits = Math.floor(quantity * conversionRate);
-    const remainingBaseUnits = quantity % Math.floor(1 / conversionRate);
+    // 1 / conversionRate gives us how many base units make 1 sales unit
+    // e.g. rate 0.05 means 1/0.05 = 20 base units per sales unit
+    const unitsPerPack = Math.round(1 / conversionRate); 
     
-    if (salesUnits > 0 && remainingBaseUnits > 0) {
-      return `${salesUnits} ${salesUnit} ${remainingBaseUnits} ${baseUnit}`;
+    // Total quantity is in baseUnits. 
+    // Sales Units = floor(total / unitsPerPack)
+    // For fractions, we might want to handle this carefully, but let's assume
+    // the decomposition logic splits into whole sales units and remaining base units.
+    const salesUnits = Math.floor(quantity * conversionRate + 0.0001);
+    
+    // Remaining = total % unitsPerPack
+    let remainingBaseUnits = quantity % unitsPerPack;
+    
+    // If we have remaining units, format them using the fraction method
+    // This handles cases like "0.5 pieces" becoming "1/2 pieces"
+    const formattedRemaining = formatQuantity(remainingBaseUnits);
+
+    if (salesUnits > 0 && remainingBaseUnits > 0 && formattedRemaining !== "0") {
+      return `${salesUnits} ${salesUnit} ${formattedRemaining} ${baseUnit}`;
     } else if (salesUnits > 0) {
+       // Check if there's a tiny remainder that formatQuantity rounded to 0?
+       // If formatQuantity returns "0" for remaining, just show sales units.
+       if (remainingBaseUnits > 0.001 && formattedRemaining !== "0") {
+            return `${salesUnits} ${salesUnit} ${formattedRemaining} ${baseUnit}`;
+       }
       return `${salesUnits} ${salesUnit}`;
     } else {
-      return `${remainingBaseUnits} ${baseUnit}`;
+      return `${formattedRemaining} ${baseUnit}`;
     }
   } else {
     // For conversion rates >= 1, show in base units
-    return `${quantity} ${baseUnit}`;
+    return `${formatQuantity(quantity)} ${baseUnit}`;
   }
 };
 
@@ -114,7 +139,7 @@ const CustomerDetailsModal = ({
                   <TableRow key={index}>
                     <TableCell>{customer.customerName}</TableCell>
                     <TableCell>{customer.customerCompany || 'N/A'}</TableCell>
-                    <TableCell align="right">{customer.totalQuantity}</TableCell>
+                    <TableCell align="right">{formatQuantity(customer.totalQuantity)}</TableCell>
                     <TableCell align="right">₵{customer.totalAmount.toFixed(2)}</TableCell>
                     <TableCell align="right">{customer.purchaseCount}</TableCell>
                     <TableCell>{new Date(customer.lastPurchaseDate).toLocaleDateString()}</TableCell>
@@ -180,7 +205,7 @@ const InventorySummaryCards = ({ inventoryData, totalQuantitySold, totalItemsWit
               fontWeight: 700,
               color: "#1976d2",
             }}>
-            {totalQuantitySold || 0}
+            {formatQuantityWithUnits(totalQuantitySold)}
           </Typography>
         </Card>
       </Grid>
@@ -226,7 +251,7 @@ const InventorySummaryCards = ({ inventoryData, totalQuantitySold, totalItemsWit
               fontWeight: 700,
               color: "#2e7d32",
             }}>
-            ₵{(inventoryData || 0).toFixed(2)}
+            ₵{round(inventoryData || 0, 2).toFixed(2)}
           </Typography>
         </Card>
       </Grid>
@@ -456,8 +481,8 @@ const InventoryReports = ({ products = [], inventoryItems, companyId, startDate,
       (item) => (item.totalQuantity ?? item.quantitySold ?? 0) > 0
     ).length;
 
-    setTotalCash(totalAmount);
-    setTotalQuantitySold(totalQty);
+    setTotalCash(round(totalAmount, 2));
+    setTotalQuantitySold(round(totalQty, 3));
     setTotalItemsWithSales(itemsWithSales);
   }, [inventoryItems, products]);
 
