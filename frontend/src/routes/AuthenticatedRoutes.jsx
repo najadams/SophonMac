@@ -18,7 +18,7 @@ const Dashboard = lazy(() => import("../views/Dashboard"));
 const VendorDetails = lazy(() => import("../views/VendorDetails"))
 const Customers = lazy(() => import("../views/Customers"));
 const ProductCatalogue = lazy(() => import("../views/ProductCatalogue"));
-const StockEntry = lazy(() => import("../views/StockEntry"));
+
 const Transactions = lazy(() => import("../views/Transactions"));
 const Settings = lazy(() => import("../views/Settings"));
 const CreateUser = lazy(() => import("../views/CreateUser"));
@@ -128,14 +128,7 @@ const AuthenticatedRoutes = () => {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/stocks"
-        element={
-          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_INVENTORY}>
-            <StockEntry />
-          </ProtectedRoute>
-        }
-      />
+
       <Route
         path="/transactions"
         element={

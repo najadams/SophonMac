@@ -142,6 +142,21 @@ class VATCryptoService {
   }
 
   /**
+   * Decrypt a private key (Software provider only)
+   * @param {string} privateKeyEncrypted
+   * @param {string} password
+   * @param {string} providerType
+   * @returns {Buffer} Decrypted private key DER
+   */
+  decryptPrivateKey(privateKeyEncrypted, password, providerType = 'software') {
+    if (providerType !== 'software') {
+      throw new Error('Decrypt operation only supported for software keys');
+    }
+    const provider = KeyProviderFactory.getProvider(providerType);
+    return provider.decryptPrivateKey(privateKeyEncrypted, password);
+  }
+
+  /**
    * Derive key fingerprint (SHA-256 hash of public key)
    * @param {string} publicKeyBase64 - Base64-encoded public key
    * @returns {string} Fingerprint as lowercase hex
@@ -341,6 +356,8 @@ class VATCryptoService {
       if (proof.signerKeyFingerprint && proof.signerKeyFingerprint !== expectedFingerprint) {
         return { valid: false, reason: 'Key fingerprint mismatch' };
       }
+
+      return { valid: true, authority: proof.authority };
 
     } catch (error) {
       return { valid: false, reason: `Verification error: ${error.message}` };

@@ -38,7 +38,9 @@ function AppAppBar({ mode, toggleColorMode }) {
   return (
     <div>
       <AppBar
-        position="fixed"
+        position="sticky"
+        top={0}
+        zIndex={100}
         sx={{
           boxShadow: 0,
           bgcolor: "transparent",

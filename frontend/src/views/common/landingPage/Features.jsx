@@ -74,7 +74,7 @@ export default function Features() {
             <Typography
               variant="body1"
               color="text.secondary"
-              sx={{ mb: { xs: 2, sm: 4 }, mx: "auto", maxWidth: "80%" }}>
+              sx={{ mb: { xs: 2, sm: 4 }, mx: "auto", width: { xs: "100%", md: "80%" } }}>
               View our versatile product features made for the everyday business owner for the everyday activity.
             </Typography>
           </motion.div>
@@ -308,7 +308,8 @@ export default function Features() {
                 sx={{
                   display: { xs: "none", sm: "flex" },
                   justifyContent: "center",
-                  width: 420,
+                  width: "100%",
+                  maxWidth: 420,
                   height: 250,
                   backgroundSize: "contain",
                   backgroundRepeat: "no-repeat",

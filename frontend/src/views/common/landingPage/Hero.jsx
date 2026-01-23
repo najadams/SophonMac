@@ -8,14 +8,19 @@ import Typography from "@mui/material/Typography";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
-import {useMediaQuery} from "@mui/material";
+
 
 const images = [
   "/shot1.png",
   "/shot2.png",
   "/shot3.png",
   "/shot4.png",
-  // Add more image paths as needed
+  "/shot5.png",
+  "/shot6.png",
+  "/shot7.png",
+  "/shot8.png",
+  "/shot9.png",
+  "/shot10.png",
 ];
 
 export default function Hero() {
@@ -30,7 +35,7 @@ export default function Hero() {
     arrows: true,
   };
 
-  const isMobile = useMediaQuery((theme) => theme.breakpoints.down("sm"));
+
   return (
     <Box
       id="hero"
@@ -41,16 +46,20 @@ export default function Hero() {
             ? "linear-gradient(135deg, #E3F2FD 0%, #FFFFFF 100%)"
             : `linear-gradient(#02294F, ${alpha("#090E10", 0.0)})`,
         backgroundSize: "100%",
+        overflow: "hidden",
+        maxWidth: "100vw",
       })}>
       <Container
         sx={{
           display: "flex",
-          flexDirection: "column",
+          flexDirection: { xs: "column", md: "row" },
           alignItems: "center",
-          pt: { xs: 14, sm: 10 },
-          pb: { xs: 8, sm: 12 },
+          justifyContent: "space-between",
+          gap: { xs: 4, md: 8 },
+          pt: { xs: 8, sm: 12 },
+          pb: { xs: 8, sm: 0 },
         }}>
-        <Stack spacing={2} useFlexGap sx={{ width: { xs: "100%", sm: "70%" } }}>
+        <Stack spacing={2} useFlexGap sx={{ width: { xs: "100%", md: "50%" }, textAlign: { xs: "center", md: "left" }, alignItems: { xs: "center", md: "flex-start" } }}>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -59,11 +68,6 @@ export default function Hero() {
             <Typography
               variant="h1"
               sx={{
-                display: "flex",
-                flexDirection: { xs: "column", md: "row" },
-                alignSelf: "center",
-                textAlign: "center",
-                justifyContent: "center",
                 fontSize: "clamp(2rem, 6vw, 4rem)",
                 color: "primary.main",
               }}>
@@ -76,9 +80,8 @@ export default function Hero() {
              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
             <Typography
-              textAlign="center"
               color="text.secondary"
-              sx={{ alignSelf: "center", width: { sm: "100%", md: "80%" }, mx: "auto" }}>
+              sx={{ width: { sm: "100%", md: "90%" } }}>
               Manage sales, track inventory, and grow your business with Sophon. 
               The all-in-one platform designed for modern wholesalers and retailers.
             </Typography>
@@ -88,66 +91,69 @@ export default function Hero() {
             initial={{ opacity: 0, scale: 0.95, y: 40 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
-            style={{ width: "100%", display: "flex", justifyContent: "center" }}
+            style={{ width: "100%", display: "flex", justifyContent: "center", flex: 1 }}
         >
         <Box
           id="image"
           sx={{
             alignSelf: "center",
-            height: { xs: 200, sm: 400, md: 600 },
-            width: "90%", // Adjust as needed
-            maxWidth: "1000px",
+            height: { xs: 200, sm: 400, md: 500 },
+            width: "100%", 
+            maxWidth: "100%",
+            minWidth: 0, // Allow shrinking
             borderRadius: "10px",
-            overflow: "hidden",
+            overflow: "hidden", // Restored to prevent layout blowout
             boxShadow: 20,
-            mt: { xs: 4, sm: 6 },
+            mt: { xs: 4, sm: 0 },
+            "& .slick-slider": {
+              width: "100%",
+              height: "100%",
+            },
+            "& .slick-list": {
+              height: "100%",
+              borderRadius: "10px",
+            },
+            "& .slick-track": {
+              height: "100%",
+              display: "flex",
+            },
+            "& .slick-slide": {
+              height: "100%",
+              "& > div": {
+                  height: "100%",
+              }
+            },
+            "& .slick-prev, & .slick-next": {
+              zIndex: 1,
+            },
+            "& .slick-prev": {
+              left: 10, // Adjusted to be visible
+            },
+            "& .slick-next": {
+              right: 10, // Adjusted to be visible
+            }
           }}>
-          {isMobile ? (
-            <Box
-              id="image"
-              sx={(theme) => ({
-                // mt: { xs: 8, sm: 10 },
-                alignSelf: "center",
-                height: { xs: 200, sm: 700 },
-                width: "100%",
-                backgroundImage: "url('/shot1.png')",
-                backgroundSize: "cover",
-                borderRadius: "10px",
-                outline: "1px solid",
-                outlineColor:
-                  theme.palette.mode === "light"
-                    ? alpha("#BFCCD9", 0.5)
-                    : alpha("#9CCCFC", 0.1),
-                boxShadow:
-                  theme.palette.mode === "light"
-                    ? `0 0 12px 8px ${alpha("#9CCCFC", 0.2)}`
-                    : `0 0 24px 12px ${alpha("#033363", 0.2)}`,
-              })}
-            />
-          ) : (
             <Box
               sx={{
-                width: { sx: 100, sm: 500, md: "100%" },
-                m: "auto",
-                background: "greden",
+                width: "100%",
+                height: "100%",
               }}>
-              <Slider {...settings} style={{ background: "bluffe" }}>
+              <Slider {...settings}>
                 {images.map((image, index) => (
                   <Box
                     key={index}
                     sx={{
-                      height: { xs: 150, sm: 400, md: 600 },
+                      height: "100%",
                       width: "100%",
                       backgroundImage: `url(${image})`,
-                      backgroundSize: "contain",
+                      backgroundSize: "cover",
                       backgroundRepeat: "no-repeat",
-                      backgroundPosition: "center",
+                      backgroundPosition: "top center",
                     }}
                   />
                 ))}
               </Slider>
             </Box>
-          )}
         </Box>
         </motion.div>
       </Container>

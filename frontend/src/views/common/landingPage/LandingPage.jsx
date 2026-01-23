@@ -12,6 +12,7 @@ import Hero from "./Hero";
 import Highlights from "./Highlights";
 import Pricing from "./Pricing";
 import Features from "./Features";
+import Showcase from "./Showcase";
 import Footer from "./Footer";
 // import getLPTheme from "./getLPTheme";
 
@@ -22,7 +23,8 @@ function ToggleCustomTheme({ showCustomTheme, toggleCustomTheme }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        width: "100dvw",
+        left: 0,
+        right: 0,
         position: "fixed",
         bottom: 24,
       }}>
@@ -118,23 +120,26 @@ export default function LandingPage() {
     // <ThemeProvider theme={showCustomTheme ? LPtheme : defaultTheme}>
     <div
       style={{
-        height: "100%",
+        height: "100%", // Fixed height to match parent 100vh
         width: "100%",
-        overflowY: "auto",
+        overflowY: "auto", // Restore scrollability
         padding: 0,
         margin: 0,
         backgroundColor: "inherit",
+        display: "flex",
+        flexDirection: "column",
       }}>
       <ThemeProvider theme={defaultTheme}>
-        <CssBaseline />
-        <AppAppBar mode={mode} toggleColorMode={toggleColorMode} />
-        <Hero />
 
         <Box
           sx={{
             bgcolor: "background.default",
           }}>
+            <AppAppBar mode={mode} toggleColorMode={toggleColorMode} />
+          <Hero />
+            {/* <CssBaseline /> */}
           {/* <LogoCollection /> */}
+          <Showcase />
           <Features />
           {/* <Divider /> */}
           {/* <Testimonials /> */}

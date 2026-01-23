@@ -74,7 +74,7 @@ class SoftwareKeyProvider extends KeyProvider {
     const { privateKeyEncrypted, password } = keyContext;
     if (!privateKeyEncrypted || !password) throw new Error('Private key and password required for software signing');
 
-    const privateKeyDer = this._decryptPrivateKey(privateKeyEncrypted, password);
+    const privateKeyDer = this.decryptPrivateKey(privateKeyEncrypted, password);
     const privateKey = crypto.createPrivateKey({
       key: privateKeyDer,
       format: 'der',
@@ -111,7 +111,7 @@ class SoftwareKeyProvider extends KeyProvider {
     return packed.toString('base64');
   }
 
-  _decryptPrivateKey(encryptedBase64, password) {
+  decryptPrivateKey(encryptedBase64, password) {
     const packed = Buffer.from(encryptedBase64, 'base64');
     
     const salt = packed.subarray(0, ENCRYPTION_CONFIG.saltLength);

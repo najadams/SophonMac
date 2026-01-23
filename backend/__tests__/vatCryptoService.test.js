@@ -69,8 +69,8 @@ describe('VATCryptoService', () => {
 
   describe('Token Minting & Verification', () => {
 
-    test('should sign and verify a valid token', () => {
-      const token = vatCryptoService.mintToken(
+    test('should sign and verify a valid token', async () => {
+      const token = await vatCryptoService.mintToken(
         baseTokenData, 
         keyPair.privateKeyEncrypted, 
         TEST_PASSWORD, 
@@ -82,8 +82,8 @@ describe('VATCryptoService', () => {
       expect(result.authority).toBe('SKA');
     });
 
-    test('should reject tampered payload', () => {
-      const token = vatCryptoService.mintToken(
+    test('should reject tampered payload', async () => {
+      const token = await vatCryptoService.mintToken(
         baseTokenData, 
         keyPair.privateKeyEncrypted, 
         TEST_PASSWORD, 
@@ -99,8 +99,8 @@ describe('VATCryptoService', () => {
       expect(result.reason).toMatch(/Hash mismatch/); 
     });
 
-    test('should reject tampered signature', () => {
-      const token = vatCryptoService.mintToken(
+    test('should reject tampered signature', async () => {
+      const token = await vatCryptoService.mintToken(
         baseTokenData, 
         keyPair.privateKeyEncrypted, 
         TEST_PASSWORD, 
@@ -115,9 +115,9 @@ describe('VATCryptoService', () => {
       expect(result.reason).toMatch(/Invalid signature|Verification error/);
     });
 
-      test('property: any minted token should be verifiable', () => {
-        fc.assert(
-          fc.property(
+      test('property: any minted token should be verifiable', async () => {
+        await fc.assert(
+          fc.asyncProperty(
             fc.record({
               tokenId: fc.uuid(),
               batchId: fc.string({minLength: 1}),
@@ -131,8 +131,8 @@ describe('VATCryptoService', () => {
               currencyCode: fc.constant('GHS'),
               issuedAt: fc.date().map(d => d.toISOString())
             }),
-            (data) => {
-              const token = vatCryptoService.mintToken(
+            async (data) => {
+              const token = await vatCryptoService.mintToken(
                 data, 
                 keyPair.privateKeyEncrypted, 
                 TEST_PASSWORD, 
@@ -146,8 +146,8 @@ describe('VATCryptoService', () => {
   });
 
   describe('QR Export/Import', () => {
-    test('should roundtrip correctly', () => {
-      const token = vatCryptoService.mintToken(
+    test('should roundtrip correctly', async () => {
+      const token = await vatCryptoService.mintToken(
         baseTokenData, 
         keyPair.privateKeyEncrypted, 
         TEST_PASSWORD, 
