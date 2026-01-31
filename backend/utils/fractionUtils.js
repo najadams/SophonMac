@@ -59,11 +59,6 @@ class Fraction {
       if (other.n === 0n) throw new Error("Division by zero");
       return new Fraction(this.n * other.d, this.d * other.n);
   }
-  
-  divide(other) {
-      if (other.n === 0n) throw new Error("Division by zero");
-      return new Fraction(this.n * other.d, this.d * other.n);
-  }
 
   static from(value) {
     if (value instanceof Fraction) return value;

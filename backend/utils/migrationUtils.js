@@ -166,12 +166,36 @@ const runCustomRolesMigration = async () => {
   }
 };
 
+// Add preventOverselling column to Company table
+const runPreventOversellingMigration = async () => {
+  try {
+    const exists = await columnExists('Company', 'preventOverselling');
+    if (!exists) {
+      console.log('Running preventOverselling migration...');
+      const filePath = path.join(__dirname, '../migrations/add_prevent_overselling_to_company.sql');
+      const migrationSQL = fs.readFileSync(filePath, 'utf8');
+      await new Promise((resolve, reject) => {
+        getDb().exec(migrationSQL, (err) => {
+          if (err) reject(err); else resolve();
+        });
+      });
+      console.log('preventOverselling migration completed successfully!');
+    } else {
+      console.log('preventOverselling migration already applied.');
+    }
+  } catch (error) {
+    console.error('Error running preventOverselling migration:', error);
+    throw error;
+  }
+};
+
 const runMigrations = async () => {
   try {
     await runReceiptDetailMigration();
     await runCustomRolesMigration();
     await runCurrencyNormalizationMigration();
     await runTaxConfigHistoryMigration();
+    await runPreventOversellingMigration();
     console.log('All migrations completed successfully!');
   } catch (error) {
     console.error('Migration error:', error);

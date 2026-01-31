@@ -187,6 +187,36 @@ const DBUtils = {
     });
   },
 
+  // Promisified db.get — use instead of manual new Promise wrappers
+  dbGet(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      getDb().get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+  },
+
+  // Promisified db.all
+  dbAll(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      getDb().all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+  },
+
+  // Promisified db.run
+  dbRun(sql, params = []) {
+    return new Promise((resolve, reject) => {
+      getDb().run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve({ lastID: this.lastID, changes: this.changes });
+      });
+    });
+  },
+
   // Helper to generate UUIDs
   generateUUID() {
     // Use crypto.randomUUID if available (Node 14.17+), otherwise fallback to uuid package

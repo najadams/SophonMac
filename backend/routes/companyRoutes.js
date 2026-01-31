@@ -555,6 +555,7 @@ const updateCompanyDetails = async (req, res) => {
       "taxMode",
       "parentCompanyId",
       "taxIdType",
+      "preventOverselling",
     ];
 
     // Filter updates to only include allowed fields (excluding allowedUnits/allowedCategories)

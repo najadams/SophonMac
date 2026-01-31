@@ -461,7 +461,8 @@ const newReceipts = async (req, res) => {
       let quantityInBaseUnit = product.quantity;
       let atomicQuantity = product.quantity;
       let conversionRate = 1;
-      let loss = 0;
+      let lostQuantityInBaseUnit = 0;
+      let lossMonetary = 0;
       let salesPricePerUnit = product.price || inventoryItem.salesPrice;
       let costPricePerUnit = inventoryItem.costPrice;
       let itemTotalPrice = product.totalPrice || salesPricePerUnit * product.quantity;
@@ -509,7 +510,8 @@ const newReceipts = async (req, res) => {
         }
 
         if (inventoryItem.lossFactor > 0) {
-          loss = (itemTotalPrice * inventoryItem.lossFactor) / 100;
+          lostQuantityInBaseUnit = quantityInBaseUnit * inventoryItem.lossFactor / 100;
+          lossMonetary = lostQuantityInBaseUnit * inventoryItem.costPrice;
         }
 
         // Record breakdown history
@@ -529,7 +531,7 @@ const newReceipts = async (req, res) => {
               inventoryItem.baseUnit,
               product.unit,
               product.quantity,
-              loss,
+              lostQuantityInBaseUnit,
               "Breakdown for sale",
             ],
             (err) => {
@@ -557,19 +559,21 @@ const newReceipts = async (req, res) => {
 
       // Calculate profit based on the sales unit
       const itemProfit =
-        (salesPricePerUnit - costPricePerUnit) * product.quantity - loss;
+        (salesPricePerUnit - costPricePerUnit) * product.quantity - lossMonetary;
 
       receiptDetails.push({
         name: product.name,
         quantity: quantityInBaseUnit,
-        costPrice: costPricePerUnit, // Cost price per sales unit
-        salesPrice: salesPricePerUnit, // Sales price per sales unit
+        costPrice: costPricePerUnit,
+        salesPrice: salesPricePerUnit,
         salesUnit: product.unit || inventoryItem.baseUnit,
         originalQuantity: product.quantity,
         baseUnitQuantity: quantityInBaseUnit,
         conversionRate: conversionRate,
         atomicQuantity: atomicQuantity,
         totalPrice: itemTotalPrice,
+        lostQuantity: lostQuantityInBaseUnit,
+        loss: lossMonetary,
       });
 
       totalProfit += itemProfit;
@@ -694,19 +698,45 @@ const newReceipts = async (req, res) => {
       });
     }
 
+    // Fetch company settings for stock validation
+    const companySettings = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT preventOverselling FROM Company WHERE id = ?`,
+        [companyId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
     // Update inventory quantities
-    for (const product of products) {
+    for (let i = 0; i < products.length; i++) {
+      const product = products[i];
+      const detail = receiptDetails[i];
       const formattedName = product.name.trim().toLowerCase();
       const inventoryItem = inventoryMap.get(formattedName);
 
+      // Total deduction in base units = sold quantity + loss quantity
+      const totalDeductionInBaseUnit = detail.baseUnitQuantity + detail.lostQuantity;
+
+      // Prevent overselling if setting is enabled
+      if (companySettings?.preventOverselling) {
+        if (totalDeductionInBaseUnit > inventoryItem.onhand) {
+          db.run("ROLLBACK");
+          throw new Error(
+            `Insufficient stock for "${product.name}". Available: ${inventoryItem.onhand} ${inventoryItem.baseUnit}, needed: ${totalDeductionInBaseUnit.toFixed(4)} ${inventoryItem.baseUnit}`
+          );
+        }
+      }
+
       try {
-        // Deduct stock using centralized service (pass negative quantity for deduction)
-        // Service handles unit conversion and strict fraction math
-        await InventoryService.updateStock(inventoryItem.id, -product.quantity, product.unit);
+        // Deduct total (sold + loss) in base unit — no unit param since already converted
+        await InventoryService.updateStock(inventoryItem.id, -totalDeductionInBaseUnit);
       } catch (err) {
         console.error(`Failed to update stock for ${product.name}:`, err);
-        db.run("ROLLBACK"); // Ensure we rollback if stock update fails
-        throw err; 
+        db.run("ROLLBACK");
+        throw err;
       }
     }
 
