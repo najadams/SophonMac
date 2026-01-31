@@ -21,6 +21,7 @@ export const FEATURES = {
   PURCHASE_ORDERS: 'purchase_orders',
   ACCOUNTING_EXPORT: 'accounting_export',
   ADVANCED_INVENTORY: 'advanced_inventory', // Batches, Expiry
+  EXPENSE_TRACKING: 'expense_tracking',
   
   // Enterprise
   API_ACCESS: 'api_access',
@@ -58,6 +59,7 @@ export const PLANS = {
       FEATURES.CUSTOMER_MGMT,
       FEATURES.WHATSAPP_RECEIPTS,
       FEATURES.STOCK_TRACKING,
+      FEATURES.EXPENSE_TRACKING, 
     ],
     limits: {
       branches: 1,
@@ -83,6 +85,7 @@ export const PLANS = {
       FEATURES.PURCHASE_ORDERS,
       FEATURES.ACCOUNTING_EXPORT,
       FEATURES.ADVANCED_INVENTORY,
+      FEATURES.EXPENSE_TRACKING,
     ],
     limits: {
       branches: 5,
