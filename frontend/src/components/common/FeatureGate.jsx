@@ -16,7 +16,7 @@ import LockIcon from '@mui/icons-material/Lock';
  * @param {boolean} showLock - Whether to show the default lock icon if fallback is undefined
  */
 const FeatureGate = ({ feature, children, fallback, showLock = true }) => {
-  const companyPlan = useSelector((state) => state.companyState.data?.plan || 'STARTER');
+  const companyPlan = useSelector((state) => state.companyState.data?.currentPlan || 'STARTER');
   const isAllowed = hasFeature(companyPlan, feature);
 
   if (isAllowed) {

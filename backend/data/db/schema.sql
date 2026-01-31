@@ -35,7 +35,7 @@ CREATE TABLE Company (
     location TEXT,
     taxRate REAL CHECK(taxRate >= 0 AND taxRate <= 100),
     currencyCode TEXT NOT NULL DEFAULT 'GHS' REFERENCES Currency(code),
-    currentPlan TEXT,
+    currentPlan TEXT DEFAULT 'STARTER',
     emailNotifications INTEGER DEFAULT 0 CHECK(emailNotifications IN (0,1)),
     momo TEXT,
     nextBillingDate TEXT,
