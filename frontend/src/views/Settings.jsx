@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { capitalizeFirstLetter } from "../config/Functions";
 import { tableActions } from "../config/Functions";
 import Loader from "../components/common/Loader";
+import UpgradePlanModal from "../components/billing/UpgradePlanModal";
 import { useState } from "react";
 import React from "react";
 import { Formik, Form, Field } from "formik";
@@ -119,6 +120,7 @@ const Settings = () => {
   const navigate = useNavigate();
   const [newUnit, setNewUnit] = useState("");
   const [newCategory, setNewCategory] = useState("");
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [newPaymentMethod, setNewPaymentMethod] = useState("");
   const [paymentMethods, setPaymentMethods] = useState([
     "cash",
@@ -208,6 +210,7 @@ const Settings = () => {
   }, [canManageSettings]);
 
   return (
+  <>
     <ErrorBoundary>
       <div className="page">
         <Container maxWidth="md">
@@ -441,14 +444,11 @@ const Settings = () => {
                                 Valid until: {values.planExpiry ? new Date(values.planExpiry).toLocaleDateString() : 'Forever'}
                              </Typography>
                           </Box>
-                          <Button 
-                            variant="contained" 
+                          <Button
+                            variant="contained"
                             color="secondary"
                             startIcon={<AutoAwesomeIcon />}
-                            onClick={() => {
-                                // In a real app, this would open the billing portal
-                                window.location.href = '/#pricing'; 
-                            }}
+                            onClick={() => setUpgradeModalOpen(true)}
                           >
                             Upgrade Plan
                           </Button>
@@ -1633,6 +1633,8 @@ const Settings = () => {
         />
       </div>
     </ErrorBoundary>
+    <UpgradePlanModal open={upgradeModalOpen} onClose={() => setUpgradeModalOpen(false)} />
+  </>
   );
 };
 

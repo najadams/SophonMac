@@ -232,6 +232,8 @@ router.post("/", (req, res) => {
     return res.status(400).json({ error: "belongsTo and name are required." });
   }
 
+  console.log('[DEBUG] Creating customer params:', { belongsTo, name, company });
+
   try {
     // 1️⃣ Check if a customer with same name & company already exists
     const existingCustomer = db.connection

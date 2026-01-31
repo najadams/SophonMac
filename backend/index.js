@@ -264,6 +264,7 @@ function registerRoutes(withDb) {
       const vatTokenRoutes = require("./routes/vatTokenRoutes");
       const intelligenceRoutes = require("./routes/intelligenceRoutes");
       const expenseRoutes = require("./routes/expenseRoutes");
+      const billingRoutes = require("./routes/billingRoutes");
 
       app.use('/api/auth', authRoutes);
       app.use('/api/companies', companyRoutes);
@@ -278,6 +279,7 @@ function registerRoutes(withDb) {
       app.use('/api/transactions', transactionRoutes);
       app.use('/api/vendor-payments', vendorPaymentRoutes);
       app.use('/api/expenses', expenseRoutes);
+      app.use('/api/billing', billingRoutes);
       app.use('/api/notifications', notificationRoutes);
       app.use('/api/reports', reportRoutes);
       app.use('/api/sync', syncRoutes);

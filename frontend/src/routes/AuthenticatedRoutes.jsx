@@ -32,6 +32,7 @@ const NetworkManager = lazy(() => import("../components/NetworkManager"));
 const TaxDashboard = lazy(() => import("../views/TaxDashboard"));
 const Intelligence = lazy(() => import("../views/Intelligence"));
 const Expenses = lazy(() => import("../views/Expenses"));
+const BillingCallback = lazy(() => import("../views/BillingCallback"));
 
 const AuthenticatedRoutes = () => {
   const userRole = useSelector((state) => state.userState?.currentUser.role);
@@ -254,8 +255,9 @@ const AuthenticatedRoutes = () => {
           <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_EXPENSES}>
             <Expenses />
           </ProtectedRoute>
-        } 
+        }
       />
+      <Route path="/billing/callback" element={<BillingCallback />} />
     </Routes>
   );
 };
