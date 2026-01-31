@@ -14,6 +14,7 @@ import Pricing from "./Pricing";
 import Features from "./Features";
 import Showcase from "./Showcase";
 import Footer from "./Footer";
+import FAQ from "./FAQ";
 // import getLPTheme from "./getLPTheme";
 
 function ToggleCustomTheme({ showCustomTheme, toggleCustomTheme }) {
@@ -147,8 +148,8 @@ export default function LandingPage() {
           <Highlights />
           {/* <Divider /> */}
           <Pricing />
-          {/* <Divider /> */}
-          {/* <FAQ /> */}
+          <Divider />
+          <FAQ />
           <Divider />
           <Footer />
         </Box>

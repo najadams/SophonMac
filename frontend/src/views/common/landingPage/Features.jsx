@@ -30,9 +30,9 @@ const items = [
     description:
       "Track stock levels in real-time. Multiple units are allowed, creating flexible sales options where loss from selling in smaller units is completely eradicated.",
     imageLight:
-      'url("/static/images/templates/templates-images/mobile-light.png")',
+      'url("/shot2.png")',
     imageDark:
-      'url("/static/images/templates/templates-images/mobile-dark.png")',
+      'url("/logo2.png")',
   },
   {
     icon: <DevicesRoundedIcon />,
@@ -40,9 +40,9 @@ const items = [
     description:
       "Gain insights with comprehensive sales history, profit & loss analysis, and debt tracking reports.",
     imageLight:
-      'url("/static/images/templates/templates-images/devices-light.png")',
+      'url("/shot5.png")',
     imageDark:
-      'url("/static/images/templates/templates-images/devices-dark.png")',
+      'url("/logo2.png")',
   },
 ];
 
@@ -293,24 +293,24 @@ export default function Features() {
             initial={{ opacity: 0, x: 100 }}
             animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: 100 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
+            whileHover={{ scale: 1.2, transition: { duration: 0.3 } }}
             style={{ width: "100%" }}>
-            <Card
-              variant="outlined"
+            <Box
               sx={{
                 alignItems: "center",
                 height: "100%",
                 width: "100%",
                 display: { xs: "none", sm: "flex" },
                 justifyContent: "center",
-                pointerEvents: "none",
+                cursor: "pointer",
               }}>
               <Box
                 sx={{
                   display: { xs: "none", sm: "flex" },
                   justifyContent: "center",
                   width: "100%",
-                  maxWidth: 420,
-                  height: 250,
+                  maxWidth: 600,
+                  height: 300,
                   backgroundSize: "contain",
                   backgroundRepeat: "no-repeat",
                   backgroundImage: (theme) =>
@@ -319,7 +319,7 @@ export default function Features() {
                       : items[selectedItemIndex].imageDark,
                 }}
               />
-            </Card>
+            </Box>
           </motion.div>
         </Grid>
       </Grid>

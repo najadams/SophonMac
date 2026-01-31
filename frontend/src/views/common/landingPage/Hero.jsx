@@ -52,14 +52,12 @@ export default function Hero() {
       <Container
         sx={{
           display: "flex",
-          flexDirection: { xs: "column", md: "row" },
+          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "space-between",
-          gap: { xs: 4, md: 8 },
           pt: { xs: 8, sm: 12 },
           pb: { xs: 8, sm: 0 },
         }}>
-        <Stack spacing={2} useFlexGap sx={{ width: { xs: "100%", md: "50%" }, textAlign: { xs: "center", md: "left" }, alignItems: { xs: "center", md: "flex-start" } }}>
+        <Stack spacing={2} useFlexGap sx={{ width: { xs: "100%", sm: "70%" } }}>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -68,6 +66,11 @@ export default function Hero() {
             <Typography
               variant="h1"
               sx={{
+                display: "flex",
+                flexDirection: { xs: "column", md: "row" },
+                alignSelf: "center",
+                textAlign: "center",
+                justifyContent: "center",
                 fontSize: "clamp(2rem, 6vw, 4rem)",
                 color: "primary.main",
               }}>
@@ -80,8 +83,9 @@ export default function Hero() {
              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           >
             <Typography
+              textAlign="center"
               color="text.secondary"
-              sx={{ width: { sm: "100%", md: "90%" } }}>
+              sx={{ alignSelf: "center", width: { sm: "100%", md: "80%" }, mx: "auto" }}>
               Manage sales, track inventory, and grow your business with Sophon. 
               The all-in-one platform designed for modern wholesalers and retailers.
             </Typography>
@@ -91,20 +95,21 @@ export default function Hero() {
             initial={{ opacity: 0, scale: 0.95, y: 40 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
-            style={{ width: "100%", display: "flex", justifyContent: "center", flex: 1 }}
+            style={{ width: "100%", display: "flex", justifyContent: "center" }}
         >
         <Box
           id="image"
           sx={{
             alignSelf: "center",
-            height: { xs: 200, sm: 400, md: 500 },
+            height: { xs: 200, sm: 400, md: 600 },
             width: "100%", 
-            maxWidth: "100%",
+            maxWidth: "1000px",
             minWidth: 0, // Allow shrinking
+            mx: "auto",
             borderRadius: "10px",
             overflow: "hidden", // Restored to prevent layout blowout
             boxShadow: 20,
-            mt: { xs: 4, sm: 0 },
+            mt: { xs: 4, sm: 6 },
             "& .slick-slider": {
               width: "100%",
               height: "100%",
