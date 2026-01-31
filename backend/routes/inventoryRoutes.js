@@ -7,6 +7,7 @@ const EventService = require('../services/eventService');
 // InventoryService emits events now, but only if we use it. 
 // updateProduct still does manual update.
 const InventoryService = require('../services/inventoryService');
+const { enforceLimit } = require('../middleware/planMiddleware');
 
 // Get all inventory items
 router.get('/', (req, res) => {
@@ -875,7 +876,7 @@ const updateProductUnitSettings = async (req, res) => {
 };
 
 // Routes
-router.post("/", newProduct);
+router.post("/", enforceLimit('products', 'Inventory', 'companyId = ? AND deleted = 0'), newProduct);
 router.get("/:companyId", getProducts);
 router.patch("/:id", updateProduct); // Add PATCH route to match frontend
 router.delete("/:id", delProduct);

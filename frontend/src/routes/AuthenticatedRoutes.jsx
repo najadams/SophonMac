@@ -31,6 +31,7 @@ const CustomerInfo = lazy(() => import("../views/CustomerInfo"))
 const NetworkManager = lazy(() => import("../components/NetworkManager"));
 const TaxDashboard = lazy(() => import("../views/TaxDashboard"));
 const Intelligence = lazy(() => import("../views/Intelligence"));
+const Expenses = lazy(() => import("../views/Expenses"));
 
 const AuthenticatedRoutes = () => {
   const userRole = useSelector((state) => state.userState?.currentUser.role);
@@ -244,6 +245,14 @@ const AuthenticatedRoutes = () => {
         element={
           <ProtectedRoute requiredPermission={PERMISSIONS.VIEW_DASHBOARD}>
             <Intelligence />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/expenses" 
+        element={
+          <ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_EXPENSES}>
+            <Expenses />
           </ProtectedRoute>
         } 
       />

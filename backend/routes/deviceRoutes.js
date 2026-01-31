@@ -3,9 +3,10 @@ const router = express.Router();
 const db = require('../data/db/db');
 const dbUtils = require('../utils/dbUtils');
 const { v4: uuidv4 } = require('uuid');
+const { enforceLimit } = require('../middleware/planMiddleware');
 
 // Register a new Device
-router.post('/register', (req, res) => {
+router.post('/register', enforceLimit('devices', 'Device'), (req, res) => {
   const { companyId, name, deviceId } = req.body;
 
   if (!companyId || !name) {

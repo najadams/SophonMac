@@ -189,6 +189,33 @@ const runPreventOversellingMigration = async () => {
   }
 };
 
+// Add billing fields to Company table
+const runBillingMigration = async () => {
+  try {
+    const exists = await columnExists('Company', 'paystackCustomerCode');
+    if (!exists) {
+      console.log('Running billing migration...');
+      const filePath = path.join(__dirname, '../migrations/add_billing_fields.sql');
+      const migrationSQL = fs.readFileSync(filePath, 'utf8');
+      const statements = migrationSQL.split(';').filter(s => s.trim());
+      for (const stmt of statements) {
+        await new Promise((resolve, reject) => {
+          getDb().exec(stmt, (err) => {
+            if (err && !err.message.includes('duplicate column')) reject(err);
+            else resolve();
+          });
+        });
+      }
+      console.log('Billing migration completed successfully!');
+    } else {
+      console.log('Billing migration already applied.');
+    }
+  } catch (error) {
+    console.error('Error running billing migration:', error);
+    throw error;
+  }
+};
+
 const runMigrations = async () => {
   try {
     await runReceiptDetailMigration();
@@ -196,6 +223,7 @@ const runMigrations = async () => {
     await runCurrencyNormalizationMigration();
     await runTaxConfigHistoryMigration();
     await runPreventOversellingMigration();
+    await runBillingMigration();
     console.log('All migrations completed successfully!');
   } catch (error) {
     console.error('Migration error:', error);

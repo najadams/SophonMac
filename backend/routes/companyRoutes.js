@@ -5,6 +5,7 @@ const dbUtils = require("../utils/dbUtils");
 const EventService = require("../services/eventService");
 const bcrypt = require('bcrypt');
 const { CLOSING } = require("ws");
+const { enforceLimit } = require("../middleware/planMiddleware");
 
 // Get Counts
 const countData = async (req, res) => {
@@ -765,6 +766,56 @@ router.delete("/:id", (req, res) => {
   });
 });
 
+// Plan Management
+const { PLANS, getLimit } = require("../config/plans");
+
+router.patch("/:id/plan", async (req, res) => {
+  try {
+    const companyId = req.params.id;
+    const { plan } = req.body;
+
+    if (!plan || !PLANS[plan.toUpperCase()]) {
+      return res.status(400).json({
+        error: "Invalid plan. Must be one of: " + Object.keys(PLANS).join(", "),
+      });
+    }
+
+    const planKey = plan.toUpperCase();
+
+    // Check current usage against new plan limits (prevent downgrade violations)
+    const [workers, products, devices, branches] = await Promise.all([
+      dbUtils.dbGet("SELECT COUNT(*) as count FROM Worker WHERE companyId = ?", [companyId]),
+      dbUtils.dbGet("SELECT COUNT(*) as count FROM Inventory WHERE companyId = ? AND deleted = 0", [companyId]),
+      dbUtils.dbGet("SELECT COUNT(*) as count FROM Device WHERE companyId = ?", [companyId]),
+      dbUtils.dbGet("SELECT COUNT(*) as count FROM CompanyNetwork WHERE sourceCompanyId = ?", [companyId]),
+    ]);
+
+    const violations = [];
+    const limits = PLANS[planKey].limits;
+
+    if (workers.count > limits.staff) violations.push(`${workers.count} staff (limit: ${limits.staff})`);
+    if (products.count > limits.products) violations.push(`${products.count} products (limit: ${limits.products})`);
+    if (devices.count > limits.devices) violations.push(`${devices.count} devices (limit: ${limits.devices})`);
+    if (branches.count > limits.branches) violations.push(`${branches.count} branches (limit: ${limits.branches})`);
+
+    if (violations.length > 0) {
+      return res.status(400).json({
+        error: "Cannot switch to this plan. Current usage exceeds limits.",
+        violations,
+      });
+    }
+
+    await dbUtils.dbRun(
+      "UPDATE Company SET currentPlan = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?",
+      [planKey, companyId]
+    );
+
+    res.json({ success: true, currentPlan: planKey });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Network Management Endpoints
 
 // Get Network Connections
@@ -803,7 +854,7 @@ router.get("/:id/network", (req, res) => {
 });
 
 // Add Network Connection
-router.post("/:id/network", (req, res) => {
+router.post("/:id/network", enforceLimit('branches', 'CompanyNetwork', 'sourceCompanyId = ?'), (req, res) => {
   const sourceCompanyId = req.params.id;
   const { targetCompanyId, relationshipType } = req.body;
 

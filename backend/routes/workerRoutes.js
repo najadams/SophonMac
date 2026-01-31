@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../data/db/db');
 const bcrypt = require('bcrypt');
 const { verifyToken, isCompany, isSuperAdmin, belongsToCompany } = require('../middleware/authMiddleware');
+const { enforceLimit } = require('../middleware/planMiddleware');
 const dbUtils = require('../utils/dbUtils');
 
 // Get all workers (protected - company or super_admin only)
@@ -41,7 +42,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Create a new worker (protected - company or super_admin only)
-router.post('/', verifyToken, async (req, res) => {
+router.post('/', verifyToken, enforceLimit('staff', 'Worker'), async (req, res) => {
   try {
     const { name, username, contact, email, password, role, companyId: bodyCompanyId } = req.body;
     const companyId = bodyCompanyId || (req.user.role === 'company' ? req.user.id : req.user.companyId);

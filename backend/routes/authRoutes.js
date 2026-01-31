@@ -69,11 +69,11 @@ router.post('/register', async (req, res) => {
       // Insert logic
       const insertQuery = restoredCompany 
         ? 'INSERT INTO Company (id, companyName, email, password, is_synced, last_synced_at, sync_id) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, ?)'
-        : 'INSERT INTO Company (id, companyName, email, password) VALUES (?, ?, ?, ?)';
+        : 'INSERT INTO Company (id, companyName, email, password, currentPlan) VALUES (?, ?, ?, ?, ?)';
         
       const insertParams = restoredCompany
         ? [companyId, restoredCompany.company_name || companyName, restoredCompany.email, hashedPassword, restoredCompany.sync_id]
-        : [companyId, companyName, email, hashedPassword];
+        : [companyId, companyName, email, hashedPassword, 'STARTER'];
 
       // If restoring, ensure we use the remote names/details if they differ? 
       // For now, we trust the input OR the remote. Let's trust the Remote for checks, but maybe local input for 'companyName' if we want to update it?
