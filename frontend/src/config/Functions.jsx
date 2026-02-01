@@ -1330,6 +1330,9 @@ export const fetchReportData = async (companyId, reportType, filters) => {
     case "debts":
       endpoint = `/api/reports/debts?companyId=${companyId}&startDate=${startDate}&endDate=${endDate}`;
       break;
+    case "expenses":
+      endpoint = `/api/reports/expenses?companyId=${companyId}&startDate=${startDate}&endDate=${endDate}`;
+      break;
     default:
       throw new Error("Invalid report type");
   }

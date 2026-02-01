@@ -30,6 +30,7 @@ const InventoryReport = lazy(() =>
 );
 const DebtsReport = lazy(() => import("../components/reports/DebtsReports"));
 const SalesReport = lazy(() => import("../components/reports/SalesReport"));
+const ExpensesReport = lazy(() => import("../components/reports/ExpensesReport"));
 
 const pageVariants = {
   initial: {
@@ -143,6 +144,21 @@ const Reports = () => {
     }
   );
 
+  const {
+    data: expensesData,
+    isLoading: isExpensesLoading,
+    isError: isExpensesError,
+    refetch: refetchExpenses,
+  } = useQuery(
+    ["expenses", companyId, filters],
+    () => fetchReportData(companyId, "expenses", filters),
+    {
+      enabled: value === 5,
+      keepPreviousData: true,
+      staleTime: 0,
+    }
+  );
+
   const handleDateChange = (e, type) => {
     setFilters({ ...filters, [type]: e.target.value });
     setIsRefreshing(true);
@@ -175,6 +191,9 @@ const Reports = () => {
           break;
         case 4:
           await refetchDebts();
+          break;
+        case 5:
+          await refetchExpenses();
           break;
         default:
           break;
@@ -414,6 +433,55 @@ const Reports = () => {
       );
     }
 
+    if (value === 5) {
+      if (isExpensesLoading) {
+        return (
+          <motion.div
+            key="loading"
+            variants={loadingVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              minHeight: "60vh",
+            }}>
+            <CircularProgress />
+          </motion.div>
+        );
+      }
+      if (isExpensesError) {
+        return (
+          <motion.div
+            key="error"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit">
+            <Typography color="error">Error loading expenses report</Typography>
+          </motion.div>
+        );
+      }
+      if (!expensesData) return <Typography>No expenses data available</Typography>;
+      return (
+        <motion.div
+          key="expenses"
+          variants={pageVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit">
+          <Suspense fallback={<CircularProgress />}>
+            <ExpensesReport 
+              expenses={expensesData.expenses}
+              summary={expensesData.summary}
+            />
+          </Suspense>
+        </motion.div>
+      );
+    }
+
     return null;
   };
 
@@ -436,6 +504,7 @@ const Reports = () => {
             <Tab label="Inventory" />
             <Tab label="Purchases" />
             <Tab label="Debts" />
+            <Tab label="Expenses" />
           </Tabs>
         </div>
         <div style={{ padding: 20 }}>.</div>

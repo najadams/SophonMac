@@ -62,6 +62,7 @@ import {
   fetchHourlyAnalytics,
   fetchInventoryAlerts,
   fetchWeekdayAnalytics,
+  fetchReportData,
 } from "../config/Functions";
 import {
   BarChart,
@@ -925,6 +926,93 @@ export const Widgets = ({ title, count, icon, index }) => {
         </CardContent>
       </Card>
     </motion.div>
+  );
+  );
+};
+
+const getDatesFromRange = (dateRange, months) => {
+  if (dateRange.type === 'custom') {
+    return { startDate: dateRange.startDate, endDate: dateRange.endDate };
+  }
+  if (dateRange.type === 'month') {
+    const [year, month] = dateRange.month.split('-');
+    const lastDay = new Date(year, month, 0).getDate();
+    return { 
+      startDate: `${year}-${month}-01`, 
+      endDate: `${year}-${month}-${lastDay}` 
+    };
+  }
+  return { startDate: '', endDate: '' };
+};
+
+// Expenses Analytics Component
+const ExpensesAnalytics = ({ dateRange }) => {
+  const companyId = useSelector((state) => state.companyState.data?.id);
+  
+  const filters = React.useMemo(() => {
+     return getDatesFromRange(dateRange);
+  }, [dateRange]);
+
+  const {
+    data: expensesData,
+    isLoading,
+    isError,
+  } = useQuery(
+    ["expensesAnalytics", companyId, filters],
+    () => fetchReportData(companyId, "expenses", filters),
+    {
+      enabled: !!companyId && !!filters.startDate,
+    }
+  );
+
+  const pieData = React.useMemo(() => {
+    if (!expensesData?.summary?.byCategory) return [];
+    return Object.entries(expensesData.summary.byCategory).map(([key, value]) => ({
+      name: key,
+      value: value
+    }));
+  }, [expensesData]);
+
+  return (
+    <DummyCard title="Expenses by Category" index={11}>
+      {isLoading ? (
+        <Loader type={2} />
+      ) : isError ? (
+        <Typography>Error loading expenses data</Typography>
+      ) : !pieData || pieData.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 3 }}>
+          <img 
+            src="/noData.jpg" 
+            alt="No data available" 
+            style={{ maxWidth: '100%', height: 'auto', maxHeight: '200px' }}
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            No expenses data available for this period
+          </Typography>
+        </Box>
+      ) : (
+        <ResponsiveContainer width="100%" height={300}>
+          <PieChart>
+            <Pie
+              data={pieData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              outerRadius={80}
+              fill="#8884d8"
+              dataKey="value"
+            >
+              {pieData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"][index % 5]} />
+              ))}
+            </Pie>
+            <RechartsTooltip formatter={(value) => `₵${value.toFixed(2)}`} />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+    </DummyCard>
   );
 };
 
