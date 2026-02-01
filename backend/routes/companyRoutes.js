@@ -5,7 +5,8 @@ const dbUtils = require("../utils/dbUtils");
 const EventService = require("../services/eventService");
 const bcrypt = require('bcrypt');
 const { CLOSING } = require("ws");
-const { enforceLimit } = require("../middleware/planMiddleware");
+const { enforceLimit, requireFeature } = require("../middleware/planMiddleware");
+const { FEATURES } = require("../config/plans");
 
 // Get Counts
 const countData = async (req, res) => {
@@ -854,7 +855,7 @@ router.get("/:id/network", (req, res) => {
 });
 
 // Add Network Connection
-router.post("/:id/network", enforceLimit('branches', 'CompanyNetwork', 'sourceCompanyId = ?'), (req, res) => {
+router.post("/:id/network", requireFeature(FEATURES.MULTI_BRANCH), enforceLimit('branches', 'CompanyNetwork', 'sourceCompanyId = ?'), (req, res) => {
   const sourceCompanyId = req.params.id;
   const { targetCompanyId, relationshipType } = req.body;
 

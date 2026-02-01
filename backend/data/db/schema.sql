@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS Expenses (
     paymentMethod TEXT DEFAULT 'Cash',
     createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
     updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    sync_id TEXT,
+    is_synced INTEGER DEFAULT 0 CHECK(is_synced IN (0,1)),
+    last_synced_at TEXT,
+    sync_version INTEGER DEFAULT 1,
     FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE
 );
 

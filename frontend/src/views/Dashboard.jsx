@@ -927,7 +927,6 @@ export const Widgets = ({ title, count, icon, index }) => {
       </Card>
     </motion.div>
   );
-  );
 };
 
 const getDatesFromRange = (dateRange, months) => {
@@ -1471,6 +1470,10 @@ const Dashboard = () => {
 
         <Grid item xs={12} md={6}>
           <PaymentAnalytics dateRange={dateRange} />
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <ExpensesAnalytics dateRange={dateRange} />
         </Grid>
 
         <Grid item xs={12} md={6}>

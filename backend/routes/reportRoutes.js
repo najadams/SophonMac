@@ -587,4 +587,52 @@ router.get('/purchases', (req, res) => {
   });
 });
 
+// Get expenses report
+router.get('/expenses', (req, res) => {
+  const { companyId, startDate, endDate } = req.query;
+
+  if (!companyId) {
+    return res.status(400).json({ error: 'Company ID is required' });
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const start = startDate || today;
+  const end = endDate || today;
+
+  const expensesQuery = `
+    SELECT 
+      *
+    FROM Expenses
+    WHERE companyId = ? 
+      AND DATE(date) BETWEEN ? AND ?
+    ORDER BY date DESC
+  `;
+
+  db.all(expensesQuery, [companyId, start, end], (err, rows) => {
+    if (err) {
+      console.error('Error fetching expenses report:', err);
+      return res.status(500).json({ error: 'Failed to fetch expenses report' });
+    }
+
+    const summary = {
+      totalExpenses: rows.reduce((sum, expense) => sum + (expense.amount || 0), 0),
+      count: rows.length,
+      byCategory: rows.reduce((acc, expense) => {
+        const cat = expense.category || 'Uncategorized';
+        acc[cat] = (acc[cat] || 0) + (expense.amount || 0);
+        return acc;
+      }, {})
+    };
+
+    res.json({
+      expenses: rows,
+      summary,
+      period: {
+        startDate: start,
+        endDate: end
+      }
+    });
+  });
+});
+
 module.exports = router;

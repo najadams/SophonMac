@@ -85,6 +85,8 @@ import { ROLES, rolePermissions, PERMISSIONS } from "../context/userRoles";
 import { useNavigate } from "react-router-dom";
 import networkService from "../services/networkService";
 import RoleManager from "../components/admin/RoleManager";
+import FeatureGate from "../components/common/FeatureGate";
+import { FEATURES, getLimit } from "../config/plans";
 
 const StyledField = styled(Field)({
   margin: "10px 0",
@@ -1094,26 +1096,36 @@ const Settings = () => {
                           </Typography>
                         </Box>
                         <Grid container spacing={2}>
-                          <Grid item xs={12}>
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              startIcon={<PersonAdd />}
-                              onClick={() => navigate("/create-user")}
-                              fullWidth>
-                              Add New Employee
-                            </Button>
-                          </Grid>
-                          <Grid item xs={12}>
-                            <Button
-                              variant="outlined"
-                              color="primary"
-                              startIcon={<PeopleIcon />}
-                              onClick={() => navigate("/employees")}
-                              fullWidth>
-                              Manage Employees
-                            </Button>
-                          </Grid>
+                          {getLimit(company?.currentPlan, 'staff') > 0 ? (
+                            <>
+                              <Grid item xs={12}>
+                                <Button
+                                  variant="contained"
+                                  color="primary"
+                                  startIcon={<PersonAdd />}
+                                  onClick={() => navigate("/create-user")}
+                                  fullWidth>
+                                  Add New Employee
+                                </Button>
+                              </Grid>
+                              <Grid item xs={12}>
+                                <Button
+                                  variant="outlined"
+                                  color="primary"
+                                  startIcon={<PeopleIcon />}
+                                  onClick={() => navigate("/employees")}
+                                  fullWidth>
+                                  Manage Employees
+                                </Button>
+                              </Grid>
+                            </>
+                          ) : (
+                            <Grid item xs={12}>
+                              <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 2 }}>
+                                Upgrade your plan to add staff accounts.
+                              </Typography>
+                            </Grid>
+                          )}
                         </Grid>
                       </CardContent>
                     </StyledCard>
@@ -1131,7 +1143,9 @@ const Settings = () => {
                             Role Management
                           </Typography>
                         </Box>
-                        <RoleManager currentUserRole={user?.role} />
+                        <FeatureGate feature={FEATURES.ADVANCED_ROLES}>
+                          <RoleManager currentUserRole={user?.role} />
+                        </FeatureGate>
                       </CardContent>
                     </StyledCard>
                   </Slide>

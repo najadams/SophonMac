@@ -3,7 +3,8 @@ const router = express.Router();
 const db = require('../data/db/db');
 const bcrypt = require('bcrypt');
 const { verifyToken, isCompany, isSuperAdmin, belongsToCompany } = require('../middleware/authMiddleware');
-const { enforceLimit } = require('../middleware/planMiddleware');
+const { enforceLimit, requireFeature } = require('../middleware/planMiddleware');
+const { FEATURES, hasFeature } = require('../config/plans');
 const dbUtils = require('../utils/dbUtils');
 
 // Get all workers (protected - company or super_admin only)
@@ -234,7 +235,7 @@ router.get('/custom-roles/:companyId', verifyToken, (req, res) => {
 });
 
 // Create a new custom role
-router.post('/custom-roles', verifyToken, async (req, res) => {
+router.post('/custom-roles', verifyToken, requireFeature(FEATURES.ADVANCED_ROLES), async (req, res) => {
   try {
     const { name, displayName, permissions, companyId: bodyCompanyId } = req.body;
     const companyId = bodyCompanyId || (req.user.role === 'company' ? req.user.id : req.user.companyId);
@@ -249,6 +250,29 @@ router.post('/custom-roles', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Name, display name, and permissions are required' });
     }
     
+    // Validate permissions against plan
+    const PERMISSION_FEATURE_MAP = {
+      MANAGE_VENDORS: FEATURES.CLOUD_SYNC,
+      VIEW_TAX_DASHBOARD: FEATURES.TAX_INVOICE,
+      MANAGE_EXPENSES: FEATURES.EXPENSE_TRACKING,
+    };
+    const company = await new Promise((resolve, reject) => {
+      db.get('SELECT currentPlan FROM Company WHERE id = ?', [companyId], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    const currentPlan = company?.currentPlan || 'STARTER';
+    const forbiddenPerms = permissions.filter(p => {
+      const requiredFeature = PERMISSION_FEATURE_MAP[p];
+      return requiredFeature && !hasFeature(currentPlan, requiredFeature);
+    });
+    if (forbiddenPerms.length > 0) {
+      return res.status(400).json({
+        error: `Your ${currentPlan} plan does not support these permissions: ${forbiddenPerms.join(', ')}. Upgrade your plan to use them.`,
+        forbiddenPermissions: forbiddenPerms,
+      });
+    }
+
     // Check if role name already exists for this company
     const existingRole = await new Promise((resolve, reject) => {
       db.get('SELECT id FROM CustomRoles WHERE name = ? AND companyId = ?', [name, companyId], (err, row) => {
@@ -256,11 +280,11 @@ router.post('/custom-roles', verifyToken, async (req, res) => {
         else resolve(row);
       });
     });
-    
+
     if (existingRole) {
       return res.status(400).json({ error: 'Role name already exists' });
     }
-    
+
     // Create the custom role
     db.run(
       'INSERT INTO CustomRoles (name, displayName, permissions, companyId, createdAt) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)',
@@ -285,7 +309,7 @@ router.post('/custom-roles', verifyToken, async (req, res) => {
 });
 
 // Update a custom role
-router.put('/custom-roles/:id', verifyToken, async (req, res) => {
+router.put('/custom-roles/:id', verifyToken, requireFeature(FEATURES.ADVANCED_ROLES), async (req, res) => {
   try {
     const roleId = req.params.id;
     const { name, displayName, permissions } = req.body;
@@ -313,6 +337,29 @@ router.put('/custom-roles/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Custom role not found' });
     }
     
+    // Validate permissions against plan
+    const PERMISSION_FEATURE_MAP = {
+      MANAGE_VENDORS: FEATURES.CLOUD_SYNC,
+      VIEW_TAX_DASHBOARD: FEATURES.TAX_INVOICE,
+      MANAGE_EXPENSES: FEATURES.EXPENSE_TRACKING,
+    };
+    const company = await new Promise((resolve, reject) => {
+      db.get('SELECT currentPlan FROM Company WHERE id = ?', [companyId], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    const currentPlan = company?.currentPlan || 'STARTER';
+    const forbiddenPerms = permissions.filter(p => {
+      const requiredFeature = PERMISSION_FEATURE_MAP[p];
+      return requiredFeature && !hasFeature(currentPlan, requiredFeature);
+    });
+    if (forbiddenPerms.length > 0) {
+      return res.status(400).json({
+        error: `Your ${currentPlan} plan does not support these permissions: ${forbiddenPerms.join(', ')}. Upgrade your plan to use them.`,
+        forbiddenPermissions: forbiddenPerms,
+      });
+    }
+
     // Check if new name conflicts with existing roles (excluding current role)
     const nameConflict = await new Promise((resolve, reject) => {
       db.get('SELECT id FROM CustomRoles WHERE name = ? AND companyId = ? AND id != ?', [name, companyId, roleId], (err, row) => {
@@ -354,7 +401,7 @@ router.put('/custom-roles/:id', verifyToken, async (req, res) => {
 });
 
 // Delete a custom role
-router.delete('/custom-roles/:id', verifyToken, async (req, res) => {
+router.delete('/custom-roles/:id', verifyToken, requireFeature(FEATURES.ADVANCED_ROLES), async (req, res) => {
   try {
     const roleId = req.params.id;
     const companyId = req.user.role === 'company' ? req.user.id : req.user.companyId;
