@@ -11,6 +11,21 @@ CREATE TABLE IF NOT EXISTS Currency (
     decimals INTEGER DEFAULT 2
 );
 
+-- Expenses table
+CREATE TABLE IF NOT EXISTS Expenses (
+    id TEXT PRIMARY KEY,
+    companyId TEXT NOT NULL,
+    title TEXT NOT NULL,
+    amount REAL NOT NULL CHECK(amount >= 0),
+    category TEXT DEFAULT 'General',
+    date TEXT DEFAULT CURRENT_TIMESTAMP,
+    description TEXT,
+    paymentMethod TEXT DEFAULT 'Cash',
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE
+);
+
 -- Seed common currencies
 INSERT OR IGNORE INTO Currency (code, name, symbol, decimals) VALUES
     ('USD', 'US Dollar', '$', 2),
@@ -727,6 +742,10 @@ CREATE INDEX idx_receiptdetail_inventory ON ReceiptDetail(inventoryId);
 CREATE INDEX idx_debt_customer ON Debt(customerId);
 CREATE INDEX idx_debt_company ON Debt(companyId);
 CREATE INDEX idx_debt_status ON Debt(companyId, status);
+
+-- Expenses
+CREATE INDEX idx_expenses_company ON Expenses(companyId);
+CREATE INDEX idx_expenses_category ON Expenses(category);
 
 
 

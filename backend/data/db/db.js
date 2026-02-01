@@ -72,6 +72,25 @@ function initializeDatabase() {
   try {
     connection = new Database(dbPath);
     console.log("Connected to SQLite database via better-sqlite3.");
+
+    // Ensure Expenses table exists
+    connection.exec(`
+      CREATE TABLE IF NOT EXISTS Expenses (
+        id TEXT PRIMARY KEY,
+        companyId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        amount REAL NOT NULL CHECK(amount >= 0),
+        category TEXT DEFAULT 'General',
+        date TEXT DEFAULT CURRENT_TIMESTAMP,
+        description TEXT,
+        paymentMethod TEXT DEFAULT 'Cash',
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (companyId) REFERENCES Company(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_expenses_company ON Expenses(companyId);
+      CREATE INDEX IF NOT EXISTS idx_expenses_category ON Expenses(category);
+    `);
   } catch (err) {
     console.error("Error opening database:", err.message);
     throw err;
