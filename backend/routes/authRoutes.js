@@ -10,7 +10,9 @@ const { createLogger } = require('vite');
 
 // Company Registration
 router.post('/register', async (req, res) => {
-  const { companyName, email, password } = req.body;
+  const { companyName, email, password, plan } = req.body;
+  const validPlans = ['STARTER', 'TRADER', 'BUSINESS'];
+  const selectedPlan = validPlans.includes(plan?.toUpperCase()) ? plan.toUpperCase() : 'STARTER';
   if (!companyName || !email || !password) {
     return res.status(400).json({ error: 'Company name, email, and password are required' });
   }
@@ -73,7 +75,7 @@ router.post('/register', async (req, res) => {
         
       const insertParams = restoredCompany
         ? [companyId, restoredCompany.company_name || companyName, restoredCompany.email, hashedPassword, restoredCompany.sync_id]
-        : [companyId, companyName, email, hashedPassword, 'STARTER'];
+        : [companyId, companyName, email, hashedPassword, selectedPlan];
 
       // If restoring, ensure we use the remote names/details if they differ? 
       // For now, we trust the input OR the remote. Let's trust the Remote for checks, but maybe local input for 'companyName' if we want to update it?
@@ -104,7 +106,7 @@ router.post('/register', async (req, res) => {
           db.run(
             'INSERT INTO Worker (id, name, password, role, adminstatus, companyId) VALUES (?, ?, ?, ?, ?, ?)',
             [workerId, `admin`, hashedPassword, 'admin', 1, companyId],
-            function(err) {
+            async function(err) {
               if (err) {
                 return res.status(500).json({ error: err.message });
               }
@@ -126,15 +128,41 @@ router.post('/register', async (req, res) => {
                  }
               }
               
-              res.status(201).json({
+              const responseData = {
                 message: restoredCompany ? 'Company restored successfully' : 'Company registered successfully',
                 token,
                 company: {
                   id: companyId,
-                  name: restoredCompany ? restoredCompany.company_name : companyName, 
+                  name: restoredCompany ? restoredCompany.company_name : companyName,
                   email
                 }
-              });
+              };
+
+              // For paid plans, initialize Paystack payment
+              if (!restoredCompany && selectedPlan !== 'STARTER') {
+                try {
+                  const paystackService = require('../services/paystackService');
+                  const paystackConfig = require('../config/paystack');
+                  const planConfig = paystackConfig.plans[selectedPlan];
+
+                  if (planConfig) {
+                    const txn = await paystackService.initializeTransaction({
+                      email,
+                      amount: planConfig.amount,
+                      metadata: { companyId, plan: selectedPlan },
+                      callbackUrl: paystackConfig.callbackUrl,
+                      plan: planConfig.interval ? undefined : undefined, // subscriptions handled via webhook
+                    });
+                    responseData.authorization_url = txn.authorization_url;
+                    responseData.payment_reference = txn.reference;
+                  }
+                } catch (payErr) {
+                  console.warn('Paystack initialization failed during registration:', payErr.message);
+                  // Account is still created, they can pay later via Settings
+                }
+              }
+
+              res.status(201).json(responseData);
             }
           );
         }

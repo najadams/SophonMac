@@ -271,7 +271,7 @@ export default function Pricing() {
                       fullWidth
                       variant={tier.buttonVariant}
                       component="a"
-                      href={tier.title === "Enterprise" ? "mailto:najmadams1706@gmail.com" : "/login"}
+                      href={tier.title === "Enterprise" ? "mailto:najmadams1706@gmail.com" : `/register?plan=${tier.title.toUpperCase()}`}
                     >
                       {tier.buttonText}
                     </Button>
