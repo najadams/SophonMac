@@ -253,7 +253,7 @@ const Settings = () => {
               filingFrequency: company.filingFrequency || "monthly",
               smsNotifications: Boolean(company.smsNotifications) || false,
               currentPlan: company.currentPlan || "Standard",
-              nextBillingDate: company.nextBillingDate || "2024-06-15",
+              nextBillingDate: company.nextBillingDate || "2026-02-15",
               countryCode: company.countryCode || "GH",
               vatRegistered: company.vatRegistered !== false, // Default to true if undefined
               receiptHeader: company.receiptHeader || "",

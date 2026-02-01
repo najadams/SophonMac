@@ -11,7 +11,7 @@ const Footer = () => {
         // mt: "auto",
       }}>
       <Typography variant="body1" align="center">
-        &copy; 2024 Your Company. All Rights Reserved.
+        &copy; 2026 All Rights Reserved.
       </Typography>
     </Box>
   );

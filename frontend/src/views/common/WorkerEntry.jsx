@@ -30,7 +30,7 @@ function Copyright(props) {
       align="center"
       {...props}>
       {"Copyright © "}
-      <Link color="inherit" href="https://mannos.netlify.app/">
+      <Link color="inherit" href="https://sofon.netlify.app/">
         Sophon
       </Link>{" "}
       {new Date().getFullYear()}

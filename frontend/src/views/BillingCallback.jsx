@@ -5,9 +5,7 @@ import { Box, Typography, CircularProgress, Button, Paper, Container } from "@mu
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import axios from "axios";
-import ActionModule from "../store/index";
-
-const { ActionCreators } = ActionModule;
+import { ActionCreators } from "../actions/action";
 
 const BillingCallback = () => {
   const [searchParams] = useSearchParams();
